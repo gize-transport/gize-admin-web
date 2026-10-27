@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const port = 3000;
+// Dedicated port so e2e never runs against another app (or a dev server) already listening on 3000.
+const port = Number(process.env.E2E_PORT ?? 3100);
 const baseURL = `http://localhost:${port}`;
 const isCI = Boolean(process.env.CI);
 
@@ -32,15 +33,19 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 375, height: 812 },
+        isMobile: true,
         hasTouch: true,
       },
     },
   ],
   webServer: {
     // CI builds in an earlier step; locally build first so tests always run against a production build.
-    command: isCI ? "npm run start" : "npm run build && npm run start",
+    command: isCI
+      ? `npx next start -p ${port}`
+      : `npm run build && npx next start -p ${port}`,
     url: baseURL,
-    reuseExistingServer: !isCI,
+    // Opt-in only (E2E_REUSE=1), so a stale server can't make the suite pass or fail by accident.
+    reuseExistingServer: !isCI && process.env.E2E_REUSE === "1",
     timeout: 180_000,
   },
 });

@@ -2,13 +2,14 @@ import { render, type RenderOptions } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactElement, ReactNode } from "react";
 import messages from "../../messages/en.json";
+import { defaultLocale, timeZone } from "../../src/i18n/config";
 
 function Providers({ children }: { children: ReactNode }) {
   return (
     <NextIntlClientProvider
-      locale="en"
+      locale={defaultLocale}
       messages={messages}
-      timeZone="Africa/Addis_Ababa"
+      timeZone={timeZone}
     >
       {children}
     </NextIntlClientProvider>
