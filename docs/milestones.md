@@ -13,7 +13,7 @@ Status: done · Needs backend: –
 - Acceptance: `npm run build`, `lint`, `typecheck`, `test`, `e2e` (one smoke test) all pass.
 
 ### GZW-002 · CI
-Status: todo · Needs backend: –
+Status: done · Needs backend: –
 - GitHub Actions: install, lint, typecheck, unit tests, build, Playwright (with axe), `npm audit --audit-level=high`, gitleaks.
 
 ### GZW-003 · Contract sync and drift checks

@@ -12,16 +12,21 @@ Next.js admin portal for Gize Transport staff. It is a client of the Gize Admin 
 
 ## Commands
 
-| Command             | What it does                                          |
-| ------------------- | ----------------------------------------------------- |
-| `npm run dev`       | Start the dev server on http://localhost:3000         |
-| `npm run build`     | Production build                                      |
-| `npm run lint`      | ESLint (no warnings allowed)                          |
-| `npm run typecheck` | Generate route types, then `tsc --noEmit`             |
-| `npm run format`    | Format with Prettier (`format:check` only checks)     |
-| `npm test`          | Unit and component tests (Vitest)                     |
-| `npm run e2e`       | Playwright + axe at 1440 px and 375 px (builds first) |
+| Command               | What it does                                                                |
+| --------------------- | --------------------------------------------------------------------------- |
+| `npm run dev`         | Start the dev server on http://localhost:3000                               |
+| `npm run build`       | Production build                                                            |
+| `npm run lint`        | ESLint (no warnings allowed)                                                |
+| `npm run typecheck`   | Generate route types, then `tsc --noEmit`                                   |
+| `npm run format`      | Format with Prettier (`format:check` only checks)                           |
+| `npm test`            | Unit and component tests (Vitest)                                           |
+| `npm run e2e`         | Playwright + axe at 1440 px and 375 px (builds first, port 3100)            |
+| `npm run screenshots` | Screenshots of every screen in `e2e/support/screens.ts` into `screenshots/` |
+
+## CI
+
+Every PR runs these checks (`.github/workflows/ci.yml`): **Lint**, **Typecheck**, **Unit tests**, **Build**, **E2E (Playwright + axe)**, **npm audit**, **Secret scan (gitleaks)**. The e2e job uploads the Playwright report and the screenshots as artifacts.
 
 ## Working rules
 
-One ticket (`GZW-xxx`) = one branch = one PR; see [`docs/workflow.md`](docs/workflow.md). Never commit to `main`; merge only when every CI check is green.
+One ticket (`GZW-xxx`) = one branch = one PR; see [`docs/workflow.md`](docs/workflow.md). Never commit to `main`; merge only when every CI check is green (`gh pr checks <n> --watch`).
