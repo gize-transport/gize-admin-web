@@ -1,0 +1,10 @@
+{
+  "Metadata": {
+    "title": "Gize Admin",
+    "description": "Internal portal for the Gize Transport operations team."
+  },
+  "HomePage": {
+    "title": "Gize Admin",
+    "description": "The admin portal is being set up. Routes, riders, waitlists and drivers will appear here."
+  }
+}

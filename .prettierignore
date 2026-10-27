@@ -1,0 +1,19 @@
+# Build and test output
+.next/
+out/
+build/
+coverage/
+playwright-report/
+test-results/
+package-lock.json
+
+# Generated from the backend contract (never formatted or edited by hand)
+src/lib/api/openapi.json
+src/lib/api/schema.d.ts
+
+# Project kit and specs: kept exactly as written (api-contract.md must stay identical to the backend copy)
+docs/
+CLAUDE.md
+PROMPT.md
+AGENTS.md
+.github/pull_request_template.md
