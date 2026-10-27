@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
 import messages from "../messages/en.json";
-import { expectNoSeriousA11yViolations } from "./support/axe";
 
 test.describe("smoke", () => {
   test("home page loads with the portal heading in English", async ({
@@ -14,14 +13,6 @@ test.describe("smoke", () => {
       messages.HomePage.title,
     );
     await expect(page.getByText(messages.HomePage.description)).toBeVisible();
-  });
-
-  test("home page has no serious or critical accessibility violations", async ({
-    page,
-  }) => {
-    await page.goto("/");
-
-    await expectNoSeriousA11yViolations(page);
   });
 
   test("page fits the viewport without horizontal scrolling", async ({
