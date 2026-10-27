@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* Brand tokens, fonts and components arrive in GZW-005 (docs/design-system.md). Light theme only. */
+body {
+  background: #ffffff;
+  color: #16181b;
+  font-family: system-ui, sans-serif;
+}

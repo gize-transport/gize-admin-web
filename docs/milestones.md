@@ -7,7 +7,7 @@ One ticket = one branch = one PR titled `GZW-xxx: <title>`. Statuses: `todo` →
 ## W0 – Foundation
 
 ### GZW-001 · Scaffold and tooling
-Status: todo · Needs backend: –
+Status: done · Needs backend: –
 - Scaffold with `create-next-app` (TypeScript, Tailwind, ESLint, App Router, `src/`, alias `@/*`, npm) into a temp folder and move it into the repo root without overwriting `CLAUDE.md`, `PROMPT.md`, `docs/`, `.github/`.
 - Prettier, TypeScript strict, Vitest + Testing Library, Playwright + axe, pre-commit (lint-staged, gitleaks), `.env.example`.
 - Acceptance: `npm run build`, `lint`, `typecheck`, `test`, `e2e` (one smoke test) all pass.
