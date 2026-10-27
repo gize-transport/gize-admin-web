@@ -4,7 +4,7 @@
 
 1. Create an empty private repo `gize-admin-web` in the company GitHub Organization; clone it.
 2. Unzip this kit into the repo root (`CLAUDE.md`, `PROMPT.md`, `docs/`, `.github/` at the top level) and commit to `main`.
-3. Protect `main` (PR + passing CI required) and enable "Allow auto-merge".
+3. Enable the hook that blocks direct pushes to `main`: `git config core.hooksPath .githooks` (once per clone). In **Settings → General → Pull Requests**, tick **Allow squash merging** and **Automatically delete head branches**.
 4. Install Node LTS, the GitHub CLI (`gh auth login` with access to **both** repos), and Docker (to run the backend locally for e2e tests).
 5. Start Claude Code in the repo root: `claude`.
 
@@ -28,7 +28,7 @@ Then build the MVP – milestones **W0 to W6** – in milestone mode:
 2. **Before each ticket**, run `npm run contract:sync` (once GZW-003 exists) and confirm every endpoint, field and error code the ticket needs is in `schema.d.ts`. If anything is missing, or the ticket's "Needs backend" tickets aren't tagged yet, **stop and tell me exactly what the backend must add**. Never invent endpoints or types.
 3. **For each ticket:** branch from `main`, tests first (component states with MSW + the Playwright flow), implement against the design system and mockups, run typecheck/lint/unit/e2e/axe, complete the self-review checklist, attach screenshots at 1440 px and 375 px.
 4. **Independent review:** start a subagent with no context of your implementation to review the diff against `docs/engineering-standards.md`, `docs/api-contract.md` and the mockups. Fix findings or explain why they don't apply.
-5. **Open the PR** with `gh pr create` (title `GZW-xxx: <title>`, template filled, CONTRACT_VERSION stated), update the ticket status in `docs/milestones.md` in the same PR, enable auto-merge (`gh pr merge --squash --auto`), and wait for the merge before the next ticket.
+5. **Open the PR** with `gh pr create` (title `GZW-xxx: <title>`, template filled, CONTRACT_VERSION stated), update the ticket status in `docs/milestones.md` in the same PR, wait for CI with `gh pr checks <number> --watch`, and merge only when every check is green (`gh pr merge <number> --squash --delete-branch`). Never merge with failing or pending checks.
 6. **End of milestone – stop** and report: PRs merged, screens built (with screenshots), contract version used, backend gaps found, risks, next milestone plan.
 
 Stop and ask if a standard would have to be broken, the contract is missing something, the API behaves differently from its docs, a design decision affects several screens and isn't covered, or a new dependency/env var/service is needed. Never weaken a test, lint rule, type check or CI step. Never hand-edit generated API files.

@@ -44,3 +44,10 @@ Ask before adding any other dependency.
 ## Working style
 
 Follow `docs/workflow.md`: plan → wait for approval → tests → code → self-review → PR titled `GZW-xxx: <title>`. Never commit to `main`. Never weaken a test, lint rule or CI step to pass.
+
+### Merging without branch protection (free GitHub plan)
+
+GitHub does not enforce protection on our private repos, so these rules are the protection. Follow them exactly:
+- Never push or commit directly to `main`. The `.githooks/pre-push` hook blocks it; never bypass it (`--no-verify` is forbidden).
+- Merge a PR only after **every** CI check has passed: run `gh pr checks <number> --watch`; if all checks are green, run `gh pr merge <number> --squash --delete-branch`. If any check fails or is pending, do not merge – fix the cause on the branch.
+- Never merge with failing, skipped or cancelled checks, and never use admin override flags.
