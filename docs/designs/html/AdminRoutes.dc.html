@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gize admin – Routes</title>
+
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap">
+<style>
+body{margin:0;background:#F6F4EE}
+a{color:#0D5C55}a:hover{color:#08403B}
+.side{flex:1 1 232px;max-width:260px;background:#16181B;color:#D6D8DB;padding:24px 16px;display:flex;flex-direction:column;gap:24px;box-sizing:border-box}
+.side nav{display:flex;flex-direction:column;gap:2px;font-size:15px}
+.side nav a{min-height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;border-radius:8px;color:#D6D8DB;text-decoration:none}
+.side nav a:hover{color:#FFFFFF;background:#22252A}
+.side nav a.on{background:#2B2E33;color:#FFFFFF;font-weight:600}
+.badge{background:#3A3D42;color:#FFFFFF;border-radius:10px;padding:1px 8px;font-size:12px;font-weight:400}
+.badge.y{background:#F2B705;color:#16181B;font-weight:600}
+.main{flex:999 1 560px;min-width:0;padding:28px 32px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px}
+.card{background:#FFFFFF;border:1px solid #DEDAD0;border-radius:14px}
+.pill{display:inline-block;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.g{background:#E3F0EE;color:#0D5C55}.a{background:#FFF4D1;color:#5C4600}.r{background:#FDE7E5;color:#912018}.n{background:#ECE8DF;color:#3D4146}
+.chip{min-height:40px;padding:0 14px;border:1px solid #DEDAD0;border-radius:20px;background:#FFFFFF;color:#16181B;font:inherit;font-size:14px}
+.chip.on{background:#16181B;color:#FFFFFF;border-color:#16181B;font-weight:600}
+.btn{min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#16181B;color:#FFFFFF;font:inherit;font-weight:600}
+.btn2{min-height:40px;padding:0 14px;border:1px solid #0D5C55;border-radius:8px;background:transparent;color:#0D5C55;font:inherit;font-weight:600}
+.btny{min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#F2B705;color:#16181B;font:inherit;font-weight:600}
+.tblw{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;min-width:760px}
+.tbl th{text-align:left;color:#55595F;font-size:13px;font-weight:500;padding:12px 16px}
+.tbl td{padding:12px 16px;border-top:1px solid #ECE8DF;vertical-align:middle}
+.mono{font-family:'IBM Plex Mono',monospace}
+.muted{color:#55595F}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#3D4146}
+.fld input,.fld select,.fld textarea{min-height:44px;padding:0 12px;border:1px solid #C9C4B8;border-radius:10px;font:inherit;font-size:15px;font-weight:400;color:#16181B;background:#FBFAF7}
+.fld textarea{padding:10px 12px;min-height:88px;resize:vertical}
+.sr{position:absolute;left:-9999px}
+.h1{margin:0;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:32px}
+.h2{margin:0;font-size:17px;font-weight:600}
+.cardhead{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #ECE8DF}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16181B; background: #F6F4EE; min-height: 100vh; display: flex; flex-wrap: wrap">
+<aside class="side">
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 0 8px"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 24px; color: #FFFFFF">Gize</span><span style="font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #F2B705">Admin</span></div>
+<nav aria-label="Admin">
+<a href="Admin.dc.html">Overview</a>
+<a href="AdminMap.dc.html">Live map</a>
+<a href="AdminRoutes.dc.html" class="on" aria-current="page">Routes</a>
+<a href="AdminSchools.dc.html">Schools</a>
+<a href="AdminWaitlists.dc.html">Waitlists <span class="badge y">2 ready</span></a>
+<a href="AdminRiders.dc.html">Riders</a>
+<a href="AdminPayments.dc.html">Payments <span class="badge">18</span></a>
+<a href="AdminDrivers.dc.html">Drivers and vehicles</a>
+<a href="AdminBackups.dc.html">Backup vans</a>
+<a href="AdminComplaints.dc.html">Complaints <span class="badge">5</span></a>
+<a href="AdminCompanies.dc.html">Companies</a>
+<a href="AdminPayouts.dc.html">Driver payouts</a>
+<a href="AdminReports.dc.html">Reports</a>
+</nav>
+<div style="margin-top: auto; padding: 12px; border-top: 1px solid #2B2E33; font-size: 13px; color: #A8ABB0">Signed in as Operations</div>
+</aside>
+
+<main class="main">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+<div>
+<h1 class="h1">Routes</h1>
+<p style="margin: 4px 0 0" class="muted">14 active · 2 waiting to open · 1 paused</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<button type="button" class="chip on">All</button>
+<button type="button" class="chip">Public</button>
+<button type="button" class="chip">Student</button>
+<button type="button" class="chip">Corporate</button>
+<button type="button" class="btn">New route</button>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section class="card" aria-label="Route list" style="flex: 2 1 560px; min-width: 0; overflow: hidden">
+<div class="tblw">
+<table class="tbl">
+<thead><tr><th>Route</th><th>Type</th><th>Times</th><th>Seats</th><th>Driver</th><th>Status</th></tr></thead>
+<tbody>
+<tr style="background: #F6F4EE"><td><strong>R-03</strong> CMC → Mexico</td><td><span class="pill n">Public</span></td><td>6:40 · 17:30</td><td>12 / 15</td><td>Tesfaye M.</td><td><span class="pill g">Active</span></td></tr>
+<tr><td><strong>R-05</strong> Gerji → Arat Kilo</td><td><span class="pill n">Public</span></td><td>6:30 · 17:45</td><td>11 / 12</td><td>Mulu A.</td><td><span class="pill g">Active</span></td></tr>
+<tr><td><strong>R-07</strong> Ayat → Kazanchis</td><td><span class="pill n">Public</span></td><td>6:35 · 17:30</td><td>11 / 15</td><td>Tesfaye G.</td><td><span class="pill r">Backup today</span></td></tr>
+<tr><td><strong>R-11</strong> Lebu → Piassa</td><td><span class="pill n">Public</span></td><td>6:25 · 18:00</td><td>12 / 15</td><td>Abebe K.</td><td><span class="pill g">Active</span></td></tr>
+<tr><td><strong>S-02</strong> Jemo → Bole school</td><td><span class="pill a">Student</span></td><td>6:45 · school close</td><td>10 / 12</td><td>Samuel D. + Hanna T.</td><td><span class="pill g">Active</span></td></tr>
+<tr><td><strong>S-04</strong> Kotebe → Safari school</td><td><span class="pill a">Student</span></td><td>6:50 · school close</td><td>9 / 12</td><td>Getachew W. + Ruth M.</td><td><span class="pill g">Active</span></td></tr>
+<tr><td><strong>C-01</strong> Ethio Logistics staff</td><td><span class="pill g">Corporate</span></td><td>7:00 · 17:00</td><td>13 / 15</td><td>Yared B.</td><td><span class="pill g">Active</span></td></tr>
+<tr><td><strong>R-14</strong> Summit → Mexico</td><td><span class="pill n">Public</span></td><td>—</td><td>7 / 11 waitlist</td><td>Not assigned</td><td><span class="pill n">Waitlist</span></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="card" aria-label="Route R-03 details" style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column">
+<div class="cardhead"><h2 class="h2">R-03 · CMC → Mexico</h2><span class="pill g">Active</span></div>
+<div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 18px">
+<div>
+<div class="muted" style="font-size: 13px; margin-bottom: 10px">Pickup points (morning)</div>
+<ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15px">
+<li style="display: flex; justify-content: space-between"><span>CMC Michael church</span><span class="muted">6:40 · 5 riders</span></li>
+<li style="display: flex; justify-content: space-between"><span>Summit roundabout</span><span class="muted">6:52 · 3 riders</span></li>
+<li style="display: flex; justify-content: space-between"><span>Megenagna</span><span class="muted">7:05 · 4 riders</span></li>
+<li style="display: flex; justify-content: space-between"><span>Mexico square (drop-off)</span><span class="muted">7:40</span></li>
+</ol>
+<button type="button" class="btn2" style="margin-top: 12px">Edit stops on map</button>
+</div>
+<label class="fld">Evening return time<input type="text" value="17:30"></label>
+<label class="fld">Driver<select><option>Tesfaye M. · 4.8 ★</option></select></label>
+<label class="fld">Vehicle<select><option>Toyota HiAce · 3-A 41203 · 15 seats</option></select></label>
+<label class="fld">Monthly price (round trip)<input type="text" value="ETB [PRICE]"></label>
+<div style="display: flex; gap: 10px; flex-wrap: wrap">
+<button type="button" class="btn">Save changes</button>
+<button type="button" class="btn2">View riders (12)</button>
+</div>
+</div>
+</section>
+</div>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

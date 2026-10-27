@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gize admin – Riders</title>
+
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap">
+<style>
+body{margin:0;background:#F6F4EE}
+a{color:#0D5C55}a:hover{color:#08403B}
+.side{flex:1 1 232px;max-width:260px;background:#16181B;color:#D6D8DB;padding:24px 16px;display:flex;flex-direction:column;gap:24px;box-sizing:border-box}
+.side nav{display:flex;flex-direction:column;gap:2px;font-size:15px}
+.side nav a{min-height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;border-radius:8px;color:#D6D8DB;text-decoration:none}
+.side nav a:hover{color:#FFFFFF;background:#22252A}
+.side nav a.on{background:#2B2E33;color:#FFFFFF;font-weight:600}
+.badge{background:#3A3D42;color:#FFFFFF;border-radius:10px;padding:1px 8px;font-size:12px;font-weight:400}
+.badge.y{background:#F2B705;color:#16181B;font-weight:600}
+.main{flex:999 1 560px;min-width:0;padding:28px 32px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px}
+.card{background:#FFFFFF;border:1px solid #DEDAD0;border-radius:14px}
+.pill{display:inline-block;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.g{background:#E3F0EE;color:#0D5C55}.a{background:#FFF4D1;color:#5C4600}.r{background:#FDE7E5;color:#912018}.n{background:#ECE8DF;color:#3D4146}
+.chip{min-height:40px;padding:0 14px;border:1px solid #DEDAD0;border-radius:20px;background:#FFFFFF;color:#16181B;font:inherit;font-size:14px}
+.chip.on{background:#16181B;color:#FFFFFF;border-color:#16181B;font-weight:600}
+.btn{min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#16181B;color:#FFFFFF;font:inherit;font-weight:600}
+.btn2{min-height:40px;padding:0 14px;border:1px solid #0D5C55;border-radius:8px;background:transparent;color:#0D5C55;font:inherit;font-weight:600}
+.btny{min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#F2B705;color:#16181B;font:inherit;font-weight:600}
+.tblw{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;min-width:760px}
+.tbl th{text-align:left;color:#55595F;font-size:13px;font-weight:500;padding:12px 16px}
+.tbl td{padding:12px 16px;border-top:1px solid #ECE8DF;vertical-align:middle}
+.mono{font-family:'IBM Plex Mono',monospace}
+.muted{color:#55595F}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#3D4146}
+.fld input,.fld select,.fld textarea{min-height:44px;padding:0 12px;border:1px solid #C9C4B8;border-radius:10px;font:inherit;font-size:15px;font-weight:400;color:#16181B;background:#FBFAF7}
+.fld textarea{padding:10px 12px;min-height:88px;resize:vertical}
+.sr{position:absolute;left:-9999px}
+.h1{margin:0;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:32px}
+.h2{margin:0;font-size:17px;font-weight:600}
+.cardhead{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #ECE8DF}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16181B; background: #F6F4EE; min-height: 100vh; display: flex; flex-wrap: wrap">
+<aside class="side">
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 0 8px"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 24px; color: #FFFFFF">Gize</span><span style="font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #F2B705">Admin</span></div>
+<nav aria-label="Admin">
+<a href="Admin.dc.html">Overview</a>
+<a href="AdminMap.dc.html">Live map</a>
+<a href="AdminRoutes.dc.html">Routes</a>
+<a href="AdminSchools.dc.html">Schools</a>
+<a href="AdminWaitlists.dc.html">Waitlists <span class="badge y">2 ready</span></a>
+<a href="AdminRiders.dc.html" class="on" aria-current="page">Riders</a>
+<a href="AdminPayments.dc.html">Payments <span class="badge">18</span></a>
+<a href="AdminDrivers.dc.html">Drivers and vehicles</a>
+<a href="AdminBackups.dc.html">Backup vans</a>
+<a href="AdminComplaints.dc.html">Complaints <span class="badge">5</span></a>
+<a href="AdminCompanies.dc.html">Companies</a>
+<a href="AdminPayouts.dc.html">Driver payouts</a>
+<a href="AdminReports.dc.html">Reports</a>
+</nav>
+<div style="margin-top: auto; padding: 12px; border-top: 1px solid #2B2E33; font-size: 13px; color: #A8ABB0">Signed in as Operations</div>
+</aside>
+
+<main class="main">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+<div>
+<h1 class="h1">Riders</h1>
+<p style="margin: 4px 0 0" class="muted">212 active this month · 19 students · 26 corporate</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<label class="fld" style="flex-direction: row; align-items: center"><span class="sr">Search riders</span><input type="search" placeholder="Name or phone" style="width: 220px"></label>
+<button type="button" class="chip on">All</button>
+<button type="button" class="chip">Adults</button>
+<button type="button" class="chip">Students</button>
+<button type="button" class="chip">Corporate</button>
+<button type="button" class="chip">Unpaid</button>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section class="card" aria-label="Rider list" style="flex: 2 1 560px; min-width: 0; overflow: hidden">
+<div class="tblw"><table class="tbl">
+<thead><tr><th>Name</th><th>Type</th><th>Route</th><th>Plan</th><th>November</th></tr></thead>
+<tbody>
+<tr style="background: #F6F4EE"><td><strong>Abel Tesfaye</strong><br><span class="muted mono" style="font-size: 13px">09•• ••• 412</span></td><td><span class="pill n">Adult</span></td><td>R-03 CMC → Mexico</td><td>Round trip</td><td><span class="pill a">Awaiting confirm</span></td></tr>
+<tr><td><strong>Selam Girma</strong><br><span class="muted" style="font-size: 13px">Parent: Liya Girma</span></td><td><span class="pill a">Student · Gr 4</span></td><td>S-02 Bole school</td><td>Student round trip</td><td><span class="pill g">Paid</span></td></tr>
+<tr><td><strong>Nahom Girma</strong><br><span class="muted" style="font-size: 13px">Parent: Liya Girma</span></td><td><span class="pill a">Student · Gr 10</span></td><td>S-02 Bole school</td><td>Student round trip</td><td><span class="pill g">Paid</span></td></tr>
+<tr><td><strong>Kidus Alemu</strong><br><span class="muted mono" style="font-size: 13px">09•• ••• 208</span></td><td><span class="pill n">Adult</span></td><td>R-07 Ayat → Kazanchis</td><td>Morning + Sat</td><td><span class="pill a">Awaiting confirm</span></td></tr>
+<tr><td><strong>Hirut Bekele</strong><br><span class="muted" style="font-size: 13px">Ethio Logistics</span></td><td><span class="pill g">Corporate</span></td><td>C-01</td><td>Company plan</td><td><span class="pill g">Invoiced</span></td></tr>
+<tr><td><strong>Mahlet Bekele</strong><br><span class="muted mono" style="font-size: 13px">09•• ••• 377</span></td><td><span class="pill n">Adult</span></td><td>R-03 CMC → Mexico</td><td>Round trip</td><td><span class="pill r">Unpaid</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section class="card" aria-label="Abel Tesfaye profile" style="flex: 1 1 340px; min-width: 0">
+<div class="cardhead"><h2 class="h2">Abel Tesfaye</h2><span class="pill n">Adult</span></div>
+<div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; font-size: 15px">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+<div><div class="muted" style="font-size: 13px">Route</div>R-03 CMC → Mexico</div>
+<div><div class="muted" style="font-size: 13px">Pickup</div>CMC Michael church</div>
+<div><div class="muted" style="font-size: 13px">Plan</div>Round trip, Mon–Fri</div>
+<div><div class="muted" style="font-size: 13px">Rider since</div>September</div>
+</div>
+<div>
+<div class="muted" style="font-size: 13px; margin-bottom: 8px">Last 5 trips</div>
+<div style="display: flex; gap: 6px">
+<span class="pill g">Mon</span><span class="pill g">Tue</span><span class="pill r">Wed missed</span><span class="pill g">Thu</span><span class="pill g">Fri</span>
+</div>
+</div>
+<div>
+<div class="muted" style="font-size: 13px; margin-bottom: 8px">Payments</div>
+<div style="display: flex; justify-content: space-between"><span>November · Telebirr</span><span class="pill a">Awaiting confirm</span></div>
+<div style="display: flex; justify-content: space-between; margin-top: 6px"><span>October · Telebirr</span><span class="pill g">Paid</span></div>
+</div>
+<div><div class="muted" style="font-size: 13px">Complaints</div>None</div>
+<div style="display: flex; gap: 10px; flex-wrap: wrap">
+<button type="button" class="btn">Change route</button>
+<button type="button" class="btn2">Send message</button>
+</div>
+</div>
+</section>
+</div>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

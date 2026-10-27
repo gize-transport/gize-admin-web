@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gize admin – Operations overview</title>
+
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap">
+<style>
+body{margin:0;background:#F6F4EE}
+a{color:#0D5C55}a:hover{color:#08403B}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16181B; background: #F6F4EE; min-height: 100vh; display: flex; flex-wrap: wrap">
+
+<aside style="flex: 1 1 232px; max-width: 260px; background: #16181B; color: #D6D8DB; padding: 24px 16px; display: flex; flex-direction: column; gap: 24px; box-sizing: border-box">
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 0 8px">
+<span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 24px; color: #FFFFFF">Gize</span>
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #F2B705">Admin</span>
+</div>
+<nav aria-label="Admin" style="display: flex; flex-direction: column; gap: 2px; font-size: 15px">
+<a href="Admin.dc.html" aria-current="page" style="min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; background: #2B2E33; color: #FFFFFF; text-decoration: none; font-weight: 600">Overview</a>
+<a href="AdminMap.dc.html" style="min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Live map</a>
+<a href="AdminRoutes.dc.html" style="min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Routes</a>
+<a href="AdminSchools.dc.html" style="min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Schools</a>
+<a href="AdminWaitlists.dc.html" style="min-height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Waitlists <span style="background: #F2B705; color: #16181B; border-radius: 10px; padding: 1px 8px; font-size: 12px; font-weight: 600">2 ready</span></a>
+<a href="AdminRiders.dc.html" style="min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Riders</a>
+<a href="AdminPayments.dc.html" style="min-height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Payments <span style="background: #3A3D42; color: #FFFFFF; border-radius: 10px; padding: 1px 8px; font-size: 12px">18</span></a>
+<a href="AdminDrivers.dc.html" style="min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Drivers and vehicles</a>
+<a href="AdminBackups.dc.html" style="min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Backup vans</a>
+<a href="AdminComplaints.dc.html" style="min-height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Complaints <span style="background: #3A3D42; color: #FFFFFF; border-radius: 10px; padding: 1px 8px; font-size: 12px">5</span></a>
+<a href="AdminCompanies.dc.html" style="min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Companies</a>
+<a href="AdminPayouts.dc.html" style="min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Driver payouts</a>
+<a href="AdminReports.dc.html" style="min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 8px; color: #D6D8DB; text-decoration: none">Reports</a>
+</nav>
+<div style="margin-top: auto; padding: 12px; border-top: 1px solid #2B2E33; font-size: 13px; color: #A8ABB0">Signed in as Operations</div>
+</aside>
+
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+<div>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 32px">Operations overview</h1>
+<p style="margin: 4px 0 0; color: #55595F">Friday, 16 October · Morning runs in progress</p>
+</div>
+<div style="display: flex; gap: 10px; flex-wrap: wrap">
+<label style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; background: #FFFFFF; border: 1px solid #DEDAD0; border-radius: 10px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#55595F" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+<span style="position: absolute; left: -9999px">Search</span>
+<input type="search" placeholder="Search rider, route, plate" style="border: 0; outline: 0; font: inherit; font-size: 15px; width: 220px; background: transparent">
+</label>
+<button type="button" style="min-height: 44px; padding: 0 18px; border: 0; border-radius: 10px; background: #16181B; color: #FFFFFF; font: inherit; font-weight: 600">New route</button>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #DEDAD0; border-radius: 14px; padding: 18px"><div style="font-size: 13px; color: #55595F; font-weight: 500">Active riders</div><div style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 34px; margin-top: 6px">212</div><div style="font-size: 13px; color: #55595F">this month</div></div>
+<div style="background: #FFFFFF; border: 1px solid #DEDAD0; border-radius: 14px; padding: 18px"><div style="font-size: 13px; color: #55595F; font-weight: 500">Runs today</div><div style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 34px; margin-top: 6px">14</div><div style="font-size: 13px; color: #55595F">11 on time · 2 late</div></div>
+<div style="background: #FFF4D1; border: 1px solid #E8C65A; border-radius: 14px; padding: 18px"><div style="font-size: 13px; color: #5C4600; font-weight: 600">Needs a backup</div><div style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 34px; margin-top: 6px">1</div><div style="font-size: 13px; color: #5C4600">Route R-07 breakdown</div></div>
+<div style="background: #FFFFFF; border: 1px solid #DEDAD0; border-radius: 14px; padding: 18px"><div style="font-size: 13px; color: #55595F; font-weight: 500">Payments to confirm</div><div style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 34px; margin-top: 6px">18</div><div style="font-size: 13px; color: #55595F">due before 1 Nov</div></div>
+<div style="background: #FFFFFF; border: 1px solid #DEDAD0; border-radius: 14px; padding: 18px"><div style="font-size: 13px; color: #55595F; font-weight: 500">Open complaints</div><div style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 34px; margin-top: 6px">5</div><div style="font-size: 13px; color: #55595F">2 older than 48 h</div></div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px">
+
+<section aria-label="Live map" style="flex: 2 1 480px; min-width: 0; background: #FFFFFF; border: 1px solid #DEDAD0; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column">
+<div style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ECE8DF">
+<h2 style="margin: 0; font-size: 17px; font-weight: 600">Live map</h2>
+<div style="display: flex; gap: 14px; font-size: 13px; color: #3D4146">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #0D5C55"></span>On time</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #F2B705"></span>Late</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 2px; background: #B42318"></span>Stopped</span>
+</div>
+</div>
+<div style="position: relative; height: 340px; background: #EEF0EA">
+<svg width="100%" height="100%" viewBox="0 0 600 340" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Map of Addis Ababa with 14 vans">
+<path d="M0 120 C140 100 260 160 600 130" stroke="#D9DCD3" stroke-width="14" fill="none"/>
+<path d="M90 0 C120 120 200 220 260 340" stroke="#D9DCD3" stroke-width="12" fill="none"/>
+<path d="M380 0 C360 120 420 220 470 340" stroke="#D9DCD3" stroke-width="12" fill="none"/>
+<path d="M0 260 C200 250 380 280 600 240" stroke="#D9DCD3" stroke-width="10" fill="none"/>
+<circle cx="150" cy="118" r="8" fill="#0D5C55"/><circle cx="230" cy="140" r="8" fill="#0D5C55"/><circle cx="330" cy="138" r="8" fill="#0D5C55"/><circle cx="470" cy="128" r="8" fill="#F2B705" stroke="#16181B" stroke-width="1.5"/><circle cx="120" cy="80" r="8" fill="#0D5C55"/><circle cx="210" cy="230" r="8" fill="#0D5C55"/><circle cx="388" cy="70" r="8" fill="#0D5C55"/><circle cx="420" cy="210" r="8" fill="#0D5C55"/><circle cx="300" cy="255" r="8" fill="#F2B705" stroke="#16181B" stroke-width="1.5"/><circle cx="520" cy="245" r="8" fill="#0D5C55"/><circle cx="60" cy="262" r="8" fill="#0D5C55"/><circle cx="250" cy="300" r="8" fill="#0D5C55"/><circle cx="560" cy="135" r="8" fill="#0D5C55"/>
+<rect x="392" y="172" width="16" height="16" rx="3" fill="#B42318"/>
+</svg>
+<div style="position: absolute; left: 372px; top: 126px; background: #16181B; color: #FFFFFF; border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.35">R-07 · Ayat → Kazanchis<br>Stopped 12 min · 11 riders</div>
+</div>
+</section>
+
+<section aria-label="Needs action" style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 2px solid #E8C65A; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 style="margin: 0; font-size: 17px; font-weight: 600">Backup needed</h2><span style="font-size: 13px; color: #5C4600; font-weight: 600">6:52</span></div>
+<p style="margin: 0; color: #3D4146; line-height: 1.5">Driver on <strong>R-07 Ayat → Kazanchis</strong> reported a breakdown at Ayat Tafo. 11 riders waiting at 3 stops.</p>
+<div style="background: #F6F4EE; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+<div style="display: flex; justify-content: space-between"><span>Dawit K. · 3-A 41872</span><span style="color: #55595F">8 min away · ETB [RATE]/day</span></div>
+<div style="display: flex; justify-content: space-between"><span>Meseret A. · 3-A 22914</span><span style="color: #55595F">15 min away · ETB [RATE]/day</span></div>
+</div>
+<button type="button" style="min-height: 44px; border: 0; border-radius: 10px; background: #F2B705; color: #16181B; font: inherit; font-weight: 600">Dispatch Dawit K. and notify riders</button>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #DEDAD0; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 17px; font-weight: 600">Waitlists close to opening</h2>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between; font-size: 14px"><span>Lebu → Piassa</span><span style="font-weight: 600">11 / 11 · ready</span></div><div style="height: 8px; border-radius: 4px; background: #ECE8DF"><div style="width: 100%; height: 8px; border-radius: 4px; background: #0D5C55"></div></div></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between; font-size: 14px"><span>Jemo → Bole (students)</span><span style="font-weight: 600">11 / 11 · ready</span></div><div style="height: 8px; border-radius: 4px; background: #ECE8DF"><div style="width: 100%; height: 8px; border-radius: 4px; background: #0D5C55"></div></div></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between; font-size: 14px"><span>Summit → Mexico</span><span style="font-weight: 600">7 / 11</span></div><div style="height: 8px; border-radius: 4px; background: #ECE8DF"><div style="width: 64%; height: 8px; border-radius: 4px; background: #0D5C55"></div></div></div>
+</div>
+</section>
+</div>
+
+<section aria-label="Payments to confirm" style="background: #FFFFFF; border: 1px solid #DEDAD0; border-radius: 14px; overflow: hidden">
+<div style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ECE8DF">
+<h2 style="margin: 0; font-size: 17px; font-weight: 600">Payments to confirm</h2>
+<a href="#" style="font-size: 14px; font-weight: 600">View all 18</a>
+</div>
+<div style="overflow-x: auto">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 760px">
+<thead><tr style="text-align: left; color: #55595F; font-size: 13px">
+<th style="padding: 12px 20px; font-weight: 500">Rider</th><th style="padding: 12px; font-weight: 500">Route</th><th style="padding: 12px; font-weight: 500">Plan</th><th style="padding: 12px; font-weight: 500">Method</th><th style="padding: 12px; font-weight: 500">Reference</th><th style="padding: 12px; font-weight: 500">Amount</th><th style="padding: 12px 20px; font-weight: 500"><span style="position: absolute; left: -9999px">Action</span></th>
+</tr></thead>
+<tbody>
+<tr style="border-top: 1px solid #ECE8DF"><td style="padding: 12px 20px">Abel Tesfaye</td><td style="padding: 12px">R-03 CMC → Mexico</td><td style="padding: 12px">Round trip</td><td style="padding: 12px">Telebirr</td><td style="padding: 12px; font-family: 'IBM Plex Mono', monospace">TB7Q2K91XA</td><td style="padding: 12px">ETB [PRICE]</td><td style="padding: 8px 20px; text-align: right"><button type="button" style="min-height: 36px; padding: 0 14px; border: 1px solid #0D5C55; background: transparent; color: #0D5C55; border-radius: 8px; font: inherit; font-weight: 600">Confirm</button></td></tr>
+<tr style="border-top: 1px solid #ECE8DF"><td style="padding: 12px 20px">Liya Girma (parent of Selam)</td><td style="padding: 12px">S-02 Bole (students)</td><td style="padding: 12px">Student round trip</td><td style="padding: 12px">CBE Birr</td><td style="padding: 12px; font-family: 'IBM Plex Mono', monospace">FT26289K4M</td><td style="padding: 12px">ETB [PRICE]</td><td style="padding: 8px 20px; text-align: right"><button type="button" style="min-height: 36px; padding: 0 14px; border: 1px solid #0D5C55; background: transparent; color: #0D5C55; border-radius: 8px; font: inherit; font-weight: 600">Confirm</button></td></tr>
+<tr style="border-top: 1px solid #ECE8DF"><td style="padding: 12px 20px">Kidus Alemu</td><td style="padding: 12px">R-07 Ayat → Kazanchis</td><td style="padding: 12px">One-way AM + Sat</td><td style="padding: 12px">Cash at office</td><td style="padding: 12px; color: #55595F">Receipt 0412</td><td style="padding: 12px">ETB [PRICE]</td><td style="padding: 8px 20px; text-align: right"><button type="button" style="min-height: 36px; padding: 0 14px; border: 1px solid #0D5C55; background: transparent; color: #0D5C55; border-radius: 8px; font: inherit; font-weight: 600">Confirm</button></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

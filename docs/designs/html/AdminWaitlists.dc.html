@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gize admin – Waitlists</title>
+
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap">
+<style>
+body{margin:0;background:#F6F4EE}
+a{color:#0D5C55}a:hover{color:#08403B}
+.side{flex:1 1 232px;max-width:260px;background:#16181B;color:#D6D8DB;padding:24px 16px;display:flex;flex-direction:column;gap:24px;box-sizing:border-box}
+.side nav{display:flex;flex-direction:column;gap:2px;font-size:15px}
+.side nav a{min-height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;border-radius:8px;color:#D6D8DB;text-decoration:none}
+.side nav a:hover{color:#FFFFFF;background:#22252A}
+.side nav a.on{background:#2B2E33;color:#FFFFFF;font-weight:600}
+.badge{background:#3A3D42;color:#FFFFFF;border-radius:10px;padding:1px 8px;font-size:12px;font-weight:400}
+.badge.y{background:#F2B705;color:#16181B;font-weight:600}
+.main{flex:999 1 560px;min-width:0;padding:28px 32px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px}
+.card{background:#FFFFFF;border:1px solid #DEDAD0;border-radius:14px}
+.pill{display:inline-block;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.g{background:#E3F0EE;color:#0D5C55}.a{background:#FFF4D1;color:#5C4600}.r{background:#FDE7E5;color:#912018}.n{background:#ECE8DF;color:#3D4146}
+.chip{min-height:40px;padding:0 14px;border:1px solid #DEDAD0;border-radius:20px;background:#FFFFFF;color:#16181B;font:inherit;font-size:14px}
+.chip.on{background:#16181B;color:#FFFFFF;border-color:#16181B;font-weight:600}
+.btn{min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#16181B;color:#FFFFFF;font:inherit;font-weight:600}
+.btn2{min-height:40px;padding:0 14px;border:1px solid #0D5C55;border-radius:8px;background:transparent;color:#0D5C55;font:inherit;font-weight:600}
+.btny{min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#F2B705;color:#16181B;font:inherit;font-weight:600}
+.tblw{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;min-width:760px}
+.tbl th{text-align:left;color:#55595F;font-size:13px;font-weight:500;padding:12px 16px}
+.tbl td{padding:12px 16px;border-top:1px solid #ECE8DF;vertical-align:middle}
+.mono{font-family:'IBM Plex Mono',monospace}
+.muted{color:#55595F}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#3D4146}
+.fld input,.fld select,.fld textarea{min-height:44px;padding:0 12px;border:1px solid #C9C4B8;border-radius:10px;font:inherit;font-size:15px;font-weight:400;color:#16181B;background:#FBFAF7}
+.fld textarea{padding:10px 12px;min-height:88px;resize:vertical}
+.sr{position:absolute;left:-9999px}
+.h1{margin:0;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:32px}
+.h2{margin:0;font-size:17px;font-weight:600}
+.cardhead{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #ECE8DF}
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16181B; background: #F6F4EE; min-height: 100vh; display: flex; flex-wrap: wrap">
+<aside class="side">
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 0 8px"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 24px; color: #FFFFFF">Gize</span><span style="font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #F2B705">Admin</span></div>
+<nav aria-label="Admin">
+<a href="Admin.dc.html">Overview</a>
+<a href="AdminMap.dc.html">Live map</a>
+<a href="AdminRoutes.dc.html">Routes</a>
+<a href="AdminSchools.dc.html">Schools</a>
+<a href="AdminWaitlists.dc.html" class="on" aria-current="page">Waitlists <span class="badge y">2 ready</span></a>
+<a href="AdminRiders.dc.html">Riders</a>
+<a href="AdminPayments.dc.html">Payments <span class="badge">18</span></a>
+<a href="AdminDrivers.dc.html">Drivers and vehicles</a>
+<a href="AdminBackups.dc.html">Backup vans</a>
+<a href="AdminComplaints.dc.html">Complaints <span class="badge">5</span></a>
+<a href="AdminCompanies.dc.html">Companies</a>
+<a href="AdminPayouts.dc.html">Driver payouts</a>
+<a href="AdminReports.dc.html">Reports</a>
+</nav>
+<div style="margin-top: auto; padding: 12px; border-top: 1px solid #2B2E33; font-size: 13px; color: #A8ABB0">Signed in as Operations</div>
+</aside>
+
+<main class="main">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+<div>
+<h1 class="h1">Waitlists</h1>
+<p style="margin: 4px 0 0" class="muted">A route opens when its waitlist reaches [THRESHOLD] committed riders</p>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" class="chip on">All 6</button>
+<button type="button" class="chip">Ready 2</button>
+<button type="button" class="chip">Student 2</button>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px">
+<section class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 12px; border: 2px solid #0D5C55">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 class="h2">Lebu → Piassa</h2><span class="pill g">Ready</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 14px"><span class="muted">Public · morning 6:25</span><strong>11 / 11</strong></div>
+<div style="height: 8px; border-radius: 4px; background: #ECE8DF"><div style="width: 100%; height: 8px; border-radius: 4px; background: #0D5C55"></div></div>
+<div class="muted" style="font-size: 14px">Most riders near: Lebu Mebrat, Mekanisa</div>
+<button type="button" class="btny">Open route and notify 11 riders</button>
+</section>
+<section class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 12px; border: 2px solid #0D5C55">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 class="h2">Jemo high school</h2><span class="pill g">Ready</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 14px"><span class="muted">Student · needs attendant</span><strong>11 / 11</strong></div>
+<div style="height: 8px; border-radius: 4px; background: #ECE8DF"><div style="width: 100%; height: 8px; border-radius: 4px; background: #0D5C55"></div></div>
+<div class="muted" style="font-size: 14px">11 parents waiting · school calendar added</div>
+<button type="button" class="btny">Open route and notify 11 parents</button>
+</section>
+<section class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 class="h2">Summit → Mexico</h2><span class="pill n">Filling</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 14px"><span class="muted">Public</span><strong>7 / 11</strong></div>
+<div style="height: 8px; border-radius: 4px; background: #ECE8DF"><div style="width: 64%; height: 8px; border-radius: 4px; background: #0D5C55"></div></div>
+<div class="muted" style="font-size: 14px">Last joined 2 days ago</div>
+<button type="button" class="btn2">View riders</button>
+</section>
+<section class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 class="h2">Ayat → Bole</h2><span class="pill n">Filling</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 14px"><span class="muted">Public</span><strong>5 / 11</strong></div>
+<div style="height: 8px; border-radius: 4px; background: #ECE8DF"><div style="width: 45%; height: 8px; border-radius: 4px; background: #0D5C55"></div></div>
+<div class="muted" style="font-size: 14px">Last joined today</div>
+<button type="button" class="btn2">View riders</button>
+</section>
+<section class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 class="h2">Sarbet → Kazanchis</h2><span class="pill n">Filling</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 14px"><span class="muted">Public</span><strong>3 / 11</strong></div>
+<div style="height: 8px; border-radius: 4px; background: #ECE8DF"><div style="width: 27%; height: 8px; border-radius: 4px; background: #0D5C55"></div></div>
+<div class="muted" style="font-size: 14px">Last joined 9 days ago</div>
+<button type="button" class="btn2">View riders</button>
+</section>
+<section class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 class="h2">Gerji · Lycée area school</h2><span class="pill n">Filling</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 14px"><span class="muted">Student</span><strong>4 / 11</strong></div>
+<div style="height: 8px; border-radius: 4px; background: #ECE8DF"><div style="width: 36%; height: 8px; border-radius: 4px; background: #0D5C55"></div></div>
+<div class="muted" style="font-size: 14px">Last joined 4 days ago</div>
+<button type="button" class="btn2">View parents</button>
+</section>
+</div>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
