@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
+import { Toaster } from "@/components/ui/sonner";
+import { fontVariables } from "./fonts";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -13,11 +15,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const locale = await getLocale();
+  const t = await getTranslations("Common");
 
   return (
-    <html lang={locale} className="h-full antialiased">
+    <html lang={locale} className={`${fontVariables} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <Toaster label={t("notifications")} />
       </body>
     </html>
   );

@@ -28,7 +28,7 @@ Status: todo · Needs backend: GZ-015
 - `lib/env.ts` zod-validated env.
 
 ### GZW-005 · Design tokens and shared components
-Status: todo · Needs backend: –
+Status: done · Needs backend: –
 - Tokens and fonts from `design-system.md`; shadcn/ui themed; `PageHeader`, `DataTable` (cursor pagination, URL filters, skeletons), `StatusPill`, `ConfirmDialog`, `ProblemAlert`, `EmptyState`, toast. Storybook not required; a `/dev/components` page (dev only) shows them.
 
 ### GZW-006 · Deployment pipeline
