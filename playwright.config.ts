@@ -45,6 +45,8 @@ export default defineConfig({
       ? `npx next start -p ${port}`
       : `npm run build && npx next start -p ${port}`,
     url: baseURL,
+    // Turns on dev-only pages such as /dev/components in this production build (src/lib/dev-pages.ts).
+    env: { GIZE_DEV_PAGES: "1" },
     // Opt-in only (E2E_REUSE=1), so a stale server can't make the suite pass or fail by accident.
     reuseExistingServer: !isCI && process.env.E2E_REUSE === "1",
     timeout: 180_000,

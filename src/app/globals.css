@@ -1,8 +1,98 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-/* Brand tokens, fonts and components arrive in GZW-005 (docs/design-system.md). Light theme only. */
-body {
-  background: #ffffff;
-  color: #16181b;
-  font-family: system-ui, sans-serif;
+/*
+ * Brand tokens – docs/design-system.md is the reference; src/app/tokens.test.ts checks contrast.
+ * Light theme only. Tailwind's default palette is removed so only brand colours can be used.
+ */
+@theme {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-navy: #012768;
+  --color-royal: #054cc3;
+  --color-blue: #0d77eb;
+  --color-sky: #159ed5;
+  --color-ice: #e9f3fd;
+  --color-sun: #ffc928;
+  --color-canvas: #f6f8fb;
+  --color-surface: #ffffff;
+  --color-ink: #16181b;
+  --color-muted: #55595f;
+  --color-line: #d9dee6;
+  --color-success: #0e7a4f;
+  --color-success-soft: #e3f4ec;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --color-neutral-soft: #eceff3;
+
+  /* Type scale: page title 28–32, section 18, body 15, table 14, meta 13 (px). */
+  --text-title: clamp(1.75rem, 1.5rem + 1vw, 2rem);
+  --text-title--line-height: 1.2;
+  --text-section: 1.125rem;
+  --text-section--line-height: 1.4;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5;
+  --text-table: 0.875rem;
+  --text-table--line-height: 1.45;
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.4;
+}
+
+/* Font variables are set on <html> by next/font (src/app/fonts.ts). Noto Sans Ethiopic is in every
+   stack so Amharic data always renders. */
+@theme inline {
+  --font-sans:
+    var(--font-noto-sans), var(--font-noto-ethiopic), system-ui, sans-serif;
+  --font-display:
+    var(--font-sora), var(--font-noto-ethiopic), system-ui, sans-serif;
+  --font-mono:
+    var(--font-jetbrains-mono), var(--font-noto-ethiopic), ui-monospace,
+    monospace;
+}
+
+/* State variants used by the Radix-based components (Radix sets data-state="open"/"closed"). */
+@custom-variant data-open (&:where([data-state="open"]));
+@custom-variant data-closed (&:where([data-state="closed"]));
+
+@layer base {
+  html {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    font-size: var(--text-body);
+    line-height: 1.5;
+  }
+
+  :lang(am) {
+    line-height: 1.6;
+  }
+
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-line);
+  }
+
+  /* One visible focus ring everywhere (WCAG 2.4.7); royal on white, canvas and ice is ≥ 3:1. */
+  :focus-visible {
+    outline: 2px solid var(--color-royal);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

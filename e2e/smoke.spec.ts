@@ -20,9 +20,11 @@ test.describe("smoke", () => {
   }) => {
     await page.goto("/");
 
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - window.innerWidth,
+    // Compare with the configured width: mobile emulation widens window.innerWidth to fit content.
+    const viewportWidth = page.viewportSize()?.width ?? 0;
+    const pageWidth = await page.evaluate(
+      () => document.documentElement.scrollWidth,
     );
-    expect(overflow).toBeLessThanOrEqual(0);
+    expect(pageWidth).toBeLessThanOrEqual(viewportWidth);
   });
 });

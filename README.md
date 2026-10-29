@@ -23,6 +23,10 @@ Next.js admin portal for Gize Transport staff. It is a client of the Gize Admin 
 | `npm run e2e`         | Playwright + axe at 1440 px and 375 px (builds first, port 3100)            |
 | `npm run screenshots` | Screenshots of every screen in `e2e/support/screens.ts` into `screenshots/` |
 
+## Shared components
+
+`/dev/components` shows every shared component (tokens, type, buttons, DataTable, dialogs…). It exists under `npm run dev` and in production builds made with the server-only build flag `GIZE_DEV_PAGES=1`, which only the e2e builds set (Playwright locally, the Build job in CI). Deployed builds don't set it, so the page is a 404 there.
+
 ## CI
 
 Every PR runs these checks (`.github/workflows/ci.yml`): **Lint**, **Typecheck**, **Unit tests**, **Build**, **E2E (Playwright + axe)**, **npm audit**, **Secret scan (gitleaks)**. The e2e job uploads the Playwright report and the screenshots as artifacts.
