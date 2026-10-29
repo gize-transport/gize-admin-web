@@ -2,7 +2,7 @@
 
 import { RouteIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState, type ReactNode } from "react";
+import { Suspense, useMemo, useState, type ReactNode } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   DataTable,
@@ -143,7 +143,10 @@ export function ComponentsGallery() {
       </Section>
 
       <Section title={t("dataTable")}>
-        <DataTableDemo />
+        {/* The table demo reads filters and the cursor from the URL, so it renders on the client. */}
+        <Suspense>
+          <DataTableDemo />
+        </Suspense>
       </Section>
     </div>
   );

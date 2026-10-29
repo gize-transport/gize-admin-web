@@ -97,6 +97,33 @@ describe("DataTable", () => {
     expect(within(table).getAllByRole("row").length).toBeGreaterThan(1);
   });
 
+  it("treats missing data as loading, never as empty (e.g. a paused query)", () => {
+    renderTable({ data: undefined, isLoading: false });
+
+    expect(screen.getByRole("table")).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByText("No routes yet")).not.toBeInTheDocument();
+  });
+
+  it("keeps the loading status mounted so screen readers hear it when loading starts", () => {
+    const { rerender } = renderTable();
+    const status = screen.getByRole("status");
+    expect(status).toBeEmptyDOMElement();
+
+    rerender(
+      <DataTable
+        label="Routes"
+        columns={columns}
+        data={undefined}
+        isLoading
+        getRowId={(route) => route.id}
+        emptyState={<p>No routes yet</p>}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toBe(status);
+    expect(status).toHaveTextContent(t.loading);
+  });
+
   it("shows the empty state instead of an empty table", () => {
     renderTable({ data: [] });
 
@@ -109,6 +136,38 @@ describe("DataTable", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("Server error");
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("forwards a cell click to a link row action, keeping modifier keys", async () => {
+    const user = userEvent.setup();
+    const linkClicks: MouseEvent[] = [];
+    const linkCol = createDataTableColumnHelper<Route>();
+    renderTable({
+      columns: linkCol.columns([
+        linkCol.accessor("code", {
+          header: "Route",
+          cell: (info) => (
+            <RowAction href={`/routes/${info.row.original.id}`}>
+              {info.getValue()}
+            </RowAction>
+          ),
+        }),
+        linkCol.accessor("driver", { header: "Driver" }),
+      ]),
+    });
+    const link = screen.getByRole("link", { name: "R-05" });
+    expect(link).toHaveAttribute("href", "/routes/r5");
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      linkClicks.push(event);
+    });
+
+    await user.keyboard("{Meta>}");
+    await user.click(screen.getByText("Mulu A."));
+    await user.keyboard("{/Meta}");
+
+    expect(linkClicks).toHaveLength(1);
+    expect(linkClicks[0]?.metaKey).toBe(true);
   });
 
   it("opens a row from its row action with the keyboard", async () => {
@@ -207,6 +266,28 @@ describe("DataTable cursor pagination", () => {
     expect(screen.getByRole("link", { name: t.firstPage })).toHaveAttribute(
       "href",
       "/routes",
+    );
+  });
+
+  it("offers the first page on an empty page past page 1", () => {
+    nav.search = "cursor=c9";
+    renderTable({ data: [], nextCursor: null });
+
+    expect(screen.getByText("No routes yet")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: t.firstPage })).toHaveAttribute(
+      "href",
+      "/routes",
+    );
+  });
+
+  it("still offers the first page when a later page fails (e.g. an expired cursor)", () => {
+    nav.search = "type=student&cursor=expired";
+    renderTable({ error: <div role="alert">Invalid cursor</div> });
+
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: t.firstPage })).toHaveAttribute(
+      "href",
+      "/routes?type=student",
     );
   });
 

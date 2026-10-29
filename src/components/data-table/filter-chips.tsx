@@ -12,11 +12,15 @@ type FilterChipsProps = {
   options: ReadonlyArray<{ value: string; label: string }>;
 };
 
-/** Single-choice filter (plus "All") synced to the URL, as in the list mockups. */
+/**
+ * Single-choice filter (plus "All") synced to the URL, as in the list mockups. Reads the URL
+ * (useSearchParams), so under `cacheComponents` it must sit inside a <Suspense>.
+ */
 export function FilterChips({ param, label, options }: FilterChipsProps) {
   const t = useTranslations("DataTable");
   const { get, setFilter } = useListParams();
-  const current = get(param);
+  // An empty value (?type=) means no filter.
+  const current = get(param) || null;
 
   return (
     <div role="group" aria-label={label} className="flex flex-wrap gap-2">

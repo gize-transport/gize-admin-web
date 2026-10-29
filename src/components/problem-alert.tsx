@@ -3,7 +3,7 @@
 import { CircleAlertIcon, CopyIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 type ProblemAlertProps = {
@@ -30,11 +30,27 @@ export function ProblemAlert({
   const [secondsLeft, setSecondsLeft] = useState(retryAfterSeconds ?? 0);
   const [copyState, setCopyState] = useState<CopyState>("idle");
 
+  // Each new problem (new request ID or Retry-After) restarts the countdown and the copy state,
+  // even when the same alert stays on screen between retries.
+  const problemKey = `${requestId ?? ""}|${retryAfterSeconds ?? ""}`;
+  const [shownProblem, setShownProblem] = useState(problemKey);
+  if (shownProblem !== problemKey) {
+    setShownProblem(problemKey);
+    setSecondsLeft(retryAfterSeconds ?? 0);
+    setCopyState("idle");
+  }
+
   useEffect(() => {
-    if (secondsLeft <= 0) return;
-    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [secondsLeft]);
+    if (!retryAfterSeconds) return;
+    // Counts against a deadline, so throttled timers in background tabs can't stretch the wait.
+    const deadline = Date.now() + retryAfterSeconds * 1000;
+    const timer = setInterval(() => {
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setSecondsLeft(left);
+      if (left === 0) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [problemKey, retryAfterSeconds]);
 
   async function copyReference() {
     if (!requestId) return;
@@ -47,19 +63,32 @@ export function ProblemAlert({
   }
 
   const rateLimited = retryAfterSeconds !== undefined;
+  const waiting = secondsLeft > 0;
 
   return (
-    <Alert variant="destructive">
+    // Only the title and message are announced assertively; everything that changes later has its
+    // own polite status, so screen readers don't re-read the whole alert.
+    <Alert variant="destructive" role={undefined}>
       <CircleAlertIcon aria-hidden />
-      <AlertTitle>{title ?? t("title")}</AlertTitle>
-      <AlertDescription>
+      <div role="alert" className="col-start-2 grid gap-1">
+        <p className="font-semibold">{title ?? t("title")}</p>
         <p>{message}</p>
+      </div>
+      <AlertDescription>
         {rateLimited && (
-          <p>
-            {secondsLeft > 0
-              ? t("rateLimited", { seconds: secondsLeft })
-              : t("rateLimitOver")}
-          </p>
+          <>
+            {/* Visible countdown; screen readers hear the start and the end only. */}
+            <p aria-hidden>
+              {waiting
+                ? t("rateLimited", { seconds: secondsLeft })
+                : t("rateLimitOver")}
+            </p>
+            <p role="status" className="sr-only">
+              {waiting
+                ? t("rateLimited", { seconds: retryAfterSeconds })
+                : t("rateLimitOver")}
+            </p>
+          </>
         )}
         {requestId && (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
@@ -87,7 +116,7 @@ export function ProblemAlert({
             <Button
               variant="secondary"
               size="sm"
-              aria-disabled={secondsLeft > 0 || undefined}
+              aria-disabled={waiting || undefined}
               onClick={onRetry}
             >
               {t("retry")}

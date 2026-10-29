@@ -5,6 +5,10 @@ import messages from "../messages/en.json";
 const t = messages.DevComponents;
 const dt = messages.DataTable;
 
+function selectedText(route: string) {
+  return t.selectedRoute.replace("{route}", route);
+}
+
 function routesTable(page: Page) {
   return page.getByRole("table", { name: t.routesLabel });
 }
@@ -95,6 +99,23 @@ test.describe("data table", () => {
     await expect(firstRoute.getByRole("button")).toHaveText(page1First);
   });
 
+  test("keyboard paging moves focus to the table, also when the link disappears", async ({
+    page,
+  }) => {
+    const region = page.getByRole("region", { name: t.routesLabel });
+
+    await page.getByRole("link", { name: dt.nextPage }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/cursor=5/);
+    await expect(region).toBeFocused();
+
+    await page.getByRole("link", { name: dt.nextPage }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/cursor=10/);
+    await expect(page.getByRole("link", { name: dt.nextPage })).toHaveCount(0);
+    await expect(region).toBeFocused();
+  });
+
   test("opens a row by clicking a cell or with the keyboard", async ({
     page,
   }) => {
@@ -103,14 +124,14 @@ test.describe("data table", () => {
     const routeCode = await secondRow.getByRole("button").innerText();
 
     await secondRow.getByRole("cell").nth(2).click();
-    await expect(page.getByText(`Selected: ${routeCode}`)).toBeVisible();
+    await expect(page.getByText(selectedText(routeCode))).toBeVisible();
     await expect(secondRow).toHaveAttribute("data-state", "selected");
 
     const thirdRowAction = table.getByRole("row").nth(3).getByRole("button");
     const thirdCode = await thirdRowAction.innerText();
     await thirdRowAction.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByText(`Selected: ${thirdCode}`)).toBeVisible();
+    await expect(page.getByText(selectedText(thirdCode))).toBeVisible();
     await expect(thirdRowAction).toHaveAttribute("aria-current", "true");
   });
 
@@ -177,7 +198,10 @@ test.describe("confirm dialog and toast", () => {
 test.describe("problem alert", () => {
   test("copies the request ID for support", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    const alert = page.getByRole("alert").filter({ hasText: t.problemMessage });
+    // The box around the alert: only its title and message are the live role="alert".
+    const alert = page
+      .locator('[data-slot="alert"]')
+      .filter({ hasText: t.problemMessage });
 
     await alert
       .getByRole("button", { name: messages.ProblemAlert.copy })

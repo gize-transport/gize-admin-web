@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { devPagesEnabled } from "@/lib/dev-pages";
@@ -20,10 +19,7 @@ export default function DevComponentsPage() {
   return (
     <main className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-8 md:px-8 md:py-10">
       <GalleryHeader />
-      {/* The gallery reads filters from the URL, so it renders on the client. */}
-      <Suspense>
-        <ComponentsGallery />
-      </Suspense>
+      <ComponentsGallery />
     </main>
   );
 }

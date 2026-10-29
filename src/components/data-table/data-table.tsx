@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode, type Ref } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -58,6 +58,8 @@ const NO_ROWS: never[] = [];
  * List table from docs/design-system.md: sticky header and first column, horizontal scroll in a
  * focusable region on narrow screens, skeleton loading, empty state, URL-synced cursor pagination.
  * Put a RowAction in the first column: clicking anywhere else on the row activates it.
+ *
+ * Reads the URL (useSearchParams), so under `cacheComponents` it must sit inside a <Suspense>.
  */
 export function DataTable<TData extends RowData>({
   label,
@@ -71,8 +73,12 @@ export function DataTable<TData extends RowData>({
   selectedRowId,
 }: DataTableProps<TData>) {
   const t = useTranslations("DataTable");
+  const captionId = useId();
+  const cardRef = useRef<HTMLDivElement>(null);
   const regionRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLTableSectionElement>(null);
+  const previousCursor = useRef<string | null | undefined>(undefined);
+  const focusAfterPaging = useRef(false);
   const { cursor } = useListParams();
 
   const table = useTable({
@@ -83,7 +89,9 @@ export function DataTable<TData extends RowData>({
   });
 
   const rows = table.getRowModel().rows;
-  const showRows = !error && !isLoading && rows.length > 0;
+  // No data yet (first load, or a paused/disabled query) is shown as loading, never as "empty".
+  const loading = !error && (isLoading || data === undefined);
+  const showRows = !error && !loading && rows.length > 0;
 
   // Row click forwards to the row's RowAction, so mouse, keyboard and screen-reader users all get
   // the same control (the action is a real button or link in the first cell).
@@ -113,25 +121,65 @@ export function DataTable<TData extends RowData>({
     return () => body.removeEventListener("click", forwardRowClick);
   }, [showRows]);
 
-  // A new page starts at the top of the table.
+  // Keep focused cells clear of the sticky header and the pinned first column (WCAG 2.4.11).
   useEffect(() => {
     const region = regionRef.current;
-    if (!region) return;
-    region.scrollTop = 0;
-    if (region.getBoundingClientRect().top < 0) {
-      region.scrollIntoView({ block: "start" });
+    const pinned = region?.querySelector("th");
+    if (!region || !pinned) return;
+    const observer = new ResizeObserver(() => {
+      region.style.scrollPaddingTop = `${pinned.offsetHeight}px`;
+      region.style.scrollPaddingLeft = `${pinned.offsetWidth}px`;
+    });
+    observer.observe(pinned);
+    return () => observer.disconnect();
+  }, [showRows, loading]);
+
+  // A new page starts at the top of the table. Skipped on mount, so Back keeps the scroll position.
+  useEffect(() => {
+    if (previousCursor.current === undefined) {
+      previousCursor.current = cursor;
+      return;
+    }
+    if (previousCursor.current === cursor) return;
+    previousCursor.current = cursor;
+    const region = regionRef.current;
+    if (region) region.scrollTop = 0;
+    const card = cardRef.current;
+    if (card && card.getBoundingClientRect().top < 0) {
+      card.scrollIntoView({ block: "start" });
     }
   }, [cursor]);
 
-  if (error) {
-    return <TableCard>{error}</TableCard>;
-  }
+  // After "Next page"/"First page" the link the user pressed may be gone (last page, loading), so
+  // move focus to the table once the new page is shown (WCAG 2.4.3).
+  useEffect(() => {
+    if (!focusAfterPaging.current || loading) return;
+    focusAfterPaging.current = false;
+    (regionRef.current ?? cardRef.current)?.focus({ preventScroll: true });
+  }, [cursor, loading]);
 
-  if (!isLoading && rows.length === 0) {
+  const pagination = (
+    <CursorPagination
+      nextCursor={error ? null : nextCursor}
+      onNavigate={() => {
+        focusAfterPaging.current = true;
+      }}
+    />
+  );
+  const loadingStatus = (
+    // Mounted from the start, so the "Loading…" text is announced when it appears.
+    <p role="status" className="sr-only">
+      {loading ? t("loading") : ""}
+    </p>
+  );
+
+  if (error || (!loading && rows.length === 0)) {
     return (
-      <TableCard>
-        {emptyState}
-        <CursorPagination nextCursor={nextCursor} />
+      <TableCard ref={cardRef}>
+        {loadingStatus}
+        {error ?? emptyState}
+        {/* With an error, still offer "First page" – e.g. for an expired cursor in a shared link. */}
+        {pagination}
       </TableCard>
     );
   }
@@ -140,21 +188,19 @@ export function DataTable<TData extends RowData>({
   const columnCount = headerGroups.at(-1)?.headers.length ?? 1;
 
   return (
-    <TableCard>
+    <TableCard ref={cardRef}>
+      {loadingStatus}
       <div
         ref={regionRef}
         role="region"
-        aria-label={label}
+        aria-labelledby={captionId}
         tabIndex={0}
         className="relative overflow-auto rounded-xl md:max-h-[70dvh]"
       >
-        {isLoading && (
-          <p role="status" className="sr-only">
-            {t("loading")}
-          </p>
-        )}
-        <Table aria-busy={isLoading || undefined}>
-          <TableCaption className="sr-only">{label}</TableCaption>
+        <Table aria-busy={loading || undefined}>
+          <TableCaption id={captionId} className="sr-only">
+            {label}
+          </TableCaption>
           <TableHeader>
             {headerGroups.map((group) => (
               <TableRow key={group.id}>
@@ -176,7 +222,7 @@ export function DataTable<TData extends RowData>({
             ))}
           </TableHeader>
           <TableBody ref={bodyRef}>
-            {isLoading
+            {loading
               ? Array.from({ length: SKELETON_ROWS }, (_, rowIndex) => (
                   <TableRow key={rowIndex}>
                     {Array.from({ length: columnCount }, (_, index) => (
@@ -218,25 +264,42 @@ export function DataTable<TData extends RowData>({
           </TableBody>
         </Table>
       </div>
-      {!isLoading && <CursorPagination nextCursor={nextCursor} />}
+      {!loading && pagination}
     </TableCard>
   );
 }
 
-function TableCard({ children }: { children: ReactNode }) {
+function TableCard({
+  ref,
+  children,
+}: {
+  ref: Ref<HTMLDivElement>;
+  children: ReactNode;
+}) {
   return (
     // min-w-0: inside grid/flex layouts the card must not grow to the table's width – the table
-    // scrolls inside its region instead.
-    <div className="min-w-0 rounded-xl border border-line bg-surface">
+    // scrolls inside its region instead. Focusable from script only (focus after paging).
+    <div
+      ref={ref}
+      tabIndex={-1}
+      className="min-w-0 rounded-xl border border-line bg-surface"
+    >
       {children}
     </div>
   );
 }
 
-function CursorPagination({ nextCursor }: { nextCursor?: string | null }) {
+function CursorPagination({
+  nextCursor,
+  onNavigate,
+}: {
+  nextCursor?: string | null;
+  onNavigate: () => void;
+}) {
   const t = useTranslations("DataTable");
   const { cursor, nextPageHref, firstPageHref } = useListParams();
 
+  // undefined = this list isn't paginated.
   if (nextCursor === undefined || (!nextCursor && !cursor)) return null;
 
   const linkClass =
@@ -252,6 +315,7 @@ function CursorPagination({ nextCursor }: { nextCursor?: string | null }) {
           href={firstPageHref()}
           prefetch={false}
           scroll={false}
+          onClick={onNavigate}
           className={linkClass}
         >
           {t("firstPage")}
@@ -262,6 +326,7 @@ function CursorPagination({ nextCursor }: { nextCursor?: string | null }) {
           href={nextPageHref(nextCursor)}
           prefetch={false}
           scroll={false}
+          onClick={onNavigate}
           className={linkClass}
         >
           {t("nextPage")}

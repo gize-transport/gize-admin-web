@@ -59,10 +59,11 @@ function Button({
     <Comp
       data-slot="button"
       className={cn(buttonVariants({ variant, size }), className)}
-      aria-disabled={pending || undefined}
-      aria-busy={pending || undefined}
       {...props}
-      // Only attached when needed, so Button also works in Server Components (no function props).
+      aria-disabled={inactive || undefined}
+      aria-busy={pending || undefined}
+      // A plain button without onClick passes no function props, so it can render in a Server
+      // Component. Pending or aria-disabled buttons need this handler: use them in client code.
       onClick={
         inactive
           ? (event: React.MouseEvent<HTMLButtonElement>) =>

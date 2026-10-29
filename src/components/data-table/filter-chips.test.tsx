@@ -45,6 +45,15 @@ describe("FilterChips", () => {
     );
   });
 
+  it("treats an empty filter value as All", () => {
+    nav.search = "type=";
+    renderChips();
+
+    expect(
+      screen.getByRole("button", { name: messages.DataTable.all }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("reflects the filter in the URL", () => {
     nav.search = "type=student";
     renderChips();

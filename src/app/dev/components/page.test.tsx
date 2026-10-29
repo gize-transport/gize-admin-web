@@ -1,14 +1,19 @@
+import { screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import messages from "../../../../messages/en.json";
+import { renderWithProviders } from "../../../../tests/utils/render";
 
-const notFound = vi.hoisted(() =>
-  vi.fn(() => {
-    throw new Error("NEXT_NOT_FOUND");
-  }),
-);
-vi.mock("next/navigation", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("next/navigation")>()),
-  notFound,
-}));
+const { notFound, nav, mockNavigation } = await vi.hoisted(async () => {
+  const helpers = await import("../../../../tests/utils/navigation");
+  return {
+    notFound: vi.fn(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    }),
+    nav: helpers.createNavigationState(),
+    ...helpers,
+  };
+});
+vi.mock("next/navigation", () => ({ ...mockNavigation(nav), notFound }));
 
 const { default: DevComponentsPage } = await import("./page");
 
@@ -29,11 +34,23 @@ describe("/dev/components", () => {
     expect(notFound).toHaveBeenCalledOnce();
   });
 
-  it("renders when dev pages are enabled", () => {
+  it("renders the gallery when dev pages are enabled", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("GIZE_DEV_PAGES", "1");
 
-    expect(DevComponentsPage()).toBeTruthy();
+    renderWithProviders(<DevComponentsPage />);
+
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: messages.DevComponents.title,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("table", {
+        name: messages.DevComponents.routesLabel,
+      }),
+    ).toBeInTheDocument();
     expect(notFound).not.toHaveBeenCalled();
   });
 });
