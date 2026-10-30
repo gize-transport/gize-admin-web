@@ -7,9 +7,9 @@ describe("StatusPill", () => {
   it.each<StatusTone>(["success", "waiting", "neutral", "danger"])(
     "shows the status as text for the %s family, so it never relies on colour alone",
     (tone) => {
-      renderWithProviders(<StatusPill tone={tone}>Waitlist ready</StatusPill>);
+      renderWithProviders(<StatusPill tone={tone}>Forming</StatusPill>);
 
-      const pill = screen.getByText("Waitlist ready");
+      const pill = screen.getByText("Forming");
       expect(pill).toBeVisible();
       expect(pill).toHaveAttribute("data-tone", tone);
     },

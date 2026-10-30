@@ -9,7 +9,7 @@ Browser ──▶ Next.js admin (Cloudflare Workers) ──HTTPS, Bearer token�
 ```
 
 - The portal talks to **two** services only: Supabase Auth (sign-in/session) and the Gize Admin API (all data). It never queries Supabase tables directly.
-- No business logic in the frontend: no price calculations, seat counting or permission rules beyond hiding UI for convenience.
+- No business logic in the frontend: no price calculations, seat counting, launch or status rules, or permission rules beyond hiding UI for convenience. Seats taken/free, launch progress and what a route still needs come from the API; the UI only displays them and explains the API's refusals.
 
 ## Folder layout
 
@@ -19,10 +19,13 @@ src/
     (auth)/sign-in/page.tsx
     (portal)/layout.tsx            # sidebar + header shell, requires session
     (portal)/page.tsx              # overview
-    (portal)/routes/...            # list, [id] detail
+    (portal)/routes/...            # list, [id] detail (status, launch progress, pickup points, prices, add a van)
+    (portal)/route-requests/...    # list, [id] detail, record a request
+    (portal)/demand/...            # open requests per area pair and per route vs free seats
+    (portal)/companies/...
+    (portal)/areas/...
     (portal)/corridors/...
     (portal)/riders/...
-    (portal)/waitlists/...
     (portal)/drivers/...
     (portal)/staff/...             # admin only
     (portal)/audit-log/...         # admin only
@@ -56,7 +59,13 @@ scripts/contract-sync.mjs
 - Query keys per domain (`['routes', filters]`, `['route', id]`); mutations invalidate exactly the affected keys.
 - Lists use cursor pagination from the API; filters and cursor live in the URL search params.
 - Retries: queries retry network errors up to 2 times with backoff, never on 4xx. Mutations never auto-retry; a manual retry reuses the same `Idempotency-Key`.
-- 429: show "Too many requests – try again in N seconds" from `Retry-After`.
+- 429 and 503: show "try again in N seconds" from `Retry-After` (ProblemAlert countdown). 401: go to sign-in. 403: no permission.
+
+## Times
+
+- **Timestamps** (`created_at`, `first_signed_in_at`, …) are ISO 8601 UTC; format them with next-intl in `Africa/Addis_Ababa` (`src/i18n/config.ts`).
+- **Schedule times** (route morning and return times, pickup times) are local Addis Ababa times of day, `"HH:MM"`. Show and send them exactly as they are – never through `Date` or a time-zone conversion. Inputs use `<input type="time">` (value `HH:MM`).
+- **Months:** individual riders start on the 1st of a month and launch dates are the 1st of a month; pickers offer whole months, and the API validates.
 
 ## Environments
 

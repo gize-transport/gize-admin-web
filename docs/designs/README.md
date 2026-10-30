@@ -8,9 +8,9 @@ Use them for **layout, hierarchy and interactions**. Colours and fonts come from
 | File | Screen | In MVP? |
 | --- | --- | --- |
 | Admin | Overview | Partly (GZW-070, only widgets backed by the API) |
-| AdminRoutes | Routes list + detail | Yes |
+| AdminRoutes | Routes list + detail | Yes (statuses and launch progress per `design-system.md`) |
 | AdminRiders | Riders list + profile | Yes |
-| AdminWaitlists | Waitlists | Yes |
+| AdminWaitlists | Waitlists (no longer in the product) | Layout reference only: the Demand screen's cards (GZW-041) |
 | AdminDrivers | Drivers and vehicles, application review | Yes |
 | AdminSchools | Schools | No – reference for later |
 | AdminMap | Live map | No – reference for later |

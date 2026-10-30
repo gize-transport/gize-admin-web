@@ -45,10 +45,10 @@ const colourTokens = [
 ] as const;
 
 const statusTone: Record<SampleRoute["status"], StatusTone> = {
+  draft: "neutral",
+  forming: "waiting",
   active: "success",
-  waitlist: "waiting",
   paused: "neutral",
-  stopped: "danger",
 };
 
 const col = createDataTableColumnHelper<SampleRoute>();
@@ -105,9 +105,9 @@ export function ComponentsGallery() {
       <Section title={t("statusPills")}>
         <div className="flex flex-wrap gap-3">
           <StatusPill tone="success">{t("statusActive")}</StatusPill>
-          <StatusPill tone="waiting">{t("statusWaiting")}</StatusPill>
+          <StatusPill tone="waiting">{t("statusForming")}</StatusPill>
           <StatusPill tone="neutral">{t("statusPaused")}</StatusPill>
-          <StatusPill tone="danger">{t("statusStopped")}</StatusPill>
+          <StatusPill tone="danger">{t("statusDeclined")}</StatusPill>
         </div>
       </Section>
 
@@ -206,10 +206,10 @@ function DataTableDemo() {
       corporate: t("typeCorporate"),
     };
     const statusLabels: Record<SampleRoute["status"], string> = {
+      draft: t("statusDraft"),
+      forming: t("statusForming"),
       active: t("statusActive"),
-      waitlist: t("statusWaiting"),
       paused: t("statusPaused"),
-      stopped: t("statusStopped"),
     };
     return col.columns([
       col.accessor("code", {

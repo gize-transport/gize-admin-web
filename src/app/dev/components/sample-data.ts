@@ -8,7 +8,7 @@ export type SampleRoute = {
   seatsTaken: number;
   seatsTotal: number;
   driver: string | null;
-  status: "active" | "waitlist" | "paused" | "stopped";
+  status: "draft" | "forming" | "active" | "paused";
 };
 
 export const sampleRoutes: SampleRoute[] = [
@@ -90,7 +90,7 @@ export const sampleRoutes: SampleRoute[] = [
     seatsTaken: 7,
     seatsTotal: 11,
     driver: null,
-    status: "waitlist",
+    status: "forming",
   },
   {
     id: "c02",
@@ -100,7 +100,7 @@ export const sampleRoutes: SampleRoute[] = [
     seatsTaken: 6,
     seatsTotal: 15,
     driver: "Hanna T.",
-    status: "stopped",
+    status: "draft",
   },
   {
     id: "r16",
@@ -120,7 +120,7 @@ export const sampleRoutes: SampleRoute[] = [
     seatsTaken: 4,
     seatsTotal: 12,
     driver: null,
-    status: "waitlist",
+    status: "forming",
   },
   {
     id: "r18",
