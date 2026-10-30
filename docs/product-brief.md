@@ -34,7 +34,7 @@ UI language: **English** for now, with every string in `messages/en.json` so Amh
 | Sign in (email + password via Supabase) | ✓ | ✓ | – (design from the design system) |
 | Overview: counts and items needing action that the API provides | ✓ | ✓ | `Admin.png` (only widgets backed by endpoints) |
 | Areas (list, search, add, rename) | ✓ | ✓ + delete | – (list pattern) |
-| Corridors (from area → to area) | ✓ | ✓ + delete | – (list pattern) |
+| Corridors (origin area → destination area; the way back is its own corridor) | ✓ | ✓ + delete | – (list pattern) |
 | Companies (contact person, active/inactive, their routes) | ✓ | ✓ + delete | – (list + detail pattern) |
 | Routes list + detail: status, launch progress, seats this month and next, pickup points, times, driver | ✓ | ✓ + delete | `AdminRoutes.png` |
 | Route prices (individual routes only) | view | edit | `AdminRoutes.png` (price field) |

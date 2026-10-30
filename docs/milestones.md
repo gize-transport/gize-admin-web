@@ -17,13 +17,13 @@ Status: done · Needs backend: –
 - GitHub Actions: install, lint, typecheck, unit tests, build, Playwright (with axe), `npm audit --audit-level=high`, gitleaks.
 
 ### GZW-003 · Contract sync and drift checks
-Status: todo · Needs backend: GZ-015 (first tag `api-v1.0.0`; latest `api-v1.2.0`)
+Status: todo · Needs backend: GZ-015 (first tag `api-v1.0.0`; latest `api-v1.4.0`)
 - `scripts/contract-sync.mjs`: downloads `openapi.json` and `docs/api-contract.md` from `gize-admin-api` at a tag (default latest `api-v*`) via `gh`; writes `src/lib/api/openapi.json`, regenerates `schema.d.ts` (openapi-typescript), writes `CONTRACT_VERSION`, copies `api-contract.md` to `docs/`.
 - CI: regenerate and fail on any diff. Scheduled daily job: if a newer `api-v*` tag exists, open an issue with the `oasdiff changelog`.
 - Acceptance: editing `schema.d.ts` by hand fails CI.
 
 ### GZW-004 · API client and error handling
-Status: todo · Needs backend: GZ-015 (latest `api-v1.2.0`)
+Status: todo · Needs backend: GZ-015 (latest `api-v1.4.0`)
 - `lib/api/client.ts` (openapi-fetch, base URL from env, bearer token from Supabase session, `Idempotency-Key` helper, request ID capture), problem+json parsing (`Problem`, and `ValidationProblem` with `errors[].field` JSON pointers), `errors.ts` exhaustive map over the `ErrorCode` enum, TanStack Query provider with retry rules; 401 → sign-in, 429 and 503 → retry after `Retry-After`.
 - Time helpers: timestamps (ISO UTC) formatted in Africa/Addis_Ababa; schedule times (`"HH:MM"`) passed through unchanged.
 - `lib/env.ts` zod-validated env.
@@ -44,7 +44,7 @@ Status: in review · Needs backend: GZ-025
 
 ## Build order
 
-Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now in `api-v1.2.0`: `staff_me`, staff management, audit log – so after W0 come W1 and W6. Then W2 and W4 follow backend M2 (GZ-026, 020, 029, 021, 022, 023, 024, 027, 028), W3 follows M3, W5 follows M5.
+Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v1.4.0`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`) – so after W0 come W1, W6, GZW-026 and GZW-020. The rest of W2 and W4 follow backend M2 (GZ-029, 021, 022, 023, 024, 027, 028), W3 follows M3, W5 follows M5.
 
 ### Questions for the backend (answer before the matching ticket starts)
 
@@ -52,7 +52,7 @@ The UI must not work these out itself (no business rules in the frontend), so ea
 
 1. **What a route still needs** (GZW-024): does `ROUTE_NOT_READY` say what is missing (prices, a pickup point), or does the route response carry it? Otherwise the UI can only say "not ready".
 2. **Can it launch?** (GZW-021, GZW-024): launch progress is "reserved for which month"? Does the route say when the launch minimum is reached for a given month, so the UI never compares numbers itself?
-3. **Pickers need search** (GZW-021, 029, 031, 040): `/v1/routes` by code and `/v1/companies` by name (areas already search by name).
+3. **Pickers need search** (GZW-021, 029, 031, 040): `/v1/routes` by code and `/v1/companies` by name. (Answered for places in `api-v1.4.0`: areas search by name with `q`; corridors filter by `origin_area_id` / `destination_area_id`, so the corridor picker is two area pickers.)
 4. **All status moves** (GZW-024): the planned endpoints are open, activate and pause – which ones cover `forming → draft` and resuming a paused route?
 5. **Demand summary** (GZW-041): its shape (area pairs without a corridor yet, routes with free seats next month) and limits.
 
@@ -72,12 +72,13 @@ Status: todo · Needs backend: GZ-011 (in `api-v1.2.0`)
 
 ## W2 – Places, companies and routes
 
-### GZW-026 · Areas · Needs backend: GZ-026 · Status: todo
-- List with search by name, add, rename (`AREA_NAME_TAKEN`); admin delete (`AREA_IN_USE` explained).
+### GZW-026 · Areas · Needs backend: GZ-026 (in `api-v1.3.0`) · Status: todo
+- `areas_list` (search `q`, 1–100 characters), `areas_create` (`Idempotency-Key` per action, reused on retry), `areas_update` (rename), `areas_get`; name 1–100 characters, `AREA_NAME_TAKEN` on the name field. Admin delete (`areas_delete`): `AREA_IN_USE` explained ("a corridor uses this area"); a deleted area's name can be used again.
 - Shared `AreaPicker` (searchable, keyboard-accessible combobox over the areas list) used by corridors, pickup points and route requests.
 
-### GZW-020 · Corridors · Needs backend: GZ-020 · Status: todo
-- List ("from → to", filter by area), create and edit with two area pickers (from ≠ to), `CORRIDOR_EXISTS`; admin delete (`CORRIDOR_IN_USE`). No threshold.
+### GZW-020 · Corridors · Needs backend: GZ-020 (in `api-v1.4.0`) · Status: todo
+- `corridors_list` shows "origin → destination" with area names from the response; filters by origin and/or destination area (two area pickers, kept in the URL). Create (`Idempotency-Key`) and edit with two area pickers; an unknown area is a field error; `CORRIDOR_EXISTS` explained. Corridors have a direction: the way back (B → A) is a separate corridor, so the UI always shows the arrow.
+- Admin delete (`corridors_delete`) with confirmation. The API doesn't refuse it yet; `CORRIDOR_IN_USE` (routes use the corridor) arrives with GZ-021 – handle it then. No threshold.
 
 ### GZW-029 · Companies · Needs backend: GZ-029 · Status: todo
 - List (search, active/inactive filter), detail (contact person, billing postpaid, notes, the company's routes), create and edit; deactivate (`COMPANY_IN_USE` explained); admin delete. Contact name, phone and email are personal data: never in URLs, logs or Sentry.

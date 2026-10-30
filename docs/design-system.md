@@ -63,7 +63,7 @@ Contrast ≥ 4.5:1 for text. Never white text on `sky` or `sun`. Focus ring: 2 p
   | Staff pending (never signed in) / inactive | waiting / neutral | Pending / Deactivated |
 
 - **LaunchProgress**: "9 of 12 needed" as text plus a meter (`role="meter"` with `aria-valuenow/min/max`); numbers come from the API. Used in the routes list, route detail and the launch dialog.
-- **Pickers**: areas, corridors, companies and routes are chosen with a searchable, keyboard-accessible combobox over the API list (never free text). Times use `<input type="time">` (`HH:MM`); launch and start dates offer the 1st of each month.
+- **Pickers**: areas, corridors, companies and routes are chosen with a searchable, keyboard-accessible combobox over the API list (never free text). A corridor is picked as origin area + destination area (corridors have a direction; always show "origin → destination"). Times use `<input type="time">` (`HH:MM`); launch and start dates offer the 1st of each month.
 - **Corporate routes** show "Rate agreed with the company" where individual routes show prices.
 - **Forms**: labels above fields, helper text for constraints (matching API limits), inline errors, primary + secondary buttons; disable submit while pending.
 - **Buttons**: primary (navy), secondary (white with border), ghost, destructive (danger), link. While an action runs the button shows a spinner and is `aria-disabled` (keeps focus).
