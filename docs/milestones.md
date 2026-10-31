@@ -37,7 +37,7 @@ Status: todo · Needs backend: –
 - Cloudflare Workers via OpenNext; preview deploy per PR, production on `main`; security headers and CSP (`connect-src` allows the API origin from `NEXT_PUBLIC_API_BASE_URL`, e.g. `http://localhost:8000` locally, and the Supabase project).
 
 ### GZW-007 · Docs and tickets for the two customer types
-Status: in review · Needs backend: GZ-025
+Status: done · Needs backend: GZ-025
 - Docs only: product brief, architecture, design system, engineering standards and these tickets, for prepaid individuals and postpaid companies, forming routes, route requests and "add a van" (backend owner decisions, GZ-025). Replaces the waitlist screens.
 - Updated for `api-v2.5.0`: routes go A → B with arrival times and areas served (no pickup points), route readiness (`status_changes`) and launch months (GZ-067), picker search, the demand summary, and running against the local API with sample data (GZ-068).
 
