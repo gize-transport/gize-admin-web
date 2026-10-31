@@ -47,4 +47,5 @@ A PR that breaks any of these is not done.
 - TypeScript `strict`, no `any` without a comment; ESLint + Prettier clean.
 - Components small and named by purpose; domain logic in `features/<domain>`; shared UI in `components/`.
 - Strings in `messages/en.json`; no hard-coded user-facing text in components.
+- Times follow `architecture.md` → Times: timestamps displayed in Africa/Addis_Ababa; schedule times (`"HH:MM"`) shown and sent unchanged, never converted.
 - Conventional commits with ticket ID: `feat(riders): assign to route dialog [GZW-031]`.

@@ -5,7 +5,7 @@
 - `docs/designs/screens/*.png` – screenshots of the admin mockups; `docs/designs/html/*.dc.html` – their HTML (inline styles; open in a browser to inspect spacing).
 - **Use the mockups for layout, information hierarchy and interactions. Use the colours and fonts below, not the mockups' amber/teal palette** – the brand has since been fixed from our TikTok and website.
 - Mapping from mockup to brand: dark sidebar `#16181B` → Gize Navy; teal → Gize Blue / Royal Blue; amber accents and "needs action" → Sun Yellow; warm off-white background → `canvas` (neutral near-white; `ice` only for selected/hover/active filter).
-- Screens not in the mockups (sign-in, corridors, staff, audit log) follow the same patterns.
+- Screens not in the mockups (sign-in, areas, corridors, companies, route requests, staff, audit log) follow the same list + detail patterns. The waitlists mockup (`AdminWaitlists.png`) is only a layout reference for the Demand screen – there are no waitlists.
 
 ## Tokens (define once as CSS variables + Tailwind theme)
 
@@ -18,7 +18,7 @@ Defined in `src/app/globals.css` (Tailwind's default palette is removed, so only
 | `blue` | `#0D77EB` | Active nav item indicator, info (not for small text on white: 4.3:1) |
 | `sky` | `#159ED5` | Gize brand blue (from the website). Small accents on navy only |
 | `ice` | `#E9F3FD` | Selected rows, row hover, active filter chip – nothing else |
-| `sun` | `#FFC928` | "Needs action" badges, waitlist-ready – navy text on it |
+| `sun` | `#FFC928` | "Needs action": forming routes, new route requests – navy text on it |
 | `canvas` | `#F6F8FB` | Page background (neutral near-white) |
 | `surface` | `#FFFFFF` | Cards, tables, dialogs |
 | `ink` | `#16181B` | Body text |
@@ -47,10 +47,29 @@ Contrast ≥ 4.5:1 for text. Never white text on `sky` or `sun`. Focus ring: 2 p
   - Pagination: "Next page" (adds the API's cursor to the URL, so the browser's Back goes to the previous page) and "First page" once past page 1. No in-app "Previous" – the API only returns a next cursor.
   - Filter chips: one choice plus "All"; a check mark shows the active chip (not colour alone). Changing a filter goes back to the first page.
 - **Detail panel / page**: key facts grid, related lists, actions at the bottom; destructive actions separated and confirmed.
-- **StatusPill**: one component, colour by status family (active/success, waiting/sun, paused/neutral, rejected/danger).
+- **StatusPill**: one component, colour by status family (active/success, waiting/sun, paused/neutral, rejected/danger). The label always names the status. Mapping:
+
+  | Status | Tone | Label |
+  | --- | --- | --- |
+  | Route `draft` | neutral | Draft |
+  | Route `forming` | waiting (sun) | Forming · 9 of 12 (launch progress from the API) |
+  | Route `active` | success | Active |
+  | Route `paused` | neutral | Paused |
+  | Request `new` | waiting (sun) | New |
+  | Request `matched` | neutral | Matched · R-14 |
+  | Request `fulfilled` | success | Fulfilled |
+  | Request `declined` | danger | Declined |
+  | Company active / inactive | success / neutral | Active / Inactive |
+  | Staff pending (never signed in) / inactive | waiting / neutral | Pending / Deactivated |
+
+- **LaunchProgress**: "9 of 12 needed" as text plus a meter (`role="meter"` with `aria-valuenow/min/max`); numbers come from the API (`reserved`, `launch_minimum`). Used in the routes list, route detail and the launch dialog (per month from the launch months list).
+- **Status actions** (route detail): one button per move in the route's `status_changes`. A move that isn't `ready` stays visible but disabled (`aria-disabled`, still focusable) with its reasons as text under it, linked by `aria-describedby` – never a tooltip only. Launch opens a dialog with the launch months as a radio list (month, riders reserved, ready or not); months that aren't ready can't be chosen.
+- **Route times**: four times in order, shown as "Leaves A 06:30 → arrives B 07:15" and "Leaves B 17:30 → arrives A 18:15"; a missing arrival time shows "Not set". **Areas served**: shown as a path "A → CMC → Megenagna → B"; edited as an ordered list with move up / move down buttons (keyboard-accessible, no drag-only).
+- **Pickers**: areas, corridors, companies and routes are chosen with a searchable, keyboard-accessible combobox over the API list (never free text): areas by name (`q`), companies by name start (`q`, active only for routes), routes by code start (`q`). A corridor is picked as origin area + destination area (corridors have a direction; always show "origin → destination"). Times use `<input type="time">` (`HH:MM`); launch and start dates offer the 1st of each month.
+- **Corporate routes** show "Rate agreed with the company" where individual routes show prices.
 - **Forms**: labels above fields, helper text for constraints (matching API limits), inline errors, primary + secondary buttons; disable submit while pending.
 - **Buttons**: primary (navy), secondary (white with border), ghost, destructive (danger), link. While an action runs the button shows a spinner and is `aria-disabled` (keeps focus).
-- **ConfirmDialog** opens on Cancel and returns focus to the opener; it stays open (and can't be dismissed) while the action runs, so failures show inside it. Used for opening a route from a waitlist, approving/rejecting drivers, deleting, changing roles – states the consequence in plain words.
+- **ConfirmDialog** opens on Cancel and returns focus to the opener; it stays open (and can't be dismissed) while the action runs, so failures show inside it. Used for launching a route, starting forming or going back to draft, pausing or resuming one, adding a van, declining a route request, approving/rejecting drivers, deleting, changing roles – states the consequence in plain words.
 - **ProblemAlert**: friendly message per error code + "Reference: <request_id>" with copy button; on 429 it counts down `Retry-After` and enables "Try again" when it ends.
 - **Toasts** only for success confirmations; errors stay visible inline.
 

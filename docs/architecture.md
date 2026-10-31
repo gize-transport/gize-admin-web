@@ -9,7 +9,7 @@ Browser ──▶ Next.js admin (Cloudflare Workers) ──HTTPS, Bearer token�
 ```
 
 - The portal talks to **two** services only: Supabase Auth (sign-in/session) and the Gize Admin API (all data). It never queries Supabase tables directly.
-- No business logic in the frontend: no price calculations, seat counting or permission rules beyond hiding UI for convenience.
+- No business logic in the frontend: no price calculations, seat counting, launch or status rules, or permission rules beyond hiding UI for convenience. Seats taken/free, launch progress, which status moves a route allows and what blocks them (`status_changes`) and which months it can launch (`launch-months`) come from the API; the UI only displays them and explains the API's refusals.
 
 ## Folder layout
 
@@ -19,10 +19,13 @@ src/
     (auth)/sign-in/page.tsx
     (portal)/layout.tsx            # sidebar + header shell, requires session
     (portal)/page.tsx              # overview
-    (portal)/routes/...            # list, [id] detail
+    (portal)/routes/...            # list, [id] detail (status actions, launch progress, areas served, prices, add a van)
+    (portal)/route-requests/...    # list, [id] detail, record a request
+    (portal)/demand/...            # open requests per area pair and per route vs free seats
+    (portal)/companies/...
+    (portal)/areas/...
     (portal)/corridors/...
     (portal)/riders/...
-    (portal)/waitlists/...
     (portal)/drivers/...
     (portal)/staff/...             # admin only
     (portal)/audit-log/...         # admin only
@@ -56,15 +59,29 @@ scripts/contract-sync.mjs
 - Query keys per domain (`['routes', filters]`, `['route', id]`); mutations invalidate exactly the affected keys.
 - Lists use cursor pagination from the API; filters and cursor live in the URL search params.
 - Retries: queries retry network errors up to 2 times with backoff, never on 4xx. Mutations never auto-retry; a manual retry reuses the same `Idempotency-Key`.
-- 429: show "Too many requests – try again in N seconds" from `Retry-After`.
+- 429 and 503: show "try again in N seconds" from `Retry-After` (ProblemAlert countdown). 401: go to sign-in. 403: no permission.
+- 409 on a change judged from data on screen (a route's `status_changes`, launch months): show the message, then invalidate and reload the route – the screen was a snapshot.
+
+## Times
+
+- **Timestamps** (`created_at`, `first_signed_in_at`, …) are ISO 8601 UTC; format them with next-intl in `Africa/Addis_Ababa` (`src/i18n/config.ts`).
+- **Schedule times** (a route's four times: leaves A, arrives at B, leaves B, arrives at A) are local Addis Ababa times of day, `"HH:MM"`. Show and send them exactly as they are – never through `Date` or a time-zone conversion. Inputs use `<input type="time">` (value `HH:MM`).
+- **Months:** individual riders start on the 1st of a month and launch dates are the 1st of a month; pickers offer whole months, and the API validates.
 
 ## Environments
 
 | Env | API base URL | Supabase project |
 | --- | --- | --- |
-| Local | `http://localhost:8000` (backend running locally) or MSW mocks | Staging project |
+| Local | `http://localhost:8000` (backend running locally) or MSW mocks | The project the local API uses (`SUPABASE_URL` in its `.env`) |
 | Staging | staging API URL | Staging project |
 | Production | production API URL | Production project |
+
+### Running against the local API
+
+For manual work on screens with real data. Start the API as in the backend README ("Running the API for the frontend"), after its first admin and sample data (`python -m gize_api.cli.sample_data`: areas, corridors, companies, routes in every status reachable without riders, route requests). Then `npm run dev` with `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` and the same Supabase project's URL and publishable (anon) key in `.env.local`.
+
+- The API's `CORS_ALLOWED_ORIGINS` lists `http://localhost:3000` only, so the dev server must run on port 3000. Playwright's server (port 3100) and unit tests never call the local API: they use MSW handlers typed from the generated schema (CI has no backend).
+- Sign in with your own staff account (made admin with the backend's first-admin command). A signed-in user who isn't staff gets 403.
 
 Public env vars only (`NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SENTRY_DSN`), validated in `lib/env.ts`. No server secrets are needed by this app; if one ever is, stop and ask.
 
