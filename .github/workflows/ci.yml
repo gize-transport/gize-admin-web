@@ -43,6 +43,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+      # Generated API files must be exactly what the pinned openapi.json generates (GZW-003).
+      - name: Contract files unchanged
+        run: npm run contract:check
       - run: npm run typecheck
 
   unit:

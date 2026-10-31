@@ -12,8 +12,9 @@
 
 - All endpoints are under `/v1/`. Within `/v1` only **additive, backward-compatible** changes are allowed: new endpoints, new optional request fields, new response fields, new enum values the frontend handles with a default.
 - **Breaking changes** (removing or renaming a field, endpoint or error code, making a field required, changing a type, tightening a limit) are blocked by CI (`oasdiff breaking`). They need: a ticket in both repos, a deprecation period (`deprecated: true` in OpenAPI for at least one release), and the frontend released first.
-- Error `code` values are stable identifiers. New codes may be added; existing ones are never renamed or reused.
-- The backend tags each merge to `main` that changes the API as `api-vX.Y.Z` (semver: minor = additive, patch = docs/examples).
+- Error `code` values are stable identifiers. New codes may be added; existing ones are never renamed or reused. CI blocks removing a code from `ErrorCode` or from an operation's `x-error-codes` (`scripts/contract_codes.py`).
+- The backend tags each merge to `main` that changes the API as `api-vX.Y.Z` (semver: minor = additive, patch = docs/examples; major only for a breaking change the owner approved with the `breaking-change-approved` PR label). The tag's GitHub release has `openapi.json` attached. Tagging is automatic (`.github/workflows/contract-release.yml`).
+- Error responses are `application/problem+json` (`Problem`, or `ValidationProblem` for `VALIDATION_FAILED`), and each one lists the codes it can carry in `x-error-codes`. `ErrorCode` is an enum in the schema.
 
 ## How the frontend stays in sync
 
@@ -30,7 +31,7 @@
 
 ## Shared conventions (summary – details in backend `docs/architecture.md`)
 
-- JSON, snake_case fields; times ISO 8601 UTC (the frontend displays Africa/Addis_Ababa).
+- JSON, snake_case fields; timestamps ISO 8601 UTC (the frontend displays Africa/Addis_Ababa). Schedule times of day (route times) are local Addis Ababa time, `"HH:MM"`, shown as they are.
 - Auth: `Authorization: Bearer <Supabase access token>`; roles come from the backend, never from the token or the UI.
 - Errors: RFC 9457 problem+json with `code` and `request_id`; the frontend shows a friendly message per `code` and always shows the request ID for support.
 - Lists: `?limit=&cursor=` → `{ items, next_cursor }`, max 100.

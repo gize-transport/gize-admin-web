@@ -1,0 +1,3 @@
+# Generated contract files are compared byte for byte (npm run contract:check): keep LF everywhere.
+src/lib/api/* text eol=lf
+docs/api-contract.md text eol=lf

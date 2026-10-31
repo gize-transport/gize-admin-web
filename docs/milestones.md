@@ -17,7 +17,7 @@ Status: done · Needs backend: –
 - GitHub Actions: install, lint, typecheck, unit tests, build, Playwright (with axe), `npm audit --audit-level=high`, gitleaks.
 
 ### GZW-003 · Contract sync and drift checks
-Status: todo · Needs backend: GZ-015 (first tag `api-v1.0.0`; latest `api-v2.5.0`)
+Status: done · Needs backend: GZ-015 (first tag `api-v1.0.0`; latest `api-v2.5.0`)
 - `scripts/contract-sync.mjs`: downloads `openapi.json` and `docs/api-contract.md` from `gize-admin-api` at a tag (default latest `api-v*`) via `gh`; writes `src/lib/api/openapi.json`, regenerates `schema.d.ts` (openapi-typescript), writes `CONTRACT_VERSION`, copies `api-contract.md` to `docs/`.
 - CI: regenerate and fail on any diff. Scheduled daily job: if a newer `api-v*` tag exists, open an issue with the `oasdiff changelog`.
 - Acceptance: editing `schema.d.ts` by hand fails CI.

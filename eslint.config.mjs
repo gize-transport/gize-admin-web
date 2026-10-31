@@ -63,6 +63,8 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "blob-report/**",
     "playwright/.cache/**",
+    // Generated from the backend contract (npm run contract:sync); lint --fix must never rewrite it.
+    "src/lib/api/**",
   ]),
 ]);
 

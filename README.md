@@ -12,16 +12,24 @@ Next.js admin portal for Gize Transport staff. It is a client of the Gize Admin 
 
 ## Commands
 
-| Command               | What it does                                                                |
-| --------------------- | --------------------------------------------------------------------------- |
-| `npm run dev`         | Start the dev server on http://localhost:3000                               |
-| `npm run build`       | Production build                                                            |
-| `npm run lint`        | ESLint (no warnings allowed)                                                |
-| `npm run typecheck`   | Generate route types, then `tsc --noEmit`                                   |
-| `npm run format`      | Format with Prettier (`format:check` only checks)                           |
-| `npm test`            | Unit and component tests (Vitest)                                           |
-| `npm run e2e`         | Playwright + axe at 1440 px and 375 px (builds first, port 3100)            |
-| `npm run screenshots` | Screenshots of every screen in `e2e/support/screens.ts` into `screenshots/` |
+| Command                                     | What it does                                                                      |
+| ------------------------------------------- | --------------------------------------------------------------------------------- |
+| `npm run dev`                               | Start the dev server on http://localhost:3000                                     |
+| `npm run build`                             | Production build                                                                  |
+| `npm run lint`                              | ESLint (no warnings allowed)                                                      |
+| `npm run typecheck`                         | Generate route types, then `tsc --noEmit`                                         |
+| `npm run format`                            | Format with Prettier (`format:check` only checks)                                 |
+| `npm test`                                  | Unit and component tests (Vitest)                                                 |
+| `npm run e2e`                               | Playwright + axe at 1440 px and 375 px (builds first, port 3100)                  |
+| `npm run screenshots`                       | Screenshots of every screen in `e2e/support/screens.ts` into `screenshots/`       |
+| `npm run contract:sync -- --tag api-vX.Y.Z` | Pull the backend contract at a tag (default: latest) and regenerate the API types |
+| `npm run contract:check`                    | Check the generated API files against `openapi.json` (offline; runs in CI)        |
+
+## API contract
+
+The backend (`gize-admin-api`) owns the API contract; see [`docs/api-contract.md`](docs/api-contract.md). `npm run contract:sync` uses the GitHub CLI (`gh auth login` with access to the backend repo) to download `openapi.json` and `docs/api-contract.md` at an `api-v*` tag. It writes `src/lib/api/openapi.json`, `CONTRACT_VERSION` and `contract.sha256` (checksums of the two downloaded files) and regenerates `src/lib/api/schema.d.ts`. These files are generated: never edit them by hand. The Typecheck job runs `npm run contract:check`, which fails if `schema.d.ts` differs from what `openapi.json` generates or if a downloaded file no longer matches its checksum.
+
+A daily workflow (`.github/workflows/contract-update.yml`) opens an issue "Contract update available: api-vX.Y.Z" with oasdiff's summary and changelog when the backend has a newer tag, and fails if the pinned files differ from the backend's at the pinned tag. It needs the repository secret `BACKEND_CONTRACT_TOKEN`: a fine-grained token with read-only **Contents** access to `gize-admin-api` only. Without it, the job skips with a warning.
 
 ## Shared components
 
@@ -29,7 +37,7 @@ Next.js admin portal for Gize Transport staff. It is a client of the Gize Admin 
 
 ## CI
 
-Every PR runs these checks (`.github/workflows/ci.yml`): **Lint**, **Typecheck**, **Unit tests**, **Build**, **E2E (Playwright + axe)**, **npm audit**, **Secret scan (gitleaks)**. The e2e job uploads the Playwright report and the screenshots as artifacts.
+Every PR runs these checks (`.github/workflows/ci.yml`): **Lint**, **Typecheck** (with the contract check), **Unit tests**, **Build**, **E2E (Playwright + axe)**, **npm audit**, **Secret scan (gitleaks)**. The e2e job uploads the Playwright report and the screenshots as artifacts.
 
 ## Working rules
 
