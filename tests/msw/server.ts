@@ -31,5 +31,5 @@ export function problem(
 
 export const problemHeaders = { "Content-Type": "application/problem+json" };
 
-/** Shared MSW server: start it in a test file with `useMswServer()`. */
+/** Shared MSW server: start it in a test file with `startMswServer()`. */
 export const server = setupServer();

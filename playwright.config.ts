@@ -1,4 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import {
+  FAKE_API_PORT,
+  FAKE_SUPABASE_PORT,
+} from "./e2e/support/test-users.mjs";
 
 // Dedicated port so e2e never runs against another app (or a dev server) already listening on 3000.
 const port = Number(process.env.E2E_PORT ?? 3100);
@@ -39,23 +43,31 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    // CI builds in an earlier step; locally build first so tests always run against a production build.
-    command: isCI
-      ? `npx next start -p ${port}`
-      : `npm run build && npx next start -p ${port}`,
-    url: baseURL,
-    // Turns on dev-only pages such as /dev/components in this production build (src/lib/dev-pages.ts).
-    // Fake public values (same as the CI Build job): e2e talks to no API or Supabase yet.
-    env: {
-      GIZE_DEV_PAGES: "1",
-      NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000",
-      NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321",
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-placeholder-key",
-      NEXT_PUBLIC_SENTRY_DSN: "",
+  webServer: [
+    {
+      // Stand-ins for Supabase Auth and the API (W1 decision): signed-in flows need no real services.
+      command: "node e2e/support/fake-services.mjs",
+      port: FAKE_API_PORT,
+      reuseExistingServer: false,
     },
-    // Opt-in only (E2E_REUSE=1), so a stale server can't make the suite pass or fail by accident.
-    reuseExistingServer: !isCI && process.env.E2E_REUSE === "1",
-    timeout: 180_000,
-  },
+    {
+      // CI builds in an earlier step; locally build first so tests always run against a production build.
+      command: isCI
+        ? `npx next start -p ${port}`
+        : `npm run build && npx next start -p ${port}`,
+      url: baseURL,
+      // GIZE_DEV_PAGES turns on dev-only pages such as /dev/components (src/lib/dev-pages.ts);
+      // NEXT_PUBLIC_* point the build at the stand-ins (same values as the CI Build job).
+      env: {
+        GIZE_DEV_PAGES: "1",
+        NEXT_PUBLIC_API_BASE_URL: `http://localhost:${FAKE_API_PORT}`,
+        NEXT_PUBLIC_SUPABASE_URL: `http://localhost:${FAKE_SUPABASE_PORT}`,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-placeholder-key",
+        NEXT_PUBLIC_SENTRY_DSN: "",
+      },
+      // Opt-in only (E2E_REUSE=1), so a stale server can't make the suite pass or fail by accident.
+      reuseExistingServer: !isCI && process.env.E2E_REUSE === "1",
+      timeout: 180_000,
+    },
+  ],
 });

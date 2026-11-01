@@ -1,8 +1,11 @@
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import messages from "../../messages/en.json";
 import { renderWithProviders } from "../../tests/utils/render";
 import HomePage from "./page";
+
+// The greeting asks the API who is signed in (tested in staff-greeting.test.tsx).
+vi.mock("./staff-greeting", () => ({ StaffGreeting: () => null }));
 
 describe("HomePage (temporary placeholder until /routes exists)", () => {
   it("shows the portal name as the only level-1 heading", () => {

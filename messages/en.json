@@ -5,7 +5,10 @@
   },
   "HomePage": {
     "title": "Gize Admin",
-    "description": "The admin portal is being set up. Routes, companies, route requests, riders and drivers will appear here."
+    "description": "The admin portal is being set up. Routes, companies, route requests, riders and drivers will appear here.",
+    "signedInAs": "Signed in as {name} ({role})",
+    "loadingStaff": "Checking your account…",
+    "signOut": "Sign out"
   },
   "Common": {
     "cancel": "Cancel",
@@ -137,5 +140,33 @@
   "Problems": {
     "network": "Can't reach the server. Check your connection and try again.",
     "unknown": "Something went wrong. Try again; if it keeps happening, contact support with the reference."
+  },
+  "Roles": {
+    "admin": "Admin",
+    "staff": "Staff"
+  },
+  "SignIn": {
+    "metaTitle": "Sign in",
+    "title": "Sign in",
+    "description": "Gize Admin, for the Gize Transport operations team.",
+    "logoAlt": "Gize Transport",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "emailRequired": "Enter your email address.",
+    "emailInvalid": "Enter a valid email address, like name@gizetransport.com.",
+    "passwordRequired": "Enter your password.",
+    "failedTitle": "Couldn't sign you in",
+    "signedOut": "You're signed out.",
+    "help": "No account yet, or forgot your password? Ask a Gize admin.",
+    "reasons": {
+      "invalid_credentials": "The email or password is wrong. Check both and try again.",
+      "not_confirmed": "This account isn't confirmed yet. Open the link in your invitation email first.",
+      "rate_limited": "Too many sign-in attempts. Wait a few minutes and try again.",
+      "network": "Can't reach the sign-in service. Check your connection and try again.",
+      "unavailable": "The sign-in service is briefly unavailable. Try again in a moment.",
+      "unknown": "Signing in didn't work. Try again; if it keeps happening, contact support.",
+      "not_staff": "This account isn't on the Gize staff list, or it has been deactivated. Ask an admin for access."
+    }
   }
 }

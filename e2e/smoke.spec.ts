@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
 import messages from "../messages/en.json";
+import { signIn } from "./support/auth";
 
 test.describe("smoke", () => {
   test("home page loads with the portal heading in English", async ({
     page,
   }) => {
-    await page.goto("/");
+    await signIn(page, "staff");
 
     await expect(page).toHaveTitle(messages.Metadata.title);
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
@@ -18,7 +19,7 @@ test.describe("smoke", () => {
   test("page fits the viewport without horizontal scrolling", async ({
     page,
   }) => {
-    await page.goto("/");
+    await signIn(page, "staff");
 
     // Compare with the configured width: mobile emulation widens window.innerWidth to fit content.
     const viewportWidth = page.viewportSize()?.width ?? 0;

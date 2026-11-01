@@ -11,7 +11,7 @@ A PR that breaks any of these is not done.
 
 ## Security
 
-- Session only in Supabase's HTTP-only cookies; access tokens never in localStorage/sessionStorage, URLs, logs or Sentry.
+- Session only in Supabase's cookies (`@supabase/ssr`). They can't be HttpOnly, because the browser sends the access token to the API (owner decision, 2026-11-01), so no script we don't write may run on the page: strict CSP, no `dangerouslySetInnerHTML`, no third-party scripts. Access tokens never in localStorage/sessionStorage, URLs, logs or Sentry.
 - Role checks in the UI are convenience only; every mutation handles 403 and 404 gracefully.
 - No `dangerouslySetInnerHTML`, no `eval`, no rendering of untrusted HTML. Links built from data use safe URL helpers.
 - Security headers: CSP (self + API + Supabase + Sentry origins only), `frame-ancestors 'none'`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`.

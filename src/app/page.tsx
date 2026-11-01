@@ -1,6 +1,8 @@
 import { useTranslations } from "next-intl";
+import { StaffGreeting } from "./staff-greeting";
 
 // Temporary placeholder: "/" redirects to /routes once the Routes screen exists (GZW-021).
+// Signed-in only (middleware.ts).
 export default function HomePage() {
   const t = useTranslations("HomePage");
 
@@ -10,6 +12,7 @@ export default function HomePage() {
         {t("title")}
       </h1>
       <p className="text-muted">{t("description")}</p>
+      <StaffGreeting />
     </main>
   );
 }

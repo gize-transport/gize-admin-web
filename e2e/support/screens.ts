@@ -1,5 +1,6 @@
 import path from "node:path";
 import messages from "../../messages/en.json";
+import type { TestUserName } from "./auth";
 
 /**
  * Every screen of the portal. Each one gets the axe check and a PR screenshot (e2e/screens.spec.ts),
@@ -10,10 +11,18 @@ export type Screen = {
   path: string;
   /** Text that is visible once client-rendered content has loaded; checks wait for it. */
   readyText?: string;
+  /** Test user to sign in as first (e2e/support/test-users.mjs); omitted for public pages. */
+  signInAs?: TestUserName;
 };
 
 export const screens: readonly Screen[] = [
-  { name: "home", path: "/" },
+  { name: "sign-in", path: "/sign-in" },
+  {
+    name: "home",
+    path: "/",
+    signInAs: "staff",
+    readyText: "Signed in as Selam Staff (Staff)",
+  },
   // Dev-only gallery of shared components (needs GIZE_DEV_PAGES=1 in production builds).
   {
     name: "components",

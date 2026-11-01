@@ -60,7 +60,7 @@ Still open (not blocking; ask before the ticket starts):
 ## W1 – Sign-in and shell
 
 ### GZW-010 · Sign in and session
-Status: todo · Needs backend: GZ-010, GZ-011 (in `api-v1.2.0`)
+Status: done · Needs backend: GZ-010, GZ-011 (in `api-v1.2.0`)
 - Supabase email/password sign-in, `@supabase/ssr` cookies, middleware protection, sign-out; calls `GET /v1/staff/me` (`staff_me`) – 401 goes to sign-in, 403 signs out with a clear message.
 - From GZW-004: a 401 anywhere already sends the user to `/sign-in?next=<path>` (`QueryProvider`). After sign-in, follow `next` only if it starts with a single `/` (not `//` or `/\`), else go to `/`. Clear the TanStack Query cache on sign-in and sign-out so one person's data never shows for the next.
 

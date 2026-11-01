@@ -9,11 +9,11 @@ import {
   testApiBaseUrl,
   type Schemas,
 } from "../../../tests/msw/server";
-import { useMswServer } from "../../../tests/msw/use-msw-server";
+import { startMswServer } from "../../../tests/msw/start-msw-server";
 import { createApiClient, unwrap } from "./client";
 import { ApiError } from "./problem";
 
-useMswServer();
+startMswServer();
 
 const area: Schemas["AreaRead"] = {
   id: "0b6a3a52-7c1a-4f5e-9a39-3d1c1c8c1f10",
