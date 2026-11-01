@@ -1,8 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
+import { signIn } from "./support/auth";
 import { expectNoSeriousA11yViolations } from "./support/axe";
 import { screenshotPath, screens, type Screen } from "./support/screens";
 
 async function openScreen(page: Page, screen: Screen) {
+  if (screen.signInAs) await signIn(page, screen.signInAs);
   const response = await page.goto(screen.path);
   expect(response?.ok()).toBe(true);
   if (screen.readyText) {

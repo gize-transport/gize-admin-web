@@ -9,6 +9,8 @@ export function createNavigationState() {
     pathname: "/",
     search: "",
     push: vi.fn<(href: string, options?: { scroll?: boolean }) => void>(),
+    replace: vi.fn<(href: string, options?: { scroll?: boolean }) => void>(),
+    refresh: vi.fn<() => void>(),
   };
 }
 
@@ -30,10 +32,10 @@ export function mockNavigation(nav: NavigationState) {
     },
     useRouter: () => ({
       push: nav.push,
-      replace: vi.fn(),
+      replace: nav.replace,
       back: vi.fn(),
       forward: vi.fn(),
-      refresh: vi.fn(),
+      refresh: nav.refresh,
       prefetch: vi.fn(),
     }),
   };

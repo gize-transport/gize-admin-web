@@ -42,6 +42,11 @@ A daily workflow (`.github/workflows/contract-update.yml`) opens an issue "Contr
 - Unit tests mock the API with MSW (`tests/msw/`): `apiUrl("/v1/areas")` only accepts paths from the contract, and requests without a handler fail.
 - Error reporting: Sentry runs in the browser only when `NEXT_PUBLIC_SENTRY_DSN` is set. It collects no user, cookie, header, body or query data (`src/lib/sentry.ts`).
 
+## Sign-in and e2e stand-ins
+
+- Every page except `/sign-in` (and the dev gallery) needs a session: `src/middleware.ts` checks it with Supabase and sends signed-out visitors to `/sign-in?next=…`. After the password, the portal asks the API who this is (`staff_me`). Someone who isn't active staff is signed out again with the reason.
+- `npm run e2e` starts local stand-ins for Supabase Auth and the API (`e2e/support/fake-services.mjs`), and the e2e build points `NEXT_PUBLIC_*` at them. Test accounts per role are in `e2e/support/test-users.mjs`; they exist only in the stand-ins. `signIn(page, "staff")` (`e2e/support/auth.ts`) signs a test in, and screens set `signInAs` in `e2e/support/screens.ts`.
+
 ## Shared components
 
 `/dev/components` shows every shared component (tokens, type, buttons, DataTable, dialogs…). It exists under `npm run dev` and in production builds made with the server-only build flag `GIZE_DEV_PAGES=1`, which only the e2e builds set (Playwright locally, the Build job in CI). Deployed builds don't set it, so the page is a 404 there.

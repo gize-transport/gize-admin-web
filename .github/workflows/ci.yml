@@ -73,10 +73,11 @@ jobs:
           # This build is only used by the E2E job, which checks the dev-only /dev/components page.
           # Deploy builds (GZW-006) never set it, so that page is a 404 there.
           GIZE_DEV_PAGES: "1"
-          # Public values are baked into the build and validated (src/lib/env.ts). These are fake
-          # local ones: e2e talks to no API or Supabase yet. Keep in step with playwright.config.ts.
-          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
-          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          # Public values are baked into the build and validated (src/lib/public-env.ts). They point
+          # at the e2e stand-ins (e2e/support/fake-services.mjs, ports in test-users.mjs); keep in
+          # step with playwright.config.ts.
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8199
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54399
           NEXT_PUBLIC_SUPABASE_ANON_KEY: e2e-placeholder-key
           NEXT_PUBLIC_SENTRY_DSN: ""
       - name: Upload build for e2e
