@@ -21,6 +21,21 @@ for (const screen of screens) {
       await expectNoSeriousA11yViolations(page);
     });
 
+    test("loads without page or console errors", async ({ page }) => {
+      // Catches code that runs in the browser before the page is interactive
+      // (instrumentation-client.ts, the env check, providers).
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      page.on("console", (message) => {
+        if (message.type() === "error") errors.push(message.text());
+      });
+
+      await openScreen(page, screen);
+      await page.waitForLoadState("networkidle");
+
+      expect(errors).toEqual([]);
+    });
+
     test("screenshot @screenshot", async ({ page }) => {
       await openScreen(page, screen);
 

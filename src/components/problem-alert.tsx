@@ -13,7 +13,7 @@ type ProblemAlertProps = {
   /** `request_id` from the problem, shown so staff can quote it to support. */
   requestId?: string | null;
   /** From `Retry-After` on a 429: retry stays disabled until the countdown ends. */
-  retryAfterSeconds?: number;
+  retryAfterSeconds?: number | null;
   onRetry?: () => void;
 };
 
@@ -62,7 +62,7 @@ export function ProblemAlert({
     }
   }
 
-  const rateLimited = retryAfterSeconds !== undefined;
+  const rateLimited = retryAfterSeconds != null;
   const waiting = secondsLeft > 0;
 
   return (
