@@ -17,7 +17,7 @@ Browser ──▶ Next.js admin (Cloudflare Workers) ──HTTPS, Bearer token�
 src/
   app/
     (auth)/sign-in/page.tsx
-    (portal)/layout.tsx            # sidebar + header shell, requires session
+    (portal)/layout.tsx            # portal shell: sidebar (drawer on phones) with nav and account; session required
     (portal)/page.tsx              # overview
     (portal)/routes/...            # list, [id] detail (status actions, launch progress, areas served, prices, add a van)
     (portal)/route-requests/...    # list, [id] detail, record a request

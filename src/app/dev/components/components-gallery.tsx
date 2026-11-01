@@ -12,6 +12,7 @@ import {
   useListParams,
 } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
+import { NoPermission } from "@/components/no-permission";
 import { ProblemAlert } from "@/components/problem-alert";
 import { StatusPill, type StatusTone } from "@/components/status-pill";
 import { showSuccessToast } from "@/components/toast";
@@ -120,6 +121,10 @@ export function ComponentsGallery() {
             action={<Button variant="secondary">{t("emptyAction")}</Button>}
           />
         </div>
+      </Section>
+
+      <Section title={t("noPermission")}>
+        <NoPermission />
       </Section>
 
       <Section title={t("problemAlert")}>

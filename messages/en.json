@@ -3,13 +3,6 @@
     "title": "Gize Admin",
     "description": "Internal portal for the Gize Transport operations team."
   },
-  "HomePage": {
-    "title": "Gize Admin",
-    "description": "The admin portal is being set up. Routes, companies, route requests, riders and drivers will appear here.",
-    "signedInAs": "Signed in as {name} ({role})",
-    "loadingStaff": "Checking your account…",
-    "signOut": "Sign out"
-  },
   "Common": {
     "cancel": "Cancel",
     "notifications": "Notifications"
@@ -86,7 +79,8 @@
     "selectedRoute": "Selected: {route}",
     "noRouteSelected": "No route selected. Click a row to open it.",
     "loadingTable": "Loading state",
-    "emptyTable": "Empty state"
+    "emptyTable": "Empty state",
+    "noPermission": "No permission (API 403)"
   },
   "Errors": {
     "BAD_REQUEST": "The request couldn't be read. Reload the page and try again.",
@@ -168,5 +162,46 @@
       "unknown": "Signing in didn't work. Try again; if it keeps happening, contact support.",
       "not_staff": "This account isn't on the Gize staff list, or it has been deactivated. Ask an admin for access."
     }
+  },
+  "Shell": {
+    "brand": "Gize",
+    "brandTag": "Admin",
+    "skipToContent": "Skip to content",
+    "navLabel": "Main",
+    "groupPlaces": "Places",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "menuTitle": "Menu",
+    "loadingAccount": "Checking your account…",
+    "signOut": "Sign out",
+    "nav": {
+      "overview": "Overview",
+      "routes": "Routes",
+      "routeRequests": "Route requests",
+      "demand": "Demand",
+      "companies": "Companies",
+      "riders": "Riders",
+      "drivers": "Drivers",
+      "areas": "Areas",
+      "corridors": "Corridors",
+      "staff": "Staff",
+      "auditLog": "Audit log"
+    }
+  },
+  "Overview": {
+    "title": "Overview",
+    "description": "The admin portal is being set up. Routes, companies, route requests, riders and drivers will appear here."
+  },
+  "NotFound": {
+    "metaTitle": "Page not found",
+    "title": "Page not found",
+    "description": "This page doesn't exist, or it has moved. Check the address, or go back to the overview.",
+    "backHome": "Go to Overview",
+    "code": "Error 404"
+  },
+  "NoPermission": {
+    "title": "No permission",
+    "description": "Your role can't open this. If you need it for your work, ask a Gize admin.",
+    "backHome": "Go to Overview"
   }
 }

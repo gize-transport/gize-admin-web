@@ -21,7 +21,7 @@ A PR that breaks any of these is not done.
 
 ## UX states (every data screen)
 
-- Loading (skeletons), empty (with next action), error (ProblemAlert with request ID and retry), forbidden (403 page), not found (404), rate limited (429 with countdown), offline/slow network message.
+- Loading (skeletons), empty (with next action), error (ProblemAlert with request ID and retry), forbidden (`NoPermission` in place of the content on a 403), not found (404), rate limited (429 with countdown), offline/slow network message.
 - Mutations: button disabled + spinner while pending; `Idempotency-Key` generated per user action and reused on manual retry; success toast; affected queries invalidated.
 - Destructive or bulk actions use ConfirmDialog with plain-language consequences.
 
