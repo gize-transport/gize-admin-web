@@ -26,7 +26,21 @@ const publicEnvSchema = z.object({
     value.replace(/\/+$/, ""),
   ),
   NEXT_PUBLIC_SUPABASE_URL: serviceUrl,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().trim().min(1, "is required"),
+  // Supabase's publishable key (sb_publishable_…), which replaces the legacy anon key. A secret
+  // key here would end up in browser code, so it is refused by name.
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z
+    .string()
+    .trim()
+    .min(1, "is required")
+    .refine(
+      (value) => !value.startsWith("sb_secret_"),
+      "this is a secret key: use the project's publishable key (sb_publishable_…)",
+    )
+    .refine(
+      (value) =>
+        value.startsWith("sb_publishable_") || value.startsWith("sb_secret_"),
+      "must start with sb_publishable_ (Supabase dashboard → Project Settings → API Keys)",
+    ),
   // Error reporting is off while this is empty.
   NEXT_PUBLIC_SENTRY_DSN: z.preprocess(
     (value) => (value === "" ? undefined : value),
@@ -37,7 +51,7 @@ const publicEnvSchema = z.object({
 export type PublicEnv = {
   apiBaseUrl: string;
   supabaseUrl: string;
-  supabaseAnonKey: string;
+  supabasePublishableKey: string;
   sentryDsn: string | undefined;
 };
 
@@ -59,7 +73,7 @@ export function parsePublicEnv(
   return {
     apiBaseUrl: result.data.NEXT_PUBLIC_API_BASE_URL,
     supabaseUrl: result.data.NEXT_PUBLIC_SUPABASE_URL,
-    supabaseAnonKey: result.data.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    supabasePublishableKey: result.data.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     sentryDsn: result.data.NEXT_PUBLIC_SENTRY_DSN,
   };
 }

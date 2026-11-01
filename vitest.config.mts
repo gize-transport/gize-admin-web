@@ -18,7 +18,7 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_API_BASE_URL: "http://api.test",
       NEXT_PUBLIC_SUPABASE_URL: "http://supabase.test",
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-publishable-key",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
       NEXT_PUBLIC_SENTRY_DSN: "",
     },
   },

@@ -78,12 +78,12 @@ scripts/contract-sync.mjs
 
 ### Running against the local API
 
-For manual work on screens with real data. Start the API as in the backend README ("Running the API for the frontend"), after its first admin and sample data (`python -m gize_api.cli.sample_data`: areas, corridors, companies, routes in every status reachable without riders, route requests). Then `npm run dev` with `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` and the same Supabase project's URL and publishable (anon) key in `.env.local`.
+For manual work on screens with real data. Start the API as in the backend README ("Running the API for the frontend"), after its first admin and sample data (`python -m gize_api.cli.sample_data`: areas, corridors, companies, routes in every status reachable without riders, route requests). Then `npm run dev` with `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` and the same Supabase project's URL and publishable key (`sb_publishable_…`) in `.env.local`.
 
 - The API's `CORS_ALLOWED_ORIGINS` lists `http://localhost:3000` only, so the dev server must run on port 3000. Playwright's server (port 3100) and unit tests never call the local API: they use MSW handlers typed from the generated schema (CI has no backend).
 - Sign in with your own staff account (made admin with the backend's first-admin command). A signed-in user who isn't staff gets 403.
 
-Public env vars only (`NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SENTRY_DSN`), validated in `lib/env.ts`. No server secrets are needed by this app; if one ever is, stop and ask.
+Public env vars only (`NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase's publishable key; the legacy anon key is deprecated, and a secret key is refused), `NEXT_PUBLIC_SENTRY_DSN`), validated in `lib/env.ts`. No server secrets are needed by this app; if one ever is, stop and ask.
 
 ## Deployment
 
