@@ -46,7 +46,14 @@ export default defineConfig({
       : `npm run build && npx next start -p ${port}`,
     url: baseURL,
     // Turns on dev-only pages such as /dev/components in this production build (src/lib/dev-pages.ts).
-    env: { GIZE_DEV_PAGES: "1" },
+    // Fake public values (same as the CI Build job): e2e talks to no API or Supabase yet.
+    env: {
+      GIZE_DEV_PAGES: "1",
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000",
+      NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-placeholder-key",
+      NEXT_PUBLIC_SENTRY_DSN: "",
+    },
     // Opt-in only (E2E_REUSE=1), so a stale server can't make the suite pass or fail by accident.
     reuseExistingServer: !isCI && process.env.E2E_REUSE === "1",
     timeout: 180_000,

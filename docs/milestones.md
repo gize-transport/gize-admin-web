@@ -23,7 +23,7 @@ Status: done · Needs backend: GZ-015 (first tag `api-v1.0.0`; latest `api-v2.5.
 - Acceptance: editing `schema.d.ts` by hand fails CI.
 
 ### GZW-004 · API client and error handling
-Status: todo · Needs backend: GZ-015 (latest `api-v2.5.0`)
+Status: done · Needs backend: GZ-015 (latest `api-v2.5.0`)
 - `lib/api/client.ts` (openapi-fetch, base URL from env, bearer token from Supabase session, `Idempotency-Key` helper, request ID capture), problem+json parsing (`Problem`, and `ValidationProblem` with `errors[].field` JSON pointers), `errors.ts` exhaustive map over the `ErrorCode` enum, TanStack Query provider with retry rules; 401 → sign-in, 429 and 503 → retry after `Retry-After`.
 - Time helpers: timestamps (ISO UTC) formatted in Africa/Addis_Ababa; schedule times (`"HH:MM"`) passed through unchanged.
 - `lib/env.ts` zod-validated env.
@@ -62,6 +62,7 @@ Still open (not blocking; ask before the ticket starts):
 ### GZW-010 · Sign in and session
 Status: todo · Needs backend: GZ-010, GZ-011 (in `api-v1.2.0`)
 - Supabase email/password sign-in, `@supabase/ssr` cookies, middleware protection, sign-out; calls `GET /v1/staff/me` (`staff_me`) – 401 goes to sign-in, 403 signs out with a clear message.
+- From GZW-004: a 401 anywhere already sends the user to `/sign-in?next=<path>` (`QueryProvider`). After sign-in, follow `next` only if it starts with a single `/` (not `//` or `/\`), else go to `/`. Clear the TanStack Query cache on sign-in and sign-out so one person's data never shows for the next.
 
 ### GZW-011 · Portal shell and role-aware navigation
 Status: todo · Needs backend: GZ-011 (in `api-v1.2.0`)
