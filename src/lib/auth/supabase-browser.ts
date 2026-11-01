@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 
 /** The browser's Supabase client (one per page: @supabase/ssr reuses it). */
 export function getSupabaseBrowserClient() {
-  return createBrowserClient(env.supabaseUrl, env.supabaseAnonKey);
+  return createBrowserClient(env.supabaseUrl, env.supabasePublishableKey);
 }
 
 /**

@@ -62,7 +62,7 @@ export default defineConfig({
         GIZE_DEV_PAGES: "1",
         NEXT_PUBLIC_API_BASE_URL: `http://localhost:${FAKE_API_PORT}`,
         NEXT_PUBLIC_SUPABASE_URL: `http://localhost:${FAKE_SUPABASE_PORT}`,
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-placeholder-key",
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
         NEXT_PUBLIC_SENTRY_DSN: "",
       },
       // Opt-in only (E2E_REUSE=1), so a stale server can't make the suite pass or fail by accident.

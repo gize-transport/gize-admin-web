@@ -11,24 +11,28 @@ import { env } from "@/lib/env";
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
-    cookies: {
-      getAll: () => request.cookies.getAll(),
-      setAll(cookiesToSet, headers) {
-        for (const { name, value } of cookiesToSet) {
-          request.cookies.set(name, value);
-        }
-        response = NextResponse.next({ request });
-        for (const { name, value, options } of cookiesToSet) {
-          response.cookies.set(name, value, options);
-        }
-        // No CDN may cache a response that sets someone's session.
-        for (const [key, value] of Object.entries(headers)) {
-          response.headers.set(key, value);
-        }
+  const supabase = createServerClient(
+    env.supabaseUrl,
+    env.supabasePublishableKey,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll(cookiesToSet, headers) {
+          for (const { name, value } of cookiesToSet) {
+            request.cookies.set(name, value);
+          }
+          response = NextResponse.next({ request });
+          for (const { name, value, options } of cookiesToSet) {
+            response.cookies.set(name, value, options);
+          }
+          // No CDN may cache a response that sets someone's session.
+          for (const [key, value] of Object.entries(headers)) {
+            response.headers.set(key, value);
+          }
+        },
       },
     },
-  });
+  );
 
   // getClaims refreshes an expired session, then verifies the access token: locally with the
   // project's asymmetric signing keys, or by asking Supabase Auth for legacy symmetric keys.

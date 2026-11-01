@@ -4,7 +4,7 @@ import { parsePublicEnv } from "./public-env";
 const valid = {
   NEXT_PUBLIC_API_BASE_URL: "https://api.gizetransport.com",
   NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_abc",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_abc",
   NEXT_PUBLIC_SENTRY_DSN: "",
 };
 
@@ -13,7 +13,7 @@ describe("parsePublicEnv", () => {
     expect(parsePublicEnv(valid)).toEqual({
       apiBaseUrl: "https://api.gizetransport.com",
       supabaseUrl: "https://project.supabase.co",
-      supabaseAnonKey: "sb_publishable_abc",
+      supabasePublishableKey: "sb_publishable_abc",
       sentryDsn: undefined,
     });
   });
@@ -58,7 +58,7 @@ describe("parsePublicEnv", () => {
     try {
       parsePublicEnv({
         NEXT_PUBLIC_API_BASE_URL: "not a url",
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: "",
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "",
       });
     } catch (error) {
       message = (error as Error).message;
@@ -66,9 +66,37 @@ describe("parsePublicEnv", () => {
 
     expect(message).toMatch(/NEXT_PUBLIC_API_BASE_URL/);
     expect(message).toMatch(/NEXT_PUBLIC_SUPABASE_URL/);
-    expect(message).toMatch(/NEXT_PUBLIC_SUPABASE_ANON_KEY/);
+    expect(message).toMatch(/NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
     expect(message).not.toMatch(/not a url/);
     expect(message).toMatch(/\.env\.example/);
+  });
+
+  it("refuses a secret key, which would be readable in the browser", () => {
+    let message = "";
+    try {
+      parsePublicEnv({
+        ...valid,
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_secret_abc123",
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+
+    expect(message).toMatch(
+      /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: this is a secret key/,
+    );
+    expect(message).not.toMatch(/sb_secret_abc123/);
+  });
+
+  it("refuses a legacy anon key (deprecated by Supabase)", () => {
+    expect(() =>
+      parsePublicEnv({
+        ...valid,
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "aaaa.bbbb.cccc",
+      }),
+    ).toThrow(
+      /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: must start with sb_publishable_/,
+    );
   });
 
   it("refuses a Sentry DSN that isn't a URL", () => {
