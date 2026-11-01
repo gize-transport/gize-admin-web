@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import messages from "../messages/en.json";
-import { signIn } from "./support/auth";
+import { expectSignedInAs, signIn, signOut } from "./support/auth";
 import { FAKE_SUPABASE_PORT, testUsers } from "./support/test-users.mjs";
 
 const t = messages.SignIn;
@@ -32,10 +32,8 @@ test.describe("sign-in", () => {
   test("staff sign in, see who they are, and sign out", async ({ page }) => {
     await signIn(page, "staff");
 
-    await expect(
-      page.getByText("Signed in as Selam Staff (Staff)"),
-    ).toBeVisible();
-    await page.getByRole("button", { name: messages.HomePage.signOut }).click();
+    await expectSignedInAs(page, "staff");
+    await signOut(page);
 
     await expect(page).toHaveURL(/\/sign-in\?reason=signed_out$/);
     await expect(page.getByRole("status")).toHaveText(t.signedOut);
@@ -47,9 +45,7 @@ test.describe("sign-in", () => {
   test("an admin sees their role", async ({ page }) => {
     await signIn(page, "admin");
 
-    await expect(
-      page.getByText("Signed in as Abebe Admin (Admin)"),
-    ).toBeVisible();
+    await expectSignedInAs(page, "admin");
   });
 
   test("a wrong password is explained and nobody is signed in", async ({
@@ -98,9 +94,7 @@ test.describe("sign-in", () => {
     await page.keyboard.type(testUsers.staff.password);
     await page.keyboard.press("Enter");
 
-    await expect(
-      page.getByText("Signed in as Selam Staff (Staff)"),
-    ).toBeVisible();
+    await expectSignedInAs(page, "staff");
   });
 
   test("a signed-in visit with a next page on another site stays on this site", async ({
@@ -147,8 +141,6 @@ test.describe("sign-in", () => {
     await expect(page).toHaveURL(/\/$/);
     expect(await response?.headerValue("set-cookie")).toContain("-auth-token=");
     expect(await refreshCount(request)).toBeGreaterThan(before);
-    await expect(
-      page.getByText("Signed in as Selam Staff (Staff)"),
-    ).toBeVisible();
+    await expectSignedInAs(page, "staff");
   });
 });

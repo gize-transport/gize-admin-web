@@ -6,7 +6,7 @@ import { screenshotPath, screens, type Screen } from "./support/screens";
 async function openScreen(page: Page, screen: Screen) {
   if (screen.signInAs) await signIn(page, screen.signInAs);
   const response = await page.goto(screen.path);
-  expect(response?.ok()).toBe(true);
+  expect(response?.status()).toBe(screen.status ?? 200);
   if (screen.readyText) {
     await expect(page.getByText(screen.readyText)).toBeVisible();
   }
@@ -29,7 +29,14 @@ for (const screen of screens) {
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       page.on("console", (message) => {
-        if (message.type() === "error") errors.push(message.text());
+        // Chrome logs the 404 page's own response; that one is expected there.
+        const expected =
+          screen.status === 404 &&
+          message.text().includes("status of 404 (Not Found)") &&
+          message.location().url.endsWith(screen.path);
+        if (message.type() === "error" && !expected) {
+          errors.push(message.text());
+        }
       });
 
       await openScreen(page, screen);

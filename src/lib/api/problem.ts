@@ -145,3 +145,8 @@ export class ApiError extends Error {
     );
   }
 }
+
+/** The API answered 403: this role (or this person) may not do it. */
+export function isForbidden(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403;
+}

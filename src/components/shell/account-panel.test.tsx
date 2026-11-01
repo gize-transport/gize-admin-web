@@ -2,22 +2,22 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import messages from "../../messages/en.json";
+import messages from "../../../messages/en.json";
 import {
   apiUrl,
   problem,
   problemHeaders,
   server,
   type Schemas,
-} from "../../tests/msw/server";
-import { startMswServer } from "../../tests/msw/start-msw-server";
-import { renderWithProviders } from "../../tests/utils/render";
-import { StaffGreeting } from "./staff-greeting";
+} from "../../../tests/msw/server";
+import { startMswServer } from "../../../tests/msw/start-msw-server";
+import { renderWithProviders } from "../../../tests/utils/render";
+import { AccountPanel } from "./account-panel";
 
 const nav = vi.hoisted(() => ({ state: undefined as unknown }));
 vi.mock("next/navigation", async () => {
   const { createNavigationState, mockNavigation } =
-    await import("../../tests/utils/navigation");
+    await import("../../../tests/utils/navigation");
   const state = createNavigationState();
   nav.state = state;
   return mockNavigation(state);
@@ -29,7 +29,7 @@ vi.mock("@/lib/auth/supabase-browser", () => ({
 }));
 
 type Nav = ReturnType<
-  typeof import("../../tests/utils/navigation").createNavigationState
+  typeof import("../../../tests/utils/navigation").createNavigationState
 >;
 const navigation = () => nav.state as Nav;
 
@@ -47,21 +47,19 @@ beforeEach(() => {
   navigation().replace.mockClear();
 });
 
-describe("StaffGreeting", () => {
+describe("AccountPanel", () => {
   it("shows who is signed in with their role", async () => {
     server.use(
       http.get(apiUrl("/v1/staff/me"), () =>
         HttpResponse.json<Schemas["StaffMe"]>(staff),
       ),
     );
-    renderWithProviders(<StaffGreeting />);
+    renderWithProviders(<AccountPanel />);
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      messages.HomePage.loadingStaff,
+      messages.Shell.loadingAccount,
     );
-    expect(
-      await screen.findByText("Signed in as Abebe Admin (Admin)"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Abebe Admin")).toBeInTheDocument();
   });
 
   it("signs out, clears the cache and opens sign-in", async () => {
@@ -70,11 +68,11 @@ describe("StaffGreeting", () => {
         HttpResponse.json<Schemas["StaffMe"]>(staff),
       ),
     );
-    const { queryClient } = renderWithProviders(<StaffGreeting />);
-    await screen.findByText("Signed in as Abebe Admin (Admin)");
+    const { queryClient } = renderWithProviders(<AccountPanel />);
+    await screen.findByText("Abebe Admin");
 
     await userEvent.click(
-      screen.getByRole("button", { name: messages.HomePage.signOut }),
+      screen.getByRole("button", { name: messages.Shell.signOut }),
     );
 
     await waitFor(() =>
@@ -93,11 +91,11 @@ describe("StaffGreeting", () => {
         HttpResponse.json<Schemas["StaffMe"]>(staff),
       ),
     );
-    renderWithProviders(<StaffGreeting />);
-    await screen.findByText("Signed in as Abebe Admin (Admin)");
+    renderWithProviders(<AccountPanel />);
+    await screen.findByText("Abebe Admin");
 
     await userEvent.click(
-      screen.getByRole("button", { name: messages.HomePage.signOut }),
+      screen.getByRole("button", { name: messages.Shell.signOut }),
     );
 
     await waitFor(() =>
@@ -114,10 +112,10 @@ describe("StaffGreeting", () => {
         HttpResponse.json<Schemas["StaffMe"]>(staff),
       ),
     );
-    renderWithProviders(<StaffGreeting />);
-    await screen.findByText("Signed in as Abebe Admin (Admin)");
+    renderWithProviders(<AccountPanel />);
+    await screen.findByText("Abebe Admin");
     const button = screen.getByRole("button", {
-      name: messages.HomePage.signOut,
+      name: messages.Shell.signOut,
     });
 
     await userEvent.click(button);
@@ -127,26 +125,7 @@ describe("StaffGreeting", () => {
     expect(auth.signOut).toHaveBeenCalledTimes(1);
   });
 
-  it("signs out someone the API says isn't staff", async () => {
-    server.use(
-      http.get(apiUrl("/v1/staff/me"), () =>
-        HttpResponse.json(problem(403, "FORBIDDEN"), {
-          status: 403,
-          headers: problemHeaders,
-        }),
-      ),
-    );
-    renderWithProviders(<StaffGreeting />);
-
-    await waitFor(() =>
-      expect(navigation().replace).toHaveBeenCalledWith(
-        "/sign-in?reason=not_staff",
-      ),
-    );
-    expect(auth.signOut).toHaveBeenCalled();
-  });
-
-  it("shows other problems with their reference and a retry", async () => {
+  it("shows an account problem with its reference, a retry and Sign out", async () => {
     server.use(
       http.get(apiUrl("/v1/staff/me"), () =>
         HttpResponse.json(problem(500, "INTERNAL_ERROR", "req-500"), {
@@ -155,7 +134,7 @@ describe("StaffGreeting", () => {
         }),
       ),
     );
-    renderWithProviders(<StaffGreeting />);
+    renderWithProviders(<AccountPanel />);
 
     expect(
       await screen.findByText(messages.Errors.INTERNAL_ERROR),
@@ -164,9 +143,27 @@ describe("StaffGreeting", () => {
     expect(
       screen.getByRole("button", { name: messages.ProblemAlert.retry }),
     ).toBeInTheDocument();
-    // Whatever went wrong, the person can still sign out.
     expect(
-      screen.getByRole("button", { name: messages.HomePage.signOut }),
+      screen.getByRole("button", { name: messages.Shell.signOut }),
     ).toBeInTheDocument();
+  });
+
+  it("waits for Retry-After before a retry after a 429", async () => {
+    server.use(
+      http.get(apiUrl("/v1/staff/me"), () =>
+        HttpResponse.json(problem(429, "RATE_LIMITED"), {
+          status: 429,
+          headers: { ...problemHeaders, "Retry-After": "30" },
+        }),
+      ),
+    );
+    renderWithProviders(<AccountPanel />);
+
+    expect(
+      await screen.findByText(messages.Errors.RATE_LIMITED),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: messages.ProblemAlert.retry }),
+    ).toHaveAttribute("aria-disabled", "true");
   });
 });

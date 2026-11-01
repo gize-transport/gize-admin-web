@@ -65,8 +65,8 @@ Status: done · Needs backend: GZ-010, GZ-011 (in `api-v1.2.0`)
 - From GZW-004: a 401 anywhere already sends the user to `/sign-in?next=<path>` (`QueryProvider`). After sign-in, follow `next` only if it starts with a single `/` (not `//` or `/\`), else go to `/`. Clear the TanStack Query cache on sign-in and sign-out so one person's data never shows for the next.
 
 ### GZW-011 · Portal shell and role-aware navigation
-Status: todo · Needs backend: GZ-011 (in `api-v1.2.0`)
-- Sidebar (MVP items only: Overview, Routes, Route requests, Demand, Companies, Riders, Drivers; Areas and Corridors under a "Places" group; Staff and Audit log for Admin only), header with user and role, responsive drawer; 403 and 404 pages.
+Status: done · Needs backend: GZ-011 (in `api-v1.2.0`)
+- Sidebar (MVP items only: Overview, Routes, Route requests, Demand, Companies, Riders, Drivers; Areas and Corridors under a "Places" group; Staff and Audit log for Admin only), signed-in name, role and Sign out at the foot of the sidebar (as in `Admin.png`), drawer under 1024 px; `NoPermission` for a 403 and a 404 page.
 
 ---
 

@@ -11,9 +11,9 @@ test.describe("smoke", () => {
     await expect(page).toHaveTitle(messages.Metadata.title);
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      messages.HomePage.title,
+      messages.Overview.title,
     );
-    await expect(page.getByText(messages.HomePage.description)).toBeVisible();
+    await expect(page.getByText(messages.Overview.description)).toBeVisible();
   });
 
   test("page fits the viewport without horizontal scrolling", async ({

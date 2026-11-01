@@ -40,7 +40,11 @@ Contrast ≥ 4.5:1 for text. Never white text on `sky` or `sun`. Focus ring: 2 p
 
 ## Layout and components
 
-- Shell: left sidebar (navy, 240–260 px; collapses to a drawer under 1024 px), page header with title, one-line summary and primary action on the right.
+- Shell: left sidebar (navy, 240–260 px; collapses to a drawer under 1024 px), page header with title, one-line summary and primary action on the right. Decided in GZW-011:
+  - Sidebar: logo with "Gize ADMIN", the navigation (`src/components/shell/nav-items.ts`), and at its foot the signed-in name, role and Sign out (as in `Admin.png`; no top header). Below 1024 px a navy top bar holds the menu button and logo; the menu is the same sidebar as a drawer (focus trapped, Escape closes, focus returns to the button).
+  - Only screens that exist appear in the navigation (`available` per item; each screen ticket turns its item on). Admin-only items are hidden from Staff; pages still handle a 403 with `NoPermission`.
+  - Current page: white text on `white/10` with a `blue` bar, and `aria-current="page"`. On navy the focus ring is white (royal on navy is under 3:1).
+  - A "Skip to content" link is the first stop for keyboard users. Each page renders inside the shell's `<main>`, so pages start with `PageHeader` and don't add their own `<main>`.
 - **DataTable**: sticky header, row hover, row click opens detail (side panel on ≥1280 px, full page otherwise), cursor pagination, filter chips synced to URL, empty state with next action, skeleton loading. Decided in GZW-005:
   - The table scrolls inside its own box: from 768 px the box is at most ~70% of the screen height, with sticky header and first column. On phones the box has no height limit (the page scrolls) and the first column stays pinned while the table scrolls sideways. The box is a labelled, focusable region.
   - Each row's first column holds a `RowAction` (a real button or link). Clicking anywhere else on the row activates it; clicks on other controls or while selecting text don't.
