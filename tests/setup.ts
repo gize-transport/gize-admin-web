@@ -9,6 +9,12 @@ globalThis.ResizeObserver ??= class {
   disconnect() {}
 };
 
+// jsdom doesn't scroll either; cmdk scrolls the active option into view. (Node-environment
+// test files have no DOM at all.)
+if (typeof Element !== "undefined") {
+  Element.prototype.scrollIntoView ??= function scrollIntoView() {};
+}
+
 afterEach(() => {
   cleanup();
 });

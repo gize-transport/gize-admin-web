@@ -28,16 +28,25 @@ export function useListParams() {
     [pathname, searchParams],
   );
 
+  /**
+   * Sets or clears a filter. A new filter always starts again from the first page. `replace`
+   * changes the current history entry instead of adding one (a search box as staff type).
+   */
+  const setFilter = useCallback(
+    (key: string, value: string | null, options?: { replace?: boolean }) => {
+      const href = hrefWith({ [key]: value, [CURSOR_PARAM]: null });
+      if (options?.replace) router.replace(href, { scroll: false });
+      else router.push(href, { scroll: false });
+    },
+    [router, hrefWith],
+  );
+
   return {
     cursor: searchParams.get(CURSOR_PARAM),
     get: (key: string) => searchParams.get(key),
     nextPageHref: (nextCursor: string) =>
       hrefWith({ [CURSOR_PARAM]: nextCursor }),
     firstPageHref: () => hrefWith({ [CURSOR_PARAM]: null }),
-    /** Sets or clears a filter. A new filter always starts again from the first page. */
-    setFilter: (key: string, value: string | null) =>
-      router.push(hrefWith({ [key]: value, [CURSOR_PARAM]: null }), {
-        scroll: false,
-      }),
+    setFilter,
   };
 }

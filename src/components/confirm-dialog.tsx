@@ -24,6 +24,8 @@ type ConfirmDialogProps = {
   tone?: "default" | "destructive";
   /** The action is running: the dialog can't be closed and both buttons are disabled. */
   pending?: boolean;
+  /** The confirm button can't be used yet (e.g. until a 429's Retry-After has passed). */
+  confirmDisabled?: boolean;
   /** Start the action. The caller closes the dialog when it succeeds, so a failure can show inside it. */
   onConfirm: () => void;
   /** Extra content above the buttons, e.g. a ProblemAlert after a failed attempt. */
@@ -39,6 +41,7 @@ export function ConfirmDialog({
   cancelLabel,
   tone = "default",
   pending = false,
+  confirmDisabled = false,
   onConfirm,
   children,
 }: ConfirmDialogProps) {
@@ -63,10 +66,12 @@ export function ConfirmDialog({
               : null;
         }}
         onCloseAutoFocus={(event) => {
-          if (returnFocusTo.current?.isConnected) {
-            event.preventDefault();
-            returnFocusTo.current.focus();
-          }
+          event.preventDefault();
+          // The opener can be gone (e.g. the row that was deleted): then the page content (the
+          // shell's <main id="content">, as the skip link), so focus doesn't drop to the top.
+          // Next may keep earlier pages' hidden <main> in the document, so not just "main".
+          if (returnFocusTo.current?.isConnected) returnFocusTo.current.focus();
+          else document.getElementById("content")?.focus();
         }}
       >
         <AlertDialogHeader>
@@ -84,6 +89,7 @@ export function ConfirmDialog({
           <Button
             variant={tone === "destructive" ? "destructive" : "primary"}
             pending={pending}
+            aria-disabled={confirmDisabled || undefined}
             onClick={onConfirm}
           >
             {confirmLabel}

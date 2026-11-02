@@ -72,7 +72,7 @@ Status: done · Needs backend: GZ-011 (in `api-v1.2.0`)
 
 ## W2 – Places, companies and routes
 
-### GZW-026 · Areas · Needs backend: GZ-026 (in `api-v1.3.0`) · Status: todo
+### GZW-026 · Areas · Needs backend: GZ-026 (in `api-v1.3.0`) · Status: done
 - `areas_list` (search `q`, 1–100 characters), `areas_create` (`Idempotency-Key` per action, reused on retry), `areas_update` (rename), `areas_get`; name 1–100 characters, `AREA_NAME_TAKEN` on the name field. Admin delete (`areas_delete`): `AREA_IN_USE` explained ("a corridor, a route or an open route request uses this area"); a deleted area's name can be used again.
 - Shared `AreaPicker` (searchable, keyboard-accessible combobox over the areas list) used by corridors, areas served and route requests.
 

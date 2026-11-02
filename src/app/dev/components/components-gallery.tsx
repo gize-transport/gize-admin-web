@@ -13,16 +13,19 @@ import {
 } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { NoPermission } from "@/components/no-permission";
+import { AreaPicker } from "@/components/pickers/area-picker";
 import { ProblemAlert } from "@/components/problem-alert";
 import { StatusPill, type StatusTone } from "@/components/status-pill";
 import { showSuccessToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   amharicSample,
   pageSize,
   plateSample,
   sampleRequestId,
   sampleRoutes,
+  searchSampleAreas,
   type SampleRoute,
 } from "./sample-data";
 
@@ -123,6 +126,10 @@ export function ComponentsGallery() {
         </div>
       </Section>
 
+      <Section title={t("areaPicker")}>
+        <AreaPickerDemo />
+      </Section>
+
       <Section title={t("noPermission")}>
         <NoPermission />
       </Section>
@@ -165,6 +172,27 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       </h2>
       {children}
     </section>
+  );
+}
+
+function AreaPickerDemo() {
+  const t = useTranslations("DevComponents");
+  const [area, setArea] = useState<{ id: string; name: string } | null>(null);
+  return (
+    <div className="grid max-w-sm gap-1.5">
+      <Label htmlFor="demo-area">{t("areaPickerLabel")}</Label>
+      <AreaPicker
+        id="demo-area"
+        value={area}
+        onChange={setArea}
+        search={searchSampleAreas}
+      />
+      <p className="text-table text-muted">
+        {area
+          ? t("areaPickerChosen", { name: area.name })
+          : t("areaPickerNone")}
+      </p>
+    </div>
   );
 }
 
