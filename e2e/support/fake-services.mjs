@@ -286,8 +286,25 @@ function validationProblem(response, field, reason, location = "body") {
   });
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The request's Idempotency-Key, like the API: a UUID in its canonical lowercase form, or a 428.
+ * @param {IncomingMessage} request
+ * @param {ServerResponse} response
+ * @returns {string | undefined} the key, or undefined after the 428
+ */
+function idempotencyKey(request, response) {
+  const key = request.headers["idempotency-key"];
+  if (typeof key !== "string" || !UUID.test(key) || key !== key.toLowerCase()) {
+    problem(response, 428, "IDEMPOTENCY_KEY_REQUIRED");
+    return undefined;
+  }
+  return key;
+}
+
 // Areas, like GZ-026: names unique ignoring case, newest first, `q` matches the start of a name.
-/** @typedef {Schemas["AreaRead"] & { usedByCorridor?: boolean }} FakeArea */
+/** @typedef {Schemas["AreaRead"]} FakeArea */
 /** @type {FakeArea[]} */
 const areas = [
   "Ayat",
@@ -305,8 +322,6 @@ const areas = [
     name,
     created_at: at,
     updated_at: at,
-    // Deleting it is refused (AREA_IN_USE), as if a corridor used it.
-    usedByCorridor: name === "Bole",
   };
 });
 /**
@@ -397,6 +412,169 @@ function listAreas(url, response) {
   send(response, 200, page);
 }
 
+// Corridors, like GZ-020: origin → destination (the way back is another corridor), a pair at most
+// once, newest first, filters by origin and destination area.
+/**
+ * @typedef {{ id: string; originId: string; destinationId: string; created_at: string;
+ *   updated_at: string; usedByRoute?: boolean }} FakeCorridor
+ */
+/** @param {string} name */
+function areaId(name) {
+  const area = areas.find((candidate) => candidate.name === name);
+  if (!area) throw new Error(`no seeded area ${name}`);
+  return area.id;
+}
+/** @type {FakeCorridor[]} */
+const corridors = [
+  ["Bole", "Piassa"],
+  ["Piassa", "Bole"],
+  ["Megenagna", "Mexico"],
+  ["Ayat", "CMC"],
+  ["ሳሪስ", "Bole"],
+].map(([origin, destination], index) => {
+  const at = new Date(Date.UTC(2026, 9, 2, 6, index)).toISOString();
+  return {
+    id: `00000000-0000-4000-b000-${String(index + 1).padStart(12, "0")}`,
+    originId: areaId(origin),
+    destinationId: areaId(destination),
+    created_at: at,
+    updated_at: at,
+    // A live route runs on it: changing its ends or deleting it is refused (CORRIDOR_IN_USE).
+    usedByRoute: origin === "Bole" && destination === "Piassa",
+  };
+});
+/** @type {Map<string, { corridor: FakeCorridor; fingerprint: string }>} */
+const corridorKeys = new Map();
+
+/** @param {string} id @returns {Schemas["AreaRef"]} */
+function areaRef(id) {
+  const area = areas.find((candidate) => candidate.id === id);
+  if (!area) throw new Error(`corridor refers to a missing area ${id}`);
+  return { id: area.id, name: area.name };
+}
+
+/** @param {FakeCorridor} corridor @returns {Schemas["CorridorRead"]} */
+function corridorRead({ id, originId, destinationId, created_at, updated_at }) {
+  return {
+    id,
+    origin_area: areaRef(originId),
+    destination_area: areaRef(destinationId),
+    created_at,
+    updated_at,
+  };
+}
+
+/** @param {string} originId @param {string} destinationId @param {string} [exceptId] */
+function pairTaken(originId, destinationId, exceptId) {
+  return corridors.some(
+    (corridor) =>
+      corridor.id !== exceptId &&
+      corridor.originId === originId &&
+      corridor.destinationId === destinationId,
+  );
+}
+
+/**
+ * Checks the area ids in a corridor body the way the API's model does (before any lookup):
+ * at least one end on a change, no nulls, UUIDs, and two different areas.
+ * @param {ServerResponse} response
+ * @param {Record<string, unknown>} body
+ * @param {{ partial: boolean }} options
+ * @returns {boolean} false after sending a 422
+ */
+function corridorBodyValid(response, body, { partial }) {
+  const fields = ["origin_area_id", "destination_area_id"];
+  const unknown = Object.keys(body).find((key) => !fields.includes(key));
+  if (unknown) {
+    validationProblem(response, `/${unknown}`, "unknown_field");
+    return false;
+  }
+  if (partial) {
+    // PartialUpdate: something to change, and a field left out rather than null.
+    const sent = fields.filter((field) => field in body);
+    if (sent.length === 0 || sent.some((field) => body[field] === null)) {
+      validationProblem(response, "", "invalid");
+      return false;
+    }
+  }
+  for (const field of fields) {
+    const value = body[field];
+    if (value === undefined && partial) continue;
+    if (value === undefined) {
+      validationProblem(response, `/${field}`, "missing");
+      return false;
+    }
+    if (typeof value !== "string" || !UUID.test(value)) {
+      validationProblem(response, `/${field}`, "invalid_format");
+      return false;
+    }
+  }
+  if (!partial && body.origin_area_id === body.destination_area_id) {
+    validationProblem(response, "", "invalid");
+    return false;
+  }
+  return true;
+}
+
+/**
+ * The service's check: the area must exist (not deleted), or a 422 on its field.
+ * @param {ServerResponse} response
+ * @param {string} id
+ * @param {"origin_area_id" | "destination_area_id"} field
+ */
+function areaExists(response, id, field) {
+  if (areas.some((area) => area.id === id)) return true;
+  validationProblem(response, `/${field}`, "invalid");
+  return false;
+}
+
+/**
+ * @param {URL} url
+ * @param {ServerResponse} response
+ */
+function listCorridors(url, response) {
+  /** @type {Record<string, string | null>} */
+  const filters = {};
+  for (const name of ["origin_area_id", "destination_area_id"]) {
+    const value = url.searchParams.get(name);
+    if (value !== null && !UUID.test(value)) {
+      return validationProblem(response, `/${name}`, "invalid_format", "query");
+    }
+    filters[name] = value;
+  }
+  const limit = Number(url.searchParams.get("limit") ?? 25);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return validationProblem(response, "/limit", "out_of_range", "query");
+  }
+  const cursor = url.searchParams.get("cursor");
+  const offset =
+    cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
+  if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
+    return problem(response, 422, "INVALID_CURSOR");
+  }
+  const matching = corridors
+    .filter(
+      (corridor) =>
+        (filters.origin_area_id === null ||
+          corridor.originId === filters.origin_area_id) &&
+        (filters.destination_area_id === null ||
+          corridor.destinationId === filters.destination_area_id),
+    )
+    .sort(
+      (a, b) =>
+        b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
+    );
+  /** @type {Schemas["CorridorPage"]} */
+  const page = {
+    items: matching.slice(offset, offset + limit).map(corridorRead),
+    next_cursor:
+      offset + limit < matching.length
+        ? Buffer.from(String(offset + limit)).toString("base64url")
+        : null,
+  };
+  send(response, 200, page);
+}
+
 const api = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://localhost");
   if (request.method === "OPTIONS") return send(response, 204);
@@ -418,10 +596,8 @@ const api = createServer(async (request, response) => {
   if (url.pathname === "/v1/areas") {
     if (request.method === "GET") return listAreas(url, response);
     if (request.method === "POST") {
-      const key = request.headers["idempotency-key"];
-      if (typeof key !== "string" || key === "") {
-        return problem(response, 428, "IDEMPOTENCY_KEY_REQUIRED");
-      }
+      const key = idempotencyKey(request, response);
+      if (key === undefined) return;
       const body = await readJson(request);
       const fingerprint = JSON.stringify(body);
       const replay = areaKeys.get(`${user.email}|${key}`);
@@ -446,6 +622,9 @@ const api = createServer(async (request, response) => {
   }
 
   const areaMatch = /^\/v1\/areas\/([^/]+)$/.exec(url.pathname);
+  if (areaMatch && !UUID.test(areaMatch[1] ?? "")) {
+    return validationProblem(response, "/area_id", "invalid_format", "path");
+  }
   if (areaMatch) {
     // Admin-only, so the role is checked before the area is looked up.
     if (request.method === "DELETE" && !isAdmin) {
@@ -466,8 +645,130 @@ const api = createServer(async (request, response) => {
       return send(response, 200, areaRead(area));
     }
     if (request.method === "DELETE") {
-      if (area.usedByCorridor) return problem(response, 409, "AREA_IN_USE");
+      // In use while a corridor uses it (routes and route requests aren't modelled here).
+      const inUse = corridors.some(
+        (corridor) =>
+          corridor.originId === area.id || corridor.destinationId === area.id,
+      );
+      if (inUse) return problem(response, 409, "AREA_IN_USE");
       areas.splice(areas.indexOf(area), 1);
+      return send(response, 204);
+    }
+  }
+
+  if (url.pathname === "/v1/corridors") {
+    if (request.method === "GET") return listCorridors(url, response);
+    if (request.method === "POST") {
+      const key = idempotencyKey(request, response);
+      if (key === undefined) return;
+      const body = await readJson(request);
+      const fingerprint = JSON.stringify(body);
+      const replay = corridorKeys.get(`${user.email}|${key}`);
+      if (replay) {
+        if (replay.fingerprint !== fingerprint) {
+          return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+        }
+        return send(response, 201, corridorRead(replay.corridor), {
+          "Idempotent-Replayed": "true",
+        });
+      }
+      if (!corridorBodyValid(response, body, { partial: false })) return;
+      const originId = String(body.origin_area_id);
+      const destinationId = String(body.destination_area_id);
+      if (!areaExists(response, originId, "origin_area_id")) return;
+      if (!areaExists(response, destinationId, "destination_area_id")) return;
+      if (pairTaken(originId, destinationId)) {
+        return problem(response, 409, "CORRIDOR_EXISTS");
+      }
+      const now = new Date().toISOString();
+      /** @type {FakeCorridor} */
+      const corridor = {
+        id: randomUUID(),
+        originId,
+        destinationId,
+        created_at: now,
+        updated_at: now,
+      };
+      corridors.push(corridor);
+      corridorKeys.set(`${user.email}|${key}`, { corridor, fingerprint });
+      return send(response, 201, corridorRead(corridor));
+    }
+  }
+
+  const corridorMatch = /^\/v1\/corridors\/([^/]+)$/.exec(url.pathname);
+  if (corridorMatch && !UUID.test(corridorMatch[1] ?? "")) {
+    return validationProblem(
+      response,
+      "/corridor_id",
+      "invalid_format",
+      "path",
+    );
+  }
+  if (corridorMatch) {
+    if (request.method === "DELETE" && !isAdmin) {
+      return problem(response, 403, "FORBIDDEN");
+    }
+    // The body is validated before the corridor is looked up, as FastAPI does.
+    const body = request.method === "PATCH" ? await readJson(request) : {};
+    if (
+      request.method === "PATCH" &&
+      !corridorBodyValid(response, body, { partial: true })
+    ) {
+      return;
+    }
+    const corridor = corridors.find(
+      (candidate) => candidate.id === corridorMatch[1],
+    );
+    if (!corridor) return problem(response, 404, "NOT_FOUND");
+    if (request.method === "GET") {
+      return send(response, 200, corridorRead(corridor));
+    }
+    if (request.method === "PATCH") {
+      // Like the service: only an end that changes is looked up.
+      const nextOrigin =
+        typeof body.origin_area_id === "string"
+          ? body.origin_area_id
+          : corridor.originId;
+      const nextDestination =
+        typeof body.destination_area_id === "string"
+          ? body.destination_area_id
+          : corridor.destinationId;
+      if (
+        nextOrigin !== corridor.originId &&
+        !areaExists(response, nextOrigin, "origin_area_id")
+      ) {
+        return;
+      }
+      if (
+        nextDestination !== corridor.destinationId &&
+        !areaExists(response, nextDestination, "destination_area_id")
+      ) {
+        return;
+      }
+      if (nextOrigin === nextDestination) {
+        return validationProblem(response, "", "invalid");
+      }
+      const moved =
+        nextOrigin !== corridor.originId ||
+        nextDestination !== corridor.destinationId;
+      if (moved && corridor.usedByRoute) {
+        return problem(response, 409, "CORRIDOR_IN_USE");
+      }
+      if (pairTaken(nextOrigin, nextDestination, corridor.id)) {
+        return problem(response, 409, "CORRIDOR_EXISTS");
+      }
+      if (moved) {
+        corridor.originId = nextOrigin;
+        corridor.destinationId = nextDestination;
+        corridor.updated_at = new Date().toISOString();
+      }
+      return send(response, 200, corridorRead(corridor));
+    }
+    if (request.method === "DELETE") {
+      if (corridor.usedByRoute) {
+        return problem(response, 409, "CORRIDOR_IN_USE");
+      }
+      corridors.splice(corridors.indexOf(corridor), 1);
       return send(response, 204);
     }
   }

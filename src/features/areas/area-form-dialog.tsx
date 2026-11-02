@@ -21,6 +21,7 @@ import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
 import { useRetryWait } from "@/lib/api/use-retry-wait";
+import { returnFocus } from "@/lib/focus";
 import { useCreateArea, useRenameArea } from "./queries";
 
 type AreaRead = components["schemas"]["AreaRead"];
@@ -121,12 +122,7 @@ export function AreaFormDialog({
               ? document.activeElement
               : null;
         }}
-        onCloseAutoFocus={(event) => {
-          if (returnFocusTo.current?.isConnected) {
-            event.preventDefault();
-            returnFocusTo.current.focus();
-          }
-        }}
+        onCloseAutoFocus={(event) => returnFocus(event, returnFocusTo.current)}
       >
         <div className="grid gap-1">
           <DialogTitle>

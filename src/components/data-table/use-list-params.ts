@@ -29,16 +29,27 @@ export function useListParams() {
   );
 
   /**
-   * Sets or clears a filter. A new filter always starts again from the first page. `replace`
-   * changes the current history entry instead of adding one (a search box as staff type).
+   * Sets or clears filters in one navigation. A new filter always starts again from the first
+   * page. `replace` changes the current history entry instead of adding one (a search box as
+   * staff type).
    */
-  const setFilter = useCallback(
-    (key: string, value: string | null, options?: { replace?: boolean }) => {
-      const href = hrefWith({ [key]: value, [CURSOR_PARAM]: null });
+  const setFilters = useCallback(
+    (
+      changes: Record<string, string | null>,
+      options?: { replace?: boolean },
+    ) => {
+      const href = hrefWith({ ...changes, [CURSOR_PARAM]: null });
       if (options?.replace) router.replace(href, { scroll: false });
       else router.push(href, { scroll: false });
     },
     [router, hrefWith],
+  );
+
+  /** Sets or clears one filter (see setFilters). */
+  const setFilter = useCallback(
+    (key: string, value: string | null, options?: { replace?: boolean }) =>
+      setFilters({ [key]: value }, options),
+    [setFilters],
   );
 
   return {
@@ -48,5 +59,6 @@ export function useListParams() {
       hrefWith({ [CURSOR_PARAM]: nextCursor }),
     firstPageHref: () => hrefWith({ [CURSOR_PARAM]: null }),
     setFilter,
+    setFilters,
   };
 }

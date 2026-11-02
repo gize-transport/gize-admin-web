@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { returnFocus } from "@/lib/focus";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -47,7 +48,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const t = useTranslations("Common");
   // Radix only returns focus to its own Trigger; this dialog is opened from app state, so remember
-  // the element that had focus and return to it on close (WCAG 2.4.3).
+  // the element that had focus and return to it on close (lib/focus.ts).
   const returnFocusTo = useRef<HTMLElement | null>(null);
 
   return (
@@ -65,14 +66,7 @@ export function ConfirmDialog({
               ? document.activeElement
               : null;
         }}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          // The opener can be gone (e.g. the row that was deleted): then the page content (the
-          // shell's <main id="content">, as the skip link), so focus doesn't drop to the top.
-          // Next may keep earlier pages' hidden <main> in the document, so not just "main".
-          if (returnFocusTo.current?.isConnected) returnFocusTo.current.focus();
-          else document.getElementById("content")?.focus();
-        }}
+        onCloseAutoFocus={(event) => returnFocus(event, returnFocusTo.current)}
       >
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
