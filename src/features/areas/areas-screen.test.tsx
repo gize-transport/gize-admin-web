@@ -11,7 +11,11 @@ import {
   type Schemas,
 } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
-import { renderWithProviders } from "../../../tests/utils/render";
+import {
+  createTestQueryClient,
+  renderWithProviders,
+} from "../../../tests/utils/render";
+import { corridorKeys } from "@/features/corridors/queries";
 import { currentStaffQueryKey } from "@/lib/auth/use-current-staff";
 import { AreasScreen } from "./areas-screen";
 
@@ -297,6 +301,35 @@ describe("AreasScreen", () => {
       ),
     );
     expect(sent).toEqual({ name: "Bole Medhanialem" });
+  });
+
+  it("refreshes corridor lists after a rename, since they show area names", async () => {
+    serveAreas([bole]);
+    server.use(
+      http.patch(apiUrl("/v1/areas/{area_id}"), () =>
+        HttpResponse.json<Schemas["AreaRead"]>({ ...bole, name: "Bole M" }),
+      ),
+    );
+    const corridorList = corridorKeys.list({
+      originAreaId: null,
+      destinationAreaId: null,
+      cursor: null,
+    });
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(corridorList, { items: [], next_cursor: null });
+    const user = userEvent.setup();
+    renderWithProviders(<AreasScreen />, { queryClient });
+
+    await user.click(
+      await screen.findByRole("button", { name: "Bole, rename" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(t.nameLabel), " M");
+    await user.click(within(dialog).getByRole("button", { name: t.save }));
+
+    await waitFor(() =>
+      expect(queryClient.getQueryState(corridorList)?.isInvalidated).toBe(true),
+    );
   });
 
   it("offers Delete to admins only", async () => {

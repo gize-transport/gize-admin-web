@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { corridorKeys } from "@/features/corridors/queries";
 import { api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
@@ -16,6 +17,7 @@ export const areaKeys = {
   all: ["areas"] as const,
   list: (params: { q: string | null; cursor: string | null }) =>
     ["areas", "list", params] as const,
+  detail: (id: string) => ["areas", "detail", id] as const,
 };
 
 /** One page of areas (`areas_list`): `q` matches the start of a name, newest first. */
@@ -41,6 +43,20 @@ export function useAreas({
           },
         }),
       ),
+  });
+}
+
+/** One area (`areas_get`), e.g. to name an area whose id is in the URL; off while `id` is null. */
+export function useArea(id: string | null) {
+  return useQuery({
+    queryKey: areaKeys.detail(id ?? ""),
+    queryFn: () =>
+      unwrap(
+        api.GET("/v1/areas/{area_id}", {
+          params: { path: { area_id: id ?? "" } },
+        }),
+      ),
+    enabled: id !== null,
   });
 }
 
@@ -90,9 +106,10 @@ export function useCreateArea() {
   });
 }
 
-/** `areas_update` (rename). */
+/** `areas_update` (rename). Corridors show their areas' names, so their lists refetch too. */
 export function useRenameArea() {
   const queryClient = useQueryClient();
+  const refetch = refetchAreasAfter(queryClient);
   return useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
       unwrap(
@@ -101,7 +118,12 @@ export function useRenameArea() {
           body: { name },
         }),
       ),
-    ...refetchAreasAfter(queryClient),
+    onSuccess: () =>
+      Promise.all([
+        refetch.onSuccess(),
+        queryClient.invalidateQueries({ queryKey: corridorKeys.all }),
+      ]),
+    onError: refetch.onError,
   });
 }
 

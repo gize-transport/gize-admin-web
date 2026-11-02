@@ -32,6 +32,14 @@ export const screens: readonly Screen[] = [
     readyText: "Megenagna",
   },
   {
+    name: "corridors",
+    path: "/corridors",
+    signInAs: "admin",
+    // Only in the sample corridor ሳሪስ → Bole, which no e2e test touches (a row's text is split
+    // for screen readers, so not the whole "ሳሪስ → Bole").
+    readyText: "ሳሪስ",
+  },
+  {
     name: "not-found",
     path: "/this-page-does-not-exist",
     signInAs: "staff",

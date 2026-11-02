@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronsUpDownIcon, XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import {
   Command,
   CommandEmpty,
@@ -31,8 +31,14 @@ const SEARCH_DELAY_MS = 250;
 type AreaPickerProps = {
   /** For the field's <label htmlFor>. */
   id?: string;
+  /** The trigger button: react-hook-form's `field.ref`, so `setFocus` reaches the picker. */
+  ref?: Ref<HTMLButtonElement>;
+  /** react-hook-form's `field.onBlur` (marks the field touched). */
+  onBlur?: () => void;
   value: AreaRef | null;
   onChange: (area: AreaRef | null) => void;
+  /** Shown while nothing is chosen; defaults to "Choose an area" (a filter says "Any area"). */
+  placeholder?: string;
   /** Marks the field invalid (form errors). */
   invalid?: boolean;
   "aria-describedby"?: string;
@@ -49,8 +55,11 @@ type AreaPickerProps = {
  */
 export function AreaPicker({
   id,
+  ref,
+  onBlur,
   value,
   onChange,
+  placeholder,
   invalid,
   "aria-describedby": describedBy,
   search = searchAreas,
@@ -90,8 +99,13 @@ export function AreaPicker({
     <div className="flex items-center gap-1">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
-          ref={triggerRef}
+          ref={(element) => {
+            triggerRef.current = element;
+            if (typeof ref === "function") return ref(element);
+            if (ref) ref.current = element;
+          }}
           id={id}
+          onBlur={onBlur}
           role="combobox"
           aria-expanded={open}
           aria-haspopup="dialog"
@@ -100,7 +114,7 @@ export function AreaPicker({
           className="flex h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 text-left text-body hover:border-muted aria-invalid:border-danger"
         >
           <span className={cn("truncate", !value && "text-muted")}>
-            {value?.name ?? t("placeholder")}
+            {value?.name ?? placeholder ?? t("placeholder")}
           </span>
           <ChevronsUpDownIcon
             aria-hidden

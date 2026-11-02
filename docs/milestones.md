@@ -76,7 +76,7 @@ Status: done · Needs backend: GZ-011 (in `api-v1.2.0`)
 - `areas_list` (search `q`, 1–100 characters), `areas_create` (`Idempotency-Key` per action, reused on retry), `areas_update` (rename), `areas_get`; name 1–100 characters, `AREA_NAME_TAKEN` on the name field. Admin delete (`areas_delete`): `AREA_IN_USE` explained ("a corridor, a route or an open route request uses this area"); a deleted area's name can be used again.
 - Shared `AreaPicker` (searchable, keyboard-accessible combobox over the areas list) used by corridors, areas served and route requests.
 
-### GZW-020 · Corridors · Needs backend: GZ-020 (in `api-v1.4.0`), GZ-021 · Status: todo
+### GZW-020 · Corridors · Needs backend: GZ-020 (in `api-v1.4.0`), GZ-021 · Status: done
 - `corridors_list` shows "origin → destination" with area names from the response; filters by origin and/or destination area (two area pickers, kept in the URL). Create (`Idempotency-Key`) and edit with two area pickers; an unknown area is a field error; `CORRIDOR_EXISTS` explained. Corridors have a direction: the way back (B → A) is a separate corridor, so the UI always shows the arrow.
 - Changing a corridor's areas or deleting it is refused while a live route uses it (`CORRIDOR_IN_USE`, explained). Admin delete with confirmation. No threshold.
 

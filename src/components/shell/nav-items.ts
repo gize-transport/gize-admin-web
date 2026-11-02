@@ -34,7 +34,7 @@ export const navItems: readonly NavItem[] = [
   { key: "riders", href: "/riders", available: false },
   { key: "drivers", href: "/drivers", available: false },
   { key: "areas", href: "/areas", group: "places", available: true },
-  { key: "corridors", href: "/corridors", group: "places", available: false },
+  { key: "corridors", href: "/corridors", group: "places", available: true },
   { key: "staff", href: "/staff", adminOnly: true, available: false },
   { key: "auditLog", href: "/audit-log", adminOnly: true, available: false },
 ];
