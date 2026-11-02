@@ -23,13 +23,13 @@ function httpError(status: number, body: unknown) {
   return ApiError.fromResponse(new Response(null, { status }), body);
 }
 
-function useMessages() {
+function renderMessages() {
   return renderHook(() => useApiErrorMessages(), { wrapper }).result.current;
 }
 
 describe("useApiErrorMessages", () => {
   it("has a friendly message for every API error code", () => {
-    const { message } = useMessages();
+    const { message } = renderMessages();
     for (const code of Object.keys(messages.Errors)) {
       const text = message(
         httpError(409, {
@@ -46,7 +46,7 @@ describe("useApiErrorMessages", () => {
   });
 
   it("falls back to a general message for a code it doesn't know yet", () => {
-    const { message } = useMessages();
+    const { message } = renderMessages();
 
     expect(
       message(
@@ -62,7 +62,7 @@ describe("useApiErrorMessages", () => {
   });
 
   it("explains network failures and unexpected errors", () => {
-    const { message } = useMessages();
+    const { message } = renderMessages();
 
     expect(message(ApiError.network(new TypeError("Failed to fetch")))).toBe(
       messages.Problems.network,
@@ -71,7 +71,7 @@ describe("useApiErrorMessages", () => {
   });
 
   it("maps validation errors to form fields with a reason", () => {
-    const { fieldMessages } = useMessages();
+    const { fieldMessages } = renderMessages();
     const error = httpError(422, {
       type: "about:blank",
       title: "Validation failed",

@@ -85,14 +85,17 @@ describe("PortalShell", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "content");
   });
 
-  it("shows only built screens: just Overview for now", () => {
+  it("shows only built screens: Overview and Areas so far", () => {
     serveStaff("admin");
     renderWithProviders(<PortalShell>{null}</PortalShell>);
 
     const links = within(
       sidebar().getByRole("navigation", { name: t.navLabel }),
     ).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual([t.nav.overview]);
+    expect(links.map((link) => link.textContent)).toEqual([
+      t.nav.overview,
+      t.nav.areas,
+    ]);
   });
 
   it("marks the current page, including its detail pages", () => {

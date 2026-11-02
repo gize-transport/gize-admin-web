@@ -340,6 +340,11 @@ type RowActionProps = {
   children: ReactNode;
   /** This row's details are open (announced as "current"). */
   current?: boolean;
+  /**
+   * Accessible name when the visible text alone doesn't say what happens (e.g. "Bole, rename").
+   * Must start with the visible text (WCAG 2.5.3).
+   */
+  "aria-label"?: string;
 } & (
   { onSelect: () => void; href?: never } | { href: string; onSelect?: never }
 );
@@ -350,12 +355,14 @@ export function RowAction({
   current,
   onSelect,
   href,
+  "aria-label": ariaLabel,
 }: RowActionProps) {
   const className =
     "rounded-sm text-left font-semibold text-navy underline-offset-4 hover:underline";
   const shared = {
     "data-row-action": "",
     "aria-current": current ? ("true" as const) : undefined,
+    "aria-label": ariaLabel,
     className,
   };
 

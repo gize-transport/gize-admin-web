@@ -1,0 +1,82 @@
+"use client";
+
+import { SearchIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useListParams } from "@/components/data-table";
+
+const SEARCH_DELAY_MS = 300;
+
+type SearchFieldProps = {
+  /** URL search param the text goes into (and back to the first page). */
+  param: string;
+  label: string;
+  placeholder?: string;
+  /** Matches the API's limit for this search. */
+  maxLength?: number;
+};
+
+/**
+ * A list's search box: its text lives in the URL (shareable, survives reload), written after a
+ * short pause in typing. Clearing the box clears the search.
+ */
+export function SearchField({
+  param,
+  label,
+  placeholder,
+  maxLength = 100,
+}: SearchFieldProps) {
+  const { get, setFilter } = useListParams();
+  const fromUrl = get(param) ?? "";
+  const [text, setText] = useState(fromUrl);
+  const [lastUrl, setLastUrl] = useState(fromUrl);
+  // Values this box wrote that the URL hasn't reached yet. A navigation can finish after more
+  // typing, so arriving at one of these must not overwrite the box.
+  const [pending, setPending] = useState<string[]>([]);
+
+  if (lastUrl !== fromUrl) {
+    setLastUrl(fromUrl);
+    const index = pending.indexOf(fromUrl);
+    if (index === -1) {
+      // The URL changed from elsewhere (Back, "Clear search"): show it.
+      setText(fromUrl);
+      setPending([]);
+    } else {
+      setPending(pending.slice(index + 1));
+    }
+  }
+
+  const latest = pending.at(-1) ?? fromUrl;
+  useEffect(() => {
+    const value = text.trim();
+    if (value === latest) return;
+    const timer = setTimeout(() => {
+      setPending((values) => [...values, value]);
+      setFilter(param, value || null, { replace: true });
+    }, SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [text, latest, param, setFilter]);
+
+  return (
+    <div className="grid w-full max-w-sm gap-1.5">
+      <Label htmlFor={`search-${param}`}>{label}</Label>
+      <div className="relative">
+        <SearchIcon
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
+        />
+        <Input
+          id={`search-${param}`}
+          type="search"
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          placeholder={placeholder}
+          maxLength={maxLength}
+          autoComplete="off"
+          className="pl-9"
+        />
+      </div>
+    </div>
+  );
+}

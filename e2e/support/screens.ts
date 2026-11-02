@@ -26,6 +26,12 @@ export const screens: readonly Screen[] = [
     readyText: messages.Overview.description,
   },
   {
+    name: "areas",
+    path: "/areas",
+    signInAs: "admin",
+    readyText: "Megenagna",
+  },
+  {
     name: "not-found",
     path: "/this-page-does-not-exist",
     signInAs: "staff",

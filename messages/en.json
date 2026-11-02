@@ -80,7 +80,11 @@
     "noRouteSelected": "No route selected. Click a row to open it.",
     "loadingTable": "Loading state",
     "emptyTable": "Empty state",
-    "noPermission": "No permission (API 403)"
+    "noPermission": "No permission (API 403)",
+    "areaPicker": "Area picker (sample areas)",
+    "areaPickerLabel": "Origin area",
+    "areaPickerChosen": "Chosen: {name}",
+    "areaPickerNone": "Nothing chosen yet."
   },
   "Errors": {
     "BAD_REQUEST": "The request couldn't be read. Reload the page and try again.",
@@ -203,5 +207,48 @@
     "title": "No permission",
     "description": "Your role can't open this. If you need it for your work, ask a Gize admin.",
     "backHome": "Go to Overview"
+  },
+  "Areas": {
+    "metaTitle": "Areas",
+    "title": "Areas",
+    "description": "Neighbourhoods and landmarks. Corridors, routes and route requests choose from this list.",
+    "add": "Add area",
+    "searchLabel": "Search areas",
+    "searchHint": "Names starting with…",
+    "tableLabel": "Areas",
+    "colName": "Name",
+    "colAdded": "Added",
+    "colActions": "Actions",
+    "delete": "Delete",
+    "deleteLabel": "Delete {name}",
+    "emptyTitle": "No areas yet",
+    "emptyDescription": "Add the neighbourhoods and landmarks Gize serves. Corridors are made from them.",
+    "noMatchesTitle": "No areas start with “{q}”",
+    "noMatchesDescription": "Check the spelling, or add the area.",
+    "clearSearch": "Clear search",
+    "addTitle": "Add an area",
+    "renameTitle": "Rename “{name}”",
+    "nameLabel": "Name",
+    "nameHint": "As people say it, in English or Amharic. Up to 100 characters.",
+    "nameRequired": "Enter a name.",
+    "nameTooLong": "Use at most 100 characters.",
+    "save": "Save",
+    "added": "“{name}” added.",
+    "renamed": "Renamed to “{name}”.",
+    "deleteTitle": "Delete “{name}”?",
+    "deleteDescription": "It disappears from the list and can't be picked any more. Its name can be used again later.",
+    "deleted": "“{name}” deleted.",
+    "inUse": "A corridor, a route or an open route request uses this area, so it can't be deleted. Change those first.",
+    "renameLabel": "{name}, rename"
+  },
+  "AreaPicker": {
+    "placeholder": "Choose an area",
+    "searchPlaceholder": "Type the start of a name",
+    "searchLabel": "Search areas",
+    "listLabel": "Matching areas",
+    "noResults": "No areas start with that.",
+    "loading": "Searching…",
+    "clear": "Clear {name}",
+    "moreHint": "Only the first matches are shown. Type more of the name to find others."
   }
 }

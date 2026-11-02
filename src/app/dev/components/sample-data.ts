@@ -138,3 +138,25 @@ export const sampleRequestId = "req_01JC8Y4F7T2M9QK3";
 export const amharicSample = "አዲስ አበባ · ቦሌ";
 export const plateSample = "3-A 41203";
 export const pageSize = 5;
+
+/** Areas for the picker demo (the gallery has no session, so it doesn't call the API). */
+export const sampleAreas = [
+  "Ayat",
+  "Bole",
+  "CMC",
+  "Megenagna",
+  "Mexico",
+  "Piassa",
+  "ጦር ኃይሎች",
+  "ሳሪስ",
+].map((name, index) => ({ id: `sample-area-${index}`, name }));
+
+/** Like `areas_list` with `q`: names starting with it, ignoring case. */
+export async function searchSampleAreas(q: string) {
+  return {
+    items: sampleAreas.filter((area) =>
+      area.name.toLowerCase().startsWith(q.toLowerCase()),
+    ),
+    hasMore: false,
+  };
+}
