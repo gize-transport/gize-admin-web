@@ -3,9 +3,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useMemo, useRef, useState, type ReactNode } from "react";
-import { useForm, type FieldError } from "react-hook-form";
+import { useMemo, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { FormField } from "@/components/form-field";
 import { ProblemAlert } from "@/components/problem-alert";
 import { showSuccessToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError } from "@/lib/api/problem";
@@ -319,48 +319,5 @@ export function CompanyFormDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** A labelled field with an optional hint and its error, both linked by aria-describedby. */
-function FormField({
-  id,
-  label,
-  hint,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  hint?: string;
-  error?: FieldError;
-  children: (aria: {
-    id: string;
-    "aria-invalid"?: true;
-    "aria-describedby"?: string;
-  }) => ReactNode;
-}) {
-  const described = [hint && `${id}-hint`, error && `${id}-error`]
-    .filter(Boolean)
-    .join(" ");
-  return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      {children({
-        id,
-        "aria-invalid": error ? true : undefined,
-        "aria-describedby": described || undefined,
-      })}
-      {hint && (
-        <p id={`${id}-hint`} className="text-meta text-muted">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p id={`${id}-error`} className="text-table text-danger">
-          {error.message}
-        </p>
-      )}
-    </div>
   );
 }

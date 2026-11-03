@@ -254,4 +254,67 @@ test.describe("routes", () => {
       page.getByRole("article", { name: "R-21" }).getByText(t.rateAgreed),
     ).toBeVisible();
   });
+  test("an admin sets a route's prices; staff see them; corporate routes have none", async ({
+    page,
+  }) => {
+    await signIn(page, "admin", "/sign-in?next=%2Froutes");
+    const { code, dialog } = await addRoute(page, "public");
+    await expect(dialog).toBeHidden();
+    await page.getByLabel(t.searchLabel).fill(code);
+    const details = await openRoute(page, code.toUpperCase());
+
+    await details.getByRole("button", { name: t.setPrices }).click();
+    const prices = page.getByRole("dialog", {
+      name: fill(t.pricesTitle, { code: code.toUpperCase() }),
+    });
+    await prices.getByLabel(t.roundTripLabel).fill("2600");
+    await prices.getByLabel(t.oneWayLabel).fill("1500");
+    await prices.getByLabel(t.saturdayLabel).fill("350");
+    await prices.getByRole("button", { name: t.save }).click();
+    await expect(
+      page.getByText(fill(t.pricesSaved, { code: code.toUpperCase() })),
+    ).toBeVisible();
+    const shown = details.getByRole("group", { name: t.prices });
+    await expect(shown).toContainText("2,600 birr");
+    await expect(shown).toContainText("350 birr");
+    await expect(
+      details.getByRole("button", { name: t.changePrices }),
+    ).toBeVisible();
+
+    // A student route has no Saturday add-on.
+    await page.goto("/routes");
+    const added = await addRoute(page, "student");
+    await expect(added.dialog).toBeHidden();
+    await page.getByLabel(t.searchLabel).fill(added.code);
+    const student = await openRoute(page, added.code.toUpperCase());
+    await student.getByRole("button", { name: t.setPrices }).click();
+    const studentPrices = page.getByRole("dialog", {
+      name: fill(t.pricesTitle, { code: added.code.toUpperCase() }),
+    });
+    await expect(studentPrices.getByLabel(t.roundTripLabel)).toBeVisible();
+    await expect(studentPrices.getByLabel(t.saturdayLabel)).toHaveCount(0);
+    await page.keyboard.press("Escape");
+
+    // A corporate route: the agreed rate, no prices to set.
+    await page.goto("/routes/00000000-0000-4000-d000-000000000001");
+    const corporate = page.getByRole("article", { name: "R-21" });
+    await expect(corporate.getByText(t.rateAgreed)).toBeVisible();
+    await expect(
+      corporate.getByRole("button", { name: t.setPrices }),
+    ).toHaveCount(0);
+  });
+
+  test("staff see prices but can't set them", async ({ page }) => {
+    await signIn(page, "staff");
+    await page.goto(`/routes/${B01}`);
+    const details = page.getByRole("article", { name: "B-01" });
+    await expect(details.getByRole("group", { name: t.prices })).toContainText(
+      "2,400 birr",
+    );
+    await expect(details.getByRole("button", { name: t.edit })).toBeVisible();
+
+    await expect(
+      details.getByRole("button", { name: t.changePrices }),
+    ).toHaveCount(0);
+  });
 });

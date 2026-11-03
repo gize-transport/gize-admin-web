@@ -922,6 +922,46 @@ function timesInOrder(/** @type {unknown[]} */ times) {
   );
 }
 
+/**
+ * A prices body (RoutePricesSet): round trip and one way required, Saturday optional (null: none),
+ * whole birr 1–100,000.
+ * @param {ServerResponse} response
+ * @param {Record<string, unknown>} body
+ * @returns {Schemas["Prices"] | undefined} undefined after a 422
+ */
+function pricesBody(response, body) {
+  const unknown = Object.keys(body).find(
+    (key) => !["round_trip", "one_way", "saturday"].includes(key),
+  );
+  if (unknown) {
+    validationProblem(response, `/${unknown}`, "unknown_field");
+    return undefined;
+  }
+  /** @type {Record<string, number | null>} */
+  const prices = {};
+  for (const field of ["round_trip", "one_way", "saturday"]) {
+    const value = body[field];
+    if (value === undefined || value === null) {
+      if (field !== "saturday") {
+        validationProblem(response, `/${field}`, "missing");
+        return undefined;
+      }
+      prices[field] = null;
+      continue;
+    }
+    if (!Number.isInteger(value)) {
+      validationProblem(response, `/${field}`, "invalid_type");
+      return undefined;
+    }
+    if (Number(value) < 1 || Number(value) > 100000) {
+      validationProblem(response, `/${field}`, "out_of_range");
+      return undefined;
+    }
+    prices[field] = Number(value);
+  }
+  return /** @type {Schemas["Prices"]} */ (prices);
+}
+
 /** @param {string} code @param {string} [exceptId] */
 function routeCodeTaken(code, exceptId) {
   return routes.some((route) => route.id !== exceptId && route.code === code);
@@ -1452,6 +1492,29 @@ const api = createServer(async (request, response) => {
       routeKeys.set(`${user.email}|${key}`, { route, fingerprint });
       return send(response, 201, routeRead(route));
     }
+  }
+
+  // Prices (GZ-022): admins only; the body is checked before the route is looked up.
+  const pricesMatch = /^\/v1\/routes\/([^/]+)\/prices$/.exec(url.pathname);
+  if (pricesMatch && request.method === "PUT") {
+    // The admin dependency runs before the path and body are validated.
+    if (!isAdmin) return problem(response, 403, "FORBIDDEN");
+    if (!UUID.test(pricesMatch[1] ?? "")) {
+      return validationProblem(response, "/route_id", "invalid_format", "path");
+    }
+    const prices = pricesBody(response, await readJson(request));
+    if (!prices) return;
+    const route = routes.find((candidate) => candidate.id === pricesMatch[1]);
+    if (!route) return problem(response, 404, "NOT_FOUND");
+    if (route.route_type === "corporate") {
+      return problem(response, 409, "ROUTE_HAS_NO_PRICES");
+    }
+    if (prices.saturday !== null && route.route_type !== "public") {
+      return validationProblem(response, "/saturday", "invalid");
+    }
+    route.prices = prices;
+    route.updated_at = new Date().toISOString();
+    return send(response, 200, routeRead(route));
   }
 
   const routeMatch = /^\/v1\/routes\/([^/]+)$/.exec(url.pathname);
