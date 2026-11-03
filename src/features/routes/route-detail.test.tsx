@@ -7,6 +7,7 @@ import { apiUrl, server, type Schemas } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { currentStaffQueryKey } from "@/lib/auth/use-current-staff";
+import { focusDetailWhenOpened } from "@/components/detail/detail-frame";
 import { RouteDetail } from "./route-detail";
 import {
   corporate,
@@ -443,5 +444,45 @@ describe("RouteDetail", () => {
     await waitFor(() => expect(confirm).not.toHaveAttribute("aria-disabled"), {
       timeout: 2500,
     });
+  });
+  it("adds a van and hands the new route over to be opened", async () => {
+    serveRoute(forming);
+    const van = route("B-01A", 9, { copied_from_route_id: forming.id });
+    server.use(
+      http.post(apiUrl("/v1/routes/{route_id}/copies"), () =>
+        HttpResponse.json<Schemas["RouteRead"]>(van, { status: 201 }),
+      ),
+    );
+    const onOpenRoute = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <RouteDetail
+        routeId={forming.id}
+        variant="page"
+        onOpenRoute={onOpenRoute}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: t.addVan }));
+    const dialog = await screen.findByRole("dialog", {
+      name: fill(t.vanTitle, { code: "B-01" }),
+    });
+    await user.type(within(dialog).getByLabelText(t.codeLabel), "B-01A");
+    await user.click(within(dialog).getByRole("button", { name: t.addVan }));
+
+    await waitFor(() => expect(onOpenRoute).toHaveBeenCalledWith(van.id));
+    // The dialog doesn't take focus back to this route: the new one takes it.
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("button", { name: t.addVan })).not.toHaveFocus();
+  });
+
+  it("focuses the name of a route opened from another once it's shown", async () => {
+    serveRoute(forming);
+    focusDetailWhenOpened(forming.id);
+    renderWithProviders(<RouteDetail routeId={forming.id} variant="page" />);
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /B-01/ }),
+    ).toHaveFocus();
   });
 });

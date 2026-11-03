@@ -45,13 +45,14 @@ export function useDetailPanel({
     const target = focusAfterClose.current;
     if (target === null || selectedId !== null) return;
     focusAfterClose.current = null;
-    const element =
+    // The row may not be in the list (a record opened from another, outside the filters).
+    const row =
       target === "content"
-        ? document.getElementById("content")
+        ? null
         : document.querySelector<HTMLElement>(
             `[data-row-action][href="${basePath}/${CSS.escape(target.row)}"]`,
           );
-    element?.focus();
+    (row ?? document.getElementById("content"))?.focus();
   }, [selectedId, basePath]);
 
   const panelOpen = wide === true && selectedId !== null;
@@ -84,6 +85,10 @@ export function useDetailPanel({
       closePanel() {
         focusAfterClose.current = selectedId ? { row: selectedId } : null;
         setParams({ [param]: null });
+      },
+      /** Shows another record in the panel (e.g. one just made from this one). */
+      openPanel(id: string) {
+        setParams({ [param]: id });
       },
       /** After the record is deleted: replaced, so Back doesn't reopen it. */
       closeAfterDelete() {

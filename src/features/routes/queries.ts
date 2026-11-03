@@ -9,6 +9,7 @@ type RouteCreate = components["schemas"]["RouteCreate"];
 type RouteUpdate = components["schemas"]["RouteUpdate"];
 type RoutePricesSet = components["schemas"]["RoutePricesSet"];
 type RouteStatusSet = components["schemas"]["RouteStatusSet"];
+type RouteCopy = components["schemas"]["RouteCopy"];
 export type RouteType = components["schemas"]["RouteType"];
 export type RouteStatus = components["schemas"]["RouteStatus"];
 
@@ -256,6 +257,41 @@ export function useDeleteRoute() {
       ),
     onSuccess: (_, id) => refetchRoutes(queryClient, id),
     onError: (error, id) => {
+      if (error instanceof ApiError && error.status === 404) {
+        void refetchRoutes(queryClient, id);
+      }
+    },
+  });
+}
+
+/** `routes_copy` (add a van, staff); the caller keeps one Idempotency-Key per add. */
+export function useCopyRoute() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      van,
+      idempotencyKey,
+    }: {
+      id: string;
+      van: RouteCopy;
+      idempotencyKey: string;
+    }) =>
+      unwrap(
+        api.POST("/v1/routes/{route_id}/copies", {
+          params: {
+            path: { route_id: id },
+            header: { "Idempotency-Key": idempotencyKey },
+          },
+          body: van,
+        }),
+      ),
+    // The new van opens next: shown at once from the answer, the rest reloads.
+    onSuccess: (added) => {
+      queryClient.setQueryData(routeKeys.detail(added.id), added);
+      return refetchRoutes(queryClient, added.id);
+    },
+    onError: (error, { id }) => {
       if (error instanceof ApiError && error.status === 404) {
         void refetchRoutes(queryClient, id);
       }

@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { AreaPicker } from "@/components/pickers/area-picker";
@@ -56,6 +56,9 @@ export function CorridorFormDialog({
   corridor,
 }: CorridorFormDialogProps) {
   const t = useTranslations("Corridors");
+  // Ids unique to this instance: Next can keep earlier pages (with their own copy of this) in the
+  // document, and a duplicate id would label the wrong field.
+  const uid = useId();
   const tCommon = useTranslations("Common");
   const { message, fieldMessages } = useApiErrorMessages();
   const queryClient = useQueryClient();
@@ -227,7 +230,7 @@ export function CorridorFormDialog({
           )}
           {(["origin", "destination"] as const).map((name) => (
             <div key={name} className="grid gap-1.5">
-              <Label htmlFor={`corridor-${name}`}>
+              <Label htmlFor={`${uid}-${name}`}>
                 {t(name === "origin" ? "originLabel" : "destinationLabel")}
               </Label>
               <Controller
@@ -235,7 +238,7 @@ export function CorridorFormDialog({
                 name={name}
                 render={({ field }) => (
                   <AreaPicker
-                    id={`corridor-${name}`}
+                    id={`${uid}-${name}`}
                     ref={field.ref}
                     onBlur={field.onBlur}
                     value={field.value}
@@ -248,14 +251,14 @@ export function CorridorFormDialog({
                     }}
                     invalid={Boolean(errors[name])}
                     aria-describedby={
-                      errors[name] ? `corridor-${name}-error` : undefined
+                      errors[name] ? `${uid}-${name}-error` : undefined
                     }
                   />
                 )}
               />
               {errors[name] && (
                 <p
-                  id={`corridor-${name}-error`}
+                  id={`${uid}-${name}-error`}
                   className="text-table text-danger"
                 >
                   {errors[name].message}

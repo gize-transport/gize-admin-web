@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { focusDetailWhenOpened } from "@/components/detail/detail-frame";
 import { RouteDetail } from "./route-detail";
 
 /**
@@ -14,6 +15,11 @@ export function RoutePage({ routeId }: { routeId: string }) {
       routeId={routeId}
       variant="page"
       onDeleted={() => router.replace("/routes")}
+      onOpenRoute={(id) => {
+        // Its heading takes focus once shown (this page stays hidden in the document).
+        focusDetailWhenOpened(id);
+        router.push(`/routes/${id}`);
+      }}
     />
   );
 }

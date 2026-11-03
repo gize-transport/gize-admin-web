@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ProblemAlert } from "@/components/problem-alert";
@@ -46,6 +46,9 @@ export function AreaFormDialog({
   area,
 }: AreaFormDialogProps) {
   const t = useTranslations("Areas");
+  // Ids unique to this instance: Next can keep earlier pages (with their own copy of this) in the
+  // document, and a duplicate id would label the wrong field.
+  const uid = useId();
   const tCommon = useTranslations("Common");
   const tErrors = useTranslations("Errors");
   const { message, fieldMessages } = useApiErrorMessages();
@@ -141,17 +144,22 @@ export function AreaFormDialog({
             />
           )}
           <div className="grid gap-1.5">
-            <Label htmlFor="area-name">{t("nameLabel")}</Label>
+            <Label htmlFor={`${uid}-area-name`}>{t("nameLabel")}</Label>
             <Input
-              id="area-name"
+              id={`${uid}-area-name`}
               maxLength={NAME_MAX}
               autoComplete="off"
               aria-invalid={errors.name ? true : undefined}
-              aria-describedby={errors.name ? "area-name-error" : undefined}
+              aria-describedby={
+                errors.name ? `${uid}-area-name-error` : undefined
+              }
               {...register("name")}
             />
             {errors.name && (
-              <p id="area-name-error" className="text-table text-danger">
+              <p
+                id={`${uid}-area-name-error`}
+                className="text-table text-danger"
+              >
                 {errors.name.message}
               </p>
             )}

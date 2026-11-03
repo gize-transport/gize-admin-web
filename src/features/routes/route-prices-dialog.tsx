@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/form-field";
@@ -59,6 +59,9 @@ export function RoutePricesDialog({
   route: routeProp,
 }: RoutePricesDialogProps) {
   const t = useTranslations("Routes");
+  // Ids unique to this instance: Next can keep earlier pages (with their own copy of this) in the
+  // document, and a duplicate id would label the wrong field.
+  const uid = useId();
   const tCommon = useTranslations("Common");
   const { message, fieldMessages } = useApiErrorMessages();
   const queryClient = useQueryClient();
@@ -202,7 +205,7 @@ export function RoutePricesDialog({
             />
           )}
           <FormField
-            id="price-round-trip"
+            id={`${uid}-price-round-trip`}
             label={t("roundTripLabel")}
             error={errors.round_trip}
           >
@@ -216,7 +219,7 @@ export function RoutePricesDialog({
             )}
           </FormField>
           <FormField
-            id="price-one-way"
+            id={`${uid}-price-one-way`}
             label={t("oneWayLabel")}
             error={errors.one_way}
           >
@@ -231,7 +234,7 @@ export function RoutePricesDialog({
           </FormField>
           {withSaturday && (
             <FormField
-              id="price-saturday"
+              id={`${uid}-price-saturday`}
               label={t("saturdayLabel")}
               hint={t("saturdayHint")}
               error={errors.saturday}

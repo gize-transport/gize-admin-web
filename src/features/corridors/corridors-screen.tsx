@@ -2,7 +2,7 @@
 
 import { PlusIcon, RouteIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   createDataTableColumnHelper,
@@ -251,7 +251,8 @@ function AreaFilter({ param, label }: { param: string; label: string }) {
   }
   const loading = areaId !== null && value === null;
 
-  const id = `filter-${param}`;
+  // Unique ids: Next can keep earlier pages in the document (see SearchField).
+  const id = useId();
   return (
     <div className="grid gap-1.5">
       <Label htmlFor={id}>{label}</Label>

@@ -1603,6 +1603,104 @@ const api = createServer(async (request, response) => {
     }
   }
 
+  // Add a van (GZ-028): a copy with its own code, seats and (individual routes) launch minimum.
+  const copiesMatch = /^\/v1\/routes\/([^/]+)\/copies$/.exec(url.pathname);
+  if (copiesMatch && request.method === "POST") {
+    if (!UUID.test(copiesMatch[1] ?? "")) {
+      return validationProblem(response, "/route_id", "invalid_format", "path");
+    }
+    const key = idempotencyKey(request, response);
+    if (key === undefined) return;
+    const body = (await readJson(request)) ?? {};
+    // The model's checks: code, seats, a launch minimum within the seats.
+    const unknown = Object.keys(body).find(
+      (field) => !["code", "seats", "launch_minimum"].includes(field),
+    );
+    if (unknown)
+      return validationProblem(response, `/${unknown}`, "unknown_field");
+    for (const field of ["code", "seats"]) {
+      if (body[field] === undefined) {
+        return validationProblem(response, `/${field}`, "missing");
+      }
+    }
+    if (typeof body.code !== "string") {
+      return validationProblem(response, "/code", "invalid_type");
+    }
+    const code = body.code.trim().toUpperCase();
+    if (code.length < 2)
+      return validationProblem(response, "/code", "too_short");
+    if (code.length > 20)
+      return validationProblem(response, "/code", "too_long");
+    if (!ROUTE_CODE.test(code)) {
+      return validationProblem(response, "/code", "invalid_format");
+    }
+    for (const field of ["seats", "launch_minimum"]) {
+      const value = body[field];
+      if (value === undefined || value === null) continue;
+      if (!Number.isInteger(value)) {
+        return validationProblem(response, `/${field}`, "invalid_type");
+      }
+      if (Number(value) < 1 || Number(value) > 60) {
+        return validationProblem(response, `/${field}`, "out_of_range");
+      }
+    }
+    const seats = Number(body.seats);
+    const minimum =
+      body.launch_minimum === undefined || body.launch_minimum === null
+        ? null
+        : Number(body.launch_minimum);
+    if (minimum !== null && minimum > seats) {
+      return validationProblem(response, "", "invalid");
+    }
+    const fingerprint = `${copiesMatch[1]}|${JSON.stringify(body)}`;
+    const replay = routeKeys.get(`${user.email}|${key}`);
+    if (replay) {
+      if (replay.fingerprint !== fingerprint) {
+        return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+      }
+      return send(response, 201, routeRead(replay.route), {
+        "Idempotent-Replayed": "true",
+      });
+    }
+    const original = routes.find(
+      (candidate) => candidate.id === copiesMatch[1],
+    );
+    if (!original) return problem(response, 404, "NOT_FOUND");
+    const corporate = original.route_type === "corporate";
+    if ((minimum === null) !== corporate) {
+      return validationProblem(response, "/launch_minimum", "invalid");
+    }
+    if (corporate && companyInactive(original)) {
+      return problem(response, 409, "ROUTE_NOT_READY");
+    }
+    if (routeCodeTaken(code)) return problem(response, 409, "ROUTE_CODE_TAKEN");
+    const priced =
+      original.prices?.round_trip != null && original.prices?.one_way != null;
+    const now = new Date().toISOString();
+    /** @type {FakeRoute} */
+    const van = {
+      ...original,
+      id: randomUUID(),
+      code,
+      seats,
+      launch_minimum: minimum,
+      prices: original.prices ? { ...original.prices } : null,
+      servedAreaIds: [...original.servedAreaIds],
+      status: priced && !corporate ? "forming" : "draft",
+      copied_from_route_id: original.id,
+      taken: 0,
+      reserved: 0,
+      laterReserved: undefined,
+      hasRiders: false,
+      hasRequests: false,
+      created_at: now,
+      updated_at: now,
+    };
+    routes.push(van);
+    routeKeys.set(`${user.email}|${key}`, { route: van, fingerprint });
+    return send(response, 201, routeRead(van));
+  }
+
   // Status (GZ-024): staff and admins; the body's format first, then the route, then the moves.
   const statusMatch = /^\/v1\/routes\/([^/]+)\/status$/.exec(url.pathname);
   if (statusMatch && request.method === "PUT") {

@@ -30,6 +30,7 @@ import { RouteFormDialog } from "./route-form-dialog";
 import { RoutePricesDialog } from "./route-prices-dialog";
 import { RouteStatusActions } from "./route-status-actions";
 import { RouteStatusPill } from "./route-status-pill";
+import { RouteVanDialog } from "./route-van-dialog";
 
 type RouteRead = components["schemas"]["RouteRead"];
 
@@ -40,6 +41,8 @@ type RouteDetailProps = {
   onClose?: () => void;
   /** After the route is deleted: the page goes back to the list, the panel closes. */
   onDeleted?: () => void;
+  /** Opens another route (a van just added): its page, or the panel. */
+  onOpenRoute?: (id: string) => void;
 };
 
 /**
@@ -52,11 +55,13 @@ export function RouteDetail({
   variant,
   onClose,
   onDeleted,
+  onOpenRoute,
 }: RouteDetailProps) {
   const t = useTranslations("Routes");
   const route = useRoute(routeId);
   return (
     <DetailFrame
+      recordId={routeId}
       query={route}
       variant={variant}
       listHref="/routes"
@@ -69,7 +74,12 @@ export function RouteDetail({
       onClose={onClose}
     >
       {(data, layout) => (
-        <Loaded route={data} layout={layout} onDeleted={onDeleted} />
+        <Loaded
+          route={data}
+          layout={layout}
+          onDeleted={onDeleted}
+          onOpenRoute={onOpenRoute}
+        />
       )}
     </DetailFrame>
   );
@@ -79,16 +89,20 @@ function Loaded({
   route,
   layout: { variant, headingId, SectionHeading, backLink },
   onDeleted,
+  onOpenRoute,
 }: {
   route: RouteRead;
   layout: DetailLayout;
   onDeleted?: () => void;
+  onOpenRoute?: (id: string) => void;
 }) {
   const t = useTranslations("Routes");
   const { date } = useTimestampFormat();
   const [formKey, setFormKey] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [vanKey, setVanKey] = useState<number | null>(null);
+  const [vanOpen, setVanOpen] = useState(false);
   // Delete shows for admins only; the API still refuses others.
   const isAdmin = useCurrentStaff().data?.role === "admin";
   const origin = route.corridor.origin_area.name;
@@ -211,16 +225,26 @@ function Loaded({
       </section>
 
       <section className="grid gap-4 border-t border-line pt-5">
-        <Button
-          variant="secondary"
-          className="w-fit"
-          onClick={() => {
-            setFormKey((key) => (key ?? 0) + 1);
-            setFormOpen(true);
-          }}
-        >
-          {t("edit")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setFormKey((key) => (key ?? 0) + 1);
+              setFormOpen(true);
+            }}
+          >
+            {t("edit")}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setVanKey((key) => (key ?? 0) + 1);
+              setVanOpen(true);
+            }}
+          >
+            {t("addVan")}
+          </Button>
+        </div>
         {isAdmin && (
           <div className="grid gap-2 border-t border-line pt-4">
             <SectionHeading className="text-table font-semibold text-danger">
@@ -237,6 +261,15 @@ function Loaded({
         )}
       </section>
 
+      {vanKey !== null && (
+        <RouteVanDialog
+          key={vanKey}
+          open={vanOpen}
+          onOpenChange={setVanOpen}
+          route={route}
+          onAdded={(van) => onOpenRoute?.(van.id)}
+        />
+      )}
       <DeleteRouteDialog
         route={route}
         open={deleting}

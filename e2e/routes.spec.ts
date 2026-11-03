@@ -590,4 +590,80 @@ test.describe("routes", () => {
     await launch.getByRole("button", { name: messages.Common.cancel }).click();
     await expect(launch).toBeHidden();
   });
+  test("staff add a van: it copies the route, starts as the API says, and opens", async ({
+    page,
+  }) => {
+    await signIn(page, "staff");
+    // From B-01 (public, priced, two areas served): the van starts forming.
+    await page.goto(`/routes/${B01}`);
+    await page
+      .getByRole("article", { name: "B-01" })
+      .getByRole("button", { name: t.addVan })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: fill(t.vanTitle, { code: "B-01" }),
+    });
+    await expect(dialog.getByLabel(t.seatsLabel)).toHaveValue("14");
+    const code = `VAN-${randomUUID().slice(0, 6)}`.toUpperCase();
+    await dialog.getByLabel(t.codeLabel).fill(code.toLowerCase());
+    await dialog.getByRole("button", { name: t.addVan }).click();
+    await expect(
+      page.getByText(fill(t.vanAdded, { code, start: t.vanStartsForming })),
+    ).toBeVisible();
+
+    // The new van's page, its name focused: copied from B-01, same corridor, areas and prices.
+    await expect(
+      page.getByRole("heading", { level: 1, name: code }),
+    ).toBeFocused();
+    const van = page.getByRole("article", { name: code });
+    await expect(van.getByRole("link", { name: "B-01" })).toBeVisible();
+    await expect(
+      van.getByRole("list", { name: t.areasServedLabel }).getByRole("listitem"),
+    ).toHaveText(["Bole", "→Megenagna", "→Mexico", "→Piassa"]);
+    await expect(van.getByRole("group", { name: t.prices })).toContainText(
+      "2,400 birr",
+    );
+
+    // A code already used is refused on the code field.
+    await van.getByRole("button", { name: t.addVan }).click();
+    const again = page.getByRole("dialog", {
+      name: fill(t.vanTitle, { code }),
+    });
+    await again.getByLabel(t.codeLabel).fill("B-02");
+    await again.getByRole("button", { name: t.addVan }).click();
+    await expect(again.getByText(t.codeTaken)).toBeVisible();
+    await expect(again.getByLabel(t.codeLabel)).toBeFocused();
+  });
+
+  test("a van from a corporate route has no launch minimum, starts as a draft, and opens in its place", async ({
+    page,
+  }) => {
+    await signIn(page, "staff", "/sign-in?next=%2Froutes");
+    await page.getByLabel(t.searchLabel).fill("R-21");
+    const details = await openRoute(page, "R-21");
+    await details.getByRole("button", { name: t.addVan }).click();
+    const dialog = page.getByRole("dialog", {
+      name: fill(t.vanTitle, { code: "R-21" }),
+    });
+    await expect(
+      dialog.getByText(/the company \(Addis Brewery\)/),
+    ).toBeVisible();
+    await expect(dialog.getByLabel(t.launchMinimumLabel)).toHaveCount(0);
+    const code = `VAN-${randomUUID().slice(0, 6)}`.toUpperCase();
+    await dialog.getByLabel(t.codeLabel).fill(code);
+    await dialog.getByRole("button", { name: t.addVan }).click();
+    await expect(
+      page.getByText(fill(t.vanAdded, { code, start: t.vanStartsDraft })),
+    ).toBeVisible();
+    // The van replaces R-21 beside the list (its own page on phones), and has focus.
+    if (isWide(page)) {
+      await expect(page.getByRole("region", { name: code })).toBeFocused();
+      await expect(page).toHaveURL(/\/routes\?.*route=/);
+      await expect(page.getByRole("region", { name: "R-21" })).toHaveCount(0);
+    } else {
+      await expect(
+        page.getByRole("heading", { level: 1, name: code }),
+      ).toBeFocused();
+    }
+  });
 });
