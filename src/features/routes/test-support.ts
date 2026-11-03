@@ -15,6 +15,7 @@ export const areas = {
   piassa: { id: "00000000-0000-4000-a000-000000000002", name: "Piassa" },
   mexico: { id: "00000000-0000-4000-a000-000000000003", name: "Mexico" },
   cmc: { id: "00000000-0000-4000-a000-000000000004", name: "CMC" },
+  megenagna: { id: "00000000-0000-4000-a000-000000000005", name: "Megenagna" },
 } satisfies Record<string, Schemas["AreaRef"]>;
 
 export const bolePiassa: Schemas["CorridorRef"] = {

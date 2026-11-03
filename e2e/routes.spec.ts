@@ -181,7 +181,7 @@ test.describe("routes", () => {
     const { code } = await addRoute(page, "public");
     await page.getByLabel(t.searchLabel).fill(code);
     const details = await openRoute(page, code.toUpperCase());
-    await details.getByRole("button", { name: t.edit }).click();
+    await details.getByRole("button", { name: t.edit, exact: true }).click();
     const edit = page.getByRole("dialog", {
       name: fill(t.editTitle, { code: code.toUpperCase() }),
     });
@@ -197,7 +197,7 @@ test.describe("routes", () => {
     // S-03 has open route requests: its school is fixed.
     await page.goto("/routes/00000000-0000-4000-d000-000000000004");
     const student = page.getByRole("article", { name: "S-03" });
-    await student.getByRole("button", { name: t.edit }).click();
+    await student.getByRole("button", { name: t.edit, exact: true }).click();
     const editStudent = page.getByRole("dialog", {
       name: fill(t.editTitle, { code: "S-03" }),
     });
@@ -311,10 +311,110 @@ test.describe("routes", () => {
     await expect(details.getByRole("group", { name: t.prices })).toContainText(
       "2,400 birr",
     );
-    await expect(details.getByRole("button", { name: t.edit })).toBeVisible();
+    await expect(
+      details.getByRole("button", { name: t.edit, exact: true }),
+    ).toBeVisible();
 
     await expect(
       details.getByRole("button", { name: t.changePrices }),
     ).toHaveCount(0);
+  });
+  test("staff set a route's areas served with the keyboard, and clearing them frees the corridor", async ({
+    page,
+  }) => {
+    await signIn(page, "staff", "/sign-in?next=%2Froutes");
+    const { code, dialog } = await addRoute(page, "public");
+    await expect(dialog).toBeHidden();
+    const upper = code.toUpperCase();
+    await page.getByLabel(t.searchLabel).fill(code);
+    const details = await openRoute(page, upper);
+
+    await details.getByRole("button", { name: t.editAreas }).click();
+    const editor = page.getByRole("dialog", {
+      name: fill(t.areasTitle, { code: upper }),
+    });
+    const picker = editor.getByRole("combobox", { name: t.addAreaLabel });
+    const listed = editor
+      .getByRole("list", {
+        name: fill(t.areasListLabel, { origin: "Ayat", destination: "CMC" }),
+      })
+      .getByRole("listitem");
+    for (const [index, area] of ["Megenagna", "Mexico", "Bole"].entries()) {
+      // The add picker empties itself again: the area shows in the list instead.
+      await picker.focus();
+      await page.keyboard.press("Enter");
+      await page.keyboard.type(area);
+      await expect(
+        page.getByRole("option", { name: area, exact: true }),
+      ).toBeVisible();
+      await page.keyboard.press("Enter");
+      await expect(listed).toHaveCount(index + 1);
+      await expect(picker).toBeFocused();
+    }
+    // Move Bole to the front and drop Mexico, with the keyboard.
+    const boleUp = editor.getByRole("button", {
+      name: fill(t.moveUp, { name: "Bole" }),
+    });
+    await boleUp.focus();
+    await page.keyboard.press("Enter");
+    await expect(boleUp).toBeFocused();
+    await page.keyboard.press("Enter");
+    await editor
+      .getByRole("button", { name: fill(t.removeArea, { name: "Mexico" }) })
+      .focus();
+    await page.keyboard.press("Enter");
+    await editor.getByRole("button", { name: t.save }).click();
+    await expect(
+      page.getByText(fill(t.areasSaved, { code: upper })),
+    ).toBeVisible();
+    await expect(
+      details
+        .getByRole("list", { name: t.areasServedLabel })
+        .getByRole("listitem"),
+    ).toHaveText(["Ayat", "→Bole", "→Megenagna", "→CMC"]);
+
+    // While it serves areas, its corridor can't change.
+    const changeCorridor = async () => {
+      await details.getByRole("button", { name: t.edit, exact: true }).click();
+      const edit = page.getByRole("dialog", {
+        name: fill(t.editTitle, { code: upper }),
+      });
+      await pickWithKeyboard(
+        page,
+        edit.getByRole("combobox", { name: tField.originLabel }),
+        "Megenagna",
+      );
+      await pickWithKeyboard(
+        page,
+        edit.getByRole("combobox", { name: tField.destinationLabel }),
+        "Mexico",
+      );
+      await expect(
+        edit.getByText(
+          fill(tField.found, { origin: "Megenagna", destination: "Mexico" }),
+        ),
+      ).toBeVisible();
+      await edit.getByRole("button", { name: t.save }).click();
+      return edit;
+    };
+    const refused = await changeCorridor();
+    await expect(refused.getByText(t.corridorHasAreas)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(refused).toBeHidden();
+
+    await details.getByRole("button", { name: t.editAreas }).click();
+    for (const area of ["Bole", "Megenagna"]) {
+      await editor
+        .getByRole("button", { name: fill(t.removeArea, { name: area }) })
+        .click();
+    }
+    await editor.getByRole("button", { name: t.save }).click();
+    await expect(editor).toBeHidden();
+
+    const accepted = await changeCorridor();
+    await expect(accepted).toBeHidden();
+    await expect(
+      page.getByText(fill(t.savedToast, { code: upper })),
+    ).toBeVisible();
   });
 });
