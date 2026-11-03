@@ -298,6 +298,7 @@ export function RoutesScreen() {
               routeId={detail.panelId}
               variant="panel"
               onClose={detail.closePanel}
+              onDeleted={detail.closeAfterDelete}
             />
           </div>
         )}

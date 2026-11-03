@@ -8,6 +8,7 @@ import type { components } from "@/lib/api/schema";
 type RouteCreate = components["schemas"]["RouteCreate"];
 type RouteUpdate = components["schemas"]["RouteUpdate"];
 type RoutePricesSet = components["schemas"]["RoutePricesSet"];
+type RouteStatusSet = components["schemas"]["RouteStatusSet"];
 export type RouteType = components["schemas"]["RouteType"];
 export type RouteStatus = components["schemas"]["RouteStatus"];
 
@@ -27,6 +28,7 @@ export const routeKeys = {
   all: ["routes"] as const,
   list: (filters: RouteFilters) => ["routes", "list", filters] as const,
   detail: (id: string) => ["routes", "detail", id] as const,
+  launchMonths: (id: string) => ["routes", "launch-months", id] as const,
 };
 
 /** One page of routes (`routes_list`), newest first; the filters combine (AND). */
@@ -183,6 +185,77 @@ export function useSetRouteAreas() {
       ),
     onSuccess: () => refetchRoutes(queryClient),
     onError: (error, { id }) => {
+      if (error instanceof ApiError && error.status === 404) {
+        void refetchRoutes(queryClient, id);
+      }
+    },
+  });
+}
+
+/** The months a launch may name (`routes_launch_months`), with riders reserved; off until needed. */
+export function useLaunchMonths(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: routeKeys.launchMonths(id),
+    queryFn: () =>
+      unwrap(
+        api.GET("/v1/routes/{route_id}/launch-months", {
+          params: { path: { route_id: id } },
+        }),
+      ),
+    enabled,
+    // A snapshot that changes as riders reserve: fresh each time the dialog opens.
+    staleTime: 0,
+  });
+}
+
+/**
+ * `routes_set_status` (staff): a move, or a launch with its `launch_date`. The answer is the
+ * updated route. A 409 means readiness changed meanwhile: the route (and its launch months)
+ * reload, so its moves show what's possible now.
+ */
+export function useSetRouteStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, change }: { id: string; change: RouteStatusSet }) =>
+      unwrap(
+        api.PUT("/v1/routes/{route_id}/status", {
+          params: { path: { route_id: id } },
+          body: change,
+        }),
+      ),
+    onSuccess: (route) => {
+      queryClient.setQueryData(routeKeys.detail(route.id), route);
+      return refetchRoutes(queryClient, route.id);
+    },
+    onError: (error, { id }) => {
+      if (!(error instanceof ApiError)) return;
+      if (error.status === 409 || error.status === 422) {
+        void queryClient.invalidateQueries({ queryKey: routeKeys.detail(id) });
+        void queryClient.invalidateQueries({
+          queryKey: routeKeys.launchMonths(id),
+        });
+      } else if (error.status === 404) {
+        void refetchRoutes(queryClient, id);
+      }
+    },
+  });
+}
+
+/**
+ * `routes_delete` (admins): lists and pickers refetch; the deleted route's own detail doesn't
+ * (it would only find a 404 while the screen leaves it).
+ */
+export function useDeleteRoute() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      unwrap(
+        api.DELETE("/v1/routes/{route_id}", {
+          params: { path: { route_id: id } },
+        }),
+      ),
+    onSuccess: (_, id) => refetchRoutes(queryClient, id),
+    onError: (error, id) => {
       if (error instanceof ApiError && error.status === 404) {
         void refetchRoutes(queryClient, id);
       }
