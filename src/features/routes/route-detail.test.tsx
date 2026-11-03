@@ -1,9 +1,10 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
 import { renderWithProviders } from "../../../tests/utils/render";
+import { currentStaffQueryKey } from "@/lib/auth/use-current-staff";
 import { RouteDetail } from "./route-detail";
 import {
   corporate,
@@ -192,5 +193,42 @@ describe("RouteDetail", () => {
     });
     expect(within(dialog).getByLabelText(t.codeLabel)).toHaveValue("B-01");
     expect(within(dialog).getByLabelText(t.seatsLabel)).toHaveValue(14);
+  });
+  it("lets admins set or change prices, not staff, and not on corporate routes", async () => {
+    serveRole("admin");
+    serveRoute(forming, corporate);
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(
+      <RouteDetail routeId={forming.id} variant="page" />,
+    );
+    await user.click(
+      await screen.findByRole("button", { name: t.changePrices }),
+    );
+    expect(
+      await screen.findByRole("dialog", {
+        name: fill(t.pricesTitle, { code: "B-01" }),
+      }),
+    ).toBeVisible();
+    unmount();
+
+    renderWithProviders(<RouteDetail routeId={corporate.id} variant="page" />);
+    await screen.findByText(t.rateAgreed);
+    expect(screen.queryByRole("button", { name: t.setPrices })).toBeNull();
+    expect(screen.queryByRole("button", { name: t.changePrices })).toBeNull();
+  });
+
+  it("shows prices read-only to staff", async () => {
+    serveRoute(forming);
+    const { queryClient } = renderWithProviders(
+      <RouteDetail routeId={forming.id} variant="page" />,
+    );
+    await screen.findByRole("group", { name: t.prices });
+    await waitFor(() =>
+      expect(queryClient.getQueryState(currentStaffQueryKey)?.status).toBe(
+        "success",
+      ),
+    );
+
+    expect(screen.queryByRole("button", { name: t.changePrices })).toBeNull();
   });
 });

@@ -14,10 +14,12 @@ import {
 import { LaunchProgress } from "@/components/launch-progress";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/schema";
+import { useCurrentStaff } from "@/lib/auth/use-current-staff";
 import { useTimestampFormat } from "@/lib/time";
 import { useRoute } from "./queries";
 import { RouteCorridor } from "./route-corridor";
 import { RouteFormDialog } from "./route-form-dialog";
+import { RoutePricesDialog } from "./route-prices-dialog";
 import { RouteStatusPill } from "./route-status-pill";
 
 type RouteRead = components["schemas"]["RouteRead"];
@@ -255,8 +257,13 @@ function AreasPath({ route }: { route: RouteRead }) {
   );
 }
 
+/** The prices, or the agreed rate on a corporate route; admins set them (GZW-022). */
 function Prices({ route }: { route: RouteRead }) {
   const t = useTranslations("Routes");
+  // Admins only (the API refuses others): staff see the prices.
+  const isAdmin = useCurrentStaff().data?.role === "admin";
+  const [dialogKey, setDialogKey] = useState<number | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   if (route.prices === null) {
     return <p className="text-body text-ink">{t("rateAgreed")}</p>;
   }
@@ -266,17 +273,42 @@ function Prices({ route }: { route: RouteRead }) {
     ) : (
       t("priceValue", { amount })
     );
+  const anySet = Object.values(route.prices).some((amount) => amount !== null);
   return (
-    <div role="group" aria-label={t("prices")}>
-      <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-3">
-        <Fact label={t("priceRoundTrip")}>
-          {price(route.prices.round_trip)}
-        </Fact>
-        <Fact label={t("priceOneWay")}>{price(route.prices.one_way)}</Fact>
-        {route.route_type === "public" && (
-          <Fact label={t("priceSaturday")}>{price(route.prices.saturday)}</Fact>
-        )}
-      </dl>
+    <div className="grid gap-3">
+      <div role="group" aria-label={t("prices")}>
+        <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-3">
+          <Fact label={t("priceRoundTrip")}>
+            {price(route.prices.round_trip)}
+          </Fact>
+          <Fact label={t("priceOneWay")}>{price(route.prices.one_way)}</Fact>
+          {route.route_type === "public" && (
+            <Fact label={t("priceSaturday")}>
+              {price(route.prices.saturday)}
+            </Fact>
+          )}
+        </dl>
+      </div>
+      {isAdmin && (
+        <Button
+          variant="secondary"
+          className="w-fit"
+          onClick={() => {
+            setDialogKey((key) => (key ?? 0) + 1);
+            setDialogOpen(true);
+          }}
+        >
+          {t(anySet ? "changePrices" : "setPrices")}
+        </Button>
+      )}
+      {dialogKey !== null && (
+        <RoutePricesDialog
+          key={dialogKey}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          route={route}
+        />
+      )}
     </div>
   );
 }

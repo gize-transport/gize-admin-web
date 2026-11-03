@@ -90,7 +90,7 @@ Status: done · Needs backend: GZ-011 (in `api-v1.2.0`)
 - Detail (side panel ≥ 1280 px, page otherwise) per the routes mockup: corridor, areas served in order, times, seats, prices (GZW-022), status actions (GZW-024), "copied from" (a deleted original shows as deleted, not an error). Shared `RoutePicker` (search by code) for requests and riders.
 - Create (`Idempotency-Key`) and edit: code (2–20, letters, digits, hyphens), corridor picker, type (fixed after creation) deciding school name (`student`) or company picker (`corporate`, active companies only), the four times, seats 1–60, launch minimum (`public`/`student` only, 1 to seats). Errors: `ROUTE_CODE_TAKEN`, `SEATS_BELOW_TAKEN`, `SEATS_BELOW_LAUNCH_MINIMUM`, `ROUTE_HAS_RIDERS`, `ROUTE_HAS_PRICES` and `ROUTE_HAS_REQUESTS` (corridor and school are fixed once the route has prices or open requests: "add a new route to serve somewhere else"); times out of order and a corridor change while areas are served are field errors.
 
-### GZW-022 · Route prices (admin) · Needs backend: GZ-022 (in `api-v1.6.0`) · Status: todo
+### GZW-022 · Route prices (admin) · Needs backend: GZ-022 (in `api-v1.6.0`) · Status: done
 - `routes_set_prices` (admin): round trip and one-way required, Saturday add-on optional (`public` only), whole birr 1–100,000, all sent at once. Staff see prices read-only; unset prices show "Not set". Corporate routes (`prices` null) show "Rate agreed with the company" and no price form (`ROUTE_HAS_NO_PRICES` handled anyway).
 
 ### GZW-023 · Areas served · Needs backend: GZ-023 (in `api-v2.0.0`), GZ-026 · Status: todo

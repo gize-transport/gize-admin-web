@@ -7,6 +7,7 @@ import type { components } from "@/lib/api/schema";
 
 type RouteCreate = components["schemas"]["RouteCreate"];
 type RouteUpdate = components["schemas"]["RouteUpdate"];
+type RoutePricesSet = components["schemas"]["RoutePricesSet"];
 export type RouteType = components["schemas"]["RouteType"];
 export type RouteStatus = components["schemas"]["RouteStatus"];
 
@@ -139,6 +140,27 @@ export function useUpdateRoute() {
           body: change,
         }),
       ),
+    onSuccess: () => refetchRoutes(queryClient),
+    onError: (error, { id }) => {
+      if (error instanceof ApiError && error.status === 404) {
+        void refetchRoutes(queryClient, id);
+      }
+    },
+  });
+}
+
+/** `routes_set_prices` (admins): all prices at once; a PUT, so no Idempotency-Key. */
+export function useSetRoutePrices() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, prices }: { id: string; prices: RoutePricesSet }) =>
+      unwrap(
+        api.PUT("/v1/routes/{route_id}/prices", {
+          params: { path: { route_id: id } },
+          body: prices,
+        }),
+      ),
+    // The route's status moves can change too (prices unblock "Start forming").
     onSuccess: () => refetchRoutes(queryClient),
     onError: (error, { id }) => {
       if (error instanceof ApiError && error.status === 404) {
