@@ -9,7 +9,14 @@ import {
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useRef, type ReactNode, type Ref } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -346,7 +353,16 @@ type RowActionProps = {
    */
   "aria-label"?: string;
 } & (
-  { onSelect: () => void; href?: never } | { href: string; onSelect?: never }
+  | { onSelect: () => void; href?: never; onNavigate?: never }
+  | {
+      href: string;
+      onSelect?: never;
+      /**
+       * Before the link is followed; call `event.preventDefault()` to show the details another
+       * way (e.g. a side panel on wide screens). The link stays a real link for new tabs.
+       */
+      onNavigate?: (event: ReactMouseEvent<HTMLAnchorElement>) => void;
+    }
 );
 
 /** The row's main control, in the first column: opens the row's details. */
@@ -355,6 +371,7 @@ export function RowAction({
   current,
   onSelect,
   href,
+  onNavigate,
   "aria-label": ariaLabel,
 }: RowActionProps) {
   const className =
@@ -367,7 +384,7 @@ export function RowAction({
   };
 
   return href ? (
-    <Link href={href} {...shared}>
+    <Link href={href} onClick={onNavigate} {...shared}>
       {children}
     </Link>
   ) : (

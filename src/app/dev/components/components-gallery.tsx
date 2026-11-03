@@ -14,6 +14,7 @@ import {
 import { EmptyState } from "@/components/empty-state";
 import { NoPermission } from "@/components/no-permission";
 import { AreaPicker } from "@/components/pickers/area-picker";
+import { CompanyPicker } from "@/components/pickers/company-picker";
 import { ProblemAlert } from "@/components/problem-alert";
 import { StatusPill, type StatusTone } from "@/components/status-pill";
 import { showSuccessToast } from "@/components/toast";
@@ -26,6 +27,7 @@ import {
   sampleRequestId,
   sampleRoutes,
   searchSampleAreas,
+  searchSampleCompanies,
   type SampleRoute,
 } from "./sample-data";
 
@@ -130,6 +132,10 @@ export function ComponentsGallery() {
         <AreaPickerDemo />
       </Section>
 
+      <Section title={t("companyPicker")}>
+        <CompanyPickerDemo />
+      </Section>
+
       <Section title={t("noPermission")}>
         <NoPermission />
       </Section>
@@ -191,6 +197,29 @@ function AreaPickerDemo() {
         {area
           ? t("areaPickerChosen", { name: area.name })
           : t("areaPickerNone")}
+      </p>
+    </div>
+  );
+}
+
+function CompanyPickerDemo() {
+  const t = useTranslations("DevComponents");
+  const [company, setCompany] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  return (
+    <div className="grid max-w-sm gap-1.5">
+      <Label htmlFor="demo-company">{t("companyPickerLabel")}</Label>
+      <CompanyPicker
+        id="demo-company"
+        value={company}
+        onChange={setCompany}
+        search={searchSampleCompanies}
+      />
+      <p className="text-table text-muted">
+        {company
+          ? t("companyPickerChosen", { name: company.name })
+          : t("companyPickerNone")}
       </p>
     </div>
   );

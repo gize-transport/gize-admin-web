@@ -575,6 +575,313 @@ function listCorridors(url, response) {
   send(response, 200, page);
 }
 
+// Companies, like GZ-029: names unique ignoring case, newest first, `q` matches the start of a name,
+// `is_active` filters; contact phone stored E.164, email lower case, empty notes are none.
+/** @typedef {Schemas["CompanyRead"]} FakeCompany */
+/** @type {FakeCompany[]} */
+const companies = [
+  ["Addis Brewery", "Hana Bekele", "+251911234567", true],
+  ["Ethio Ceramics", "Dawit Alemu", "+251922345678", true],
+  ["Abyssinia Textiles", "Selam Tesfaye", "+251712345678", true],
+  ["Bole Logistics", "Yonas Girma", "+251933456789", false],
+].map(([name, contact, phone, active], index) => {
+  const at = new Date(Date.UTC(2026, 9, 3, 6, index)).toISOString();
+  return {
+    id: `00000000-0000-4000-c000-${String(index + 1).padStart(12, "0")}`,
+    name: String(name),
+    contact_name: String(contact),
+    contact_phone: String(phone),
+    contact_email: `${String(contact).split(" ")[0]?.toLowerCase()}@example.test`,
+    billing: /** @type {const} */ ("postpaid"),
+    notes: index === 0 ? "Invoices to the finance office, 2nd floor." : null,
+    is_active: Boolean(active),
+    created_at: at,
+    updated_at: at,
+  };
+});
+/** @type {Map<string, { company: FakeCompany; fingerprint: string }>} */
+const companyKeys = new Map();
+
+/** @param {string} name */
+function companyId(name) {
+  const company = companies.find((candidate) => candidate.name === name);
+  if (!company) throw new Error(`no seeded company ${name}`);
+  return company.id;
+}
+
+/** @param {string} origin @param {string} destination */
+function corridorRef(origin, destination) {
+  const corridor = corridors.find(
+    (candidate) =>
+      candidate.originId === areaId(origin) &&
+      candidate.destinationId === areaId(destination),
+  );
+  if (!corridor)
+    throw new Error(`no seeded corridor ${origin} → ${destination}`);
+  return {
+    id: corridor.id,
+    origin_area: areaRef(corridor.originId),
+    destination_area: areaRef(corridor.destinationId),
+  };
+}
+
+// Corporate routes (only what company details show is modelled; routes get their own endpoints
+// with GZW-021). Addis Brewery runs one (can't be deactivated or deleted); Ethio Ceramics has a
+// draft one (can be deactivated, not deleted).
+/** @type {(Schemas["RouteRead"] & { companyId: string })[]} */
+const routes = [
+  ["R-21", "Addis Brewery", "Bole", "Piassa", "active"],
+  ["R-22", "Ethio Ceramics", "Megenagna", "Mexico", "draft"],
+].map(([code, company, origin, destination, status], index) => {
+  const at = new Date(Date.UTC(2026, 9, 4, 6, index)).toISOString();
+  const id = companyId(String(company));
+  return {
+    companyId: id,
+    id: `00000000-0000-4000-d000-${String(index + 1).padStart(12, "0")}`,
+    code: String(code),
+    corridor: corridorRef(String(origin), String(destination)),
+    route_type: /** @type {const} */ ("corporate"),
+    school_name: null,
+    company: { id, name: String(company) },
+    morning_time: "06:30",
+    morning_arrival_time: "07:15",
+    return_time: "17:30",
+    return_arrival_time: "18:15",
+    served_areas: [],
+    seats: 14,
+    launch_minimum: null,
+    prices: null,
+    status: /** @type {Schemas["RouteStatus"]} */ (status),
+    copied_from_route_id: null,
+    seats_taken: { this_month: 9, next_month: 9 },
+    seats_free: { this_month: 5, next_month: 5 },
+    reserved: 0,
+    status_changes: [],
+    created_at: at,
+    updated_at: at,
+  };
+});
+
+/** @param {Schemas["RouteRead"] & { companyId: string }} route @returns {Schemas["RouteRead"]} */
+function routeRead({ companyId: _companyId, ...route }) {
+  // Names follow renames, like the API's joins.
+  const company = companies.find((candidate) => candidate.id === _companyId);
+  return {
+    ...route,
+    company: company ? { id: company.id, name: company.name } : route.company,
+  };
+}
+
+/**
+ * A ShortText field, like the API: trimmed, same-looking spaces, 1–100 characters.
+ * @param {ServerResponse} response
+ * @param {unknown} value
+ * @param {string} field
+ * @returns {string | undefined}
+ */
+function shortText(response, value, field) {
+  if (typeof value !== "string") {
+    validationProblem(
+      response,
+      `/${field}`,
+      value === undefined ? "missing" : "invalid_type",
+    );
+    return undefined;
+  }
+  const text = sameLooking(value);
+  if (text === "") {
+    validationProblem(response, `/${field}`, "too_short");
+    return undefined;
+  }
+  if (text.length > 100) {
+    validationProblem(response, `/${field}`, "too_long");
+    return undefined;
+  }
+  return text;
+}
+
+const MOBILE = /^(?:(?:\+|00)?2510?|0)?([79][0-9]{8})$/;
+const EMAIL =
+  /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
+
+/**
+ * The company fields in a body, checked and normalised like the API's model.
+ * @param {ServerResponse} response
+ * @param {Record<string, unknown>} body
+ * @param {{ partial: boolean }} options
+ * @returns {Partial<FakeCompany> | undefined} undefined after a 422
+ */
+function companyFields(response, body, { partial }) {
+  const allowed = [
+    "name",
+    "contact_name",
+    "contact_phone",
+    "contact_email",
+    "notes",
+  ];
+  if (partial) allowed.push("is_active");
+  const unknown = Object.keys(body).find((key) => !allowed.includes(key));
+  if (unknown) {
+    validationProblem(response, `/${unknown}`, "unknown_field");
+    return undefined;
+  }
+  if (partial) {
+    const sent = Object.keys(body);
+    if (sent.length === 0 || sent.some((key) => body[key] === null)) {
+      validationProblem(response, "", "invalid");
+      return undefined;
+    }
+  }
+  /** @type {Partial<FakeCompany>} */
+  const fields = {};
+  for (const field of /** @type {const} */ (["name", "contact_name"])) {
+    if (partial && body[field] === undefined) continue;
+    const text = shortText(response, body[field], field);
+    if (text === undefined) return undefined;
+    fields[field] = text;
+  }
+  if (!partial || body.contact_phone !== undefined) {
+    const phone = body.contact_phone;
+    if (typeof phone !== "string") {
+      validationProblem(
+        response,
+        "/contact_phone",
+        phone === undefined ? "missing" : "invalid_type",
+      );
+      return undefined;
+    }
+    if (phone.trim().length > 20) {
+      validationProblem(response, "/contact_phone", "too_long");
+      return undefined;
+    }
+    const match = MOBILE.exec(phone.trim().replace(/[  \t().-]/g, ""));
+    if (!match) {
+      validationProblem(response, "/contact_phone", "invalid");
+      return undefined;
+    }
+    fields.contact_phone = `+251${match[1]}`;
+  }
+  if (!partial || body.contact_email !== undefined) {
+    const email = body.contact_email;
+    if (typeof email !== "string") {
+      validationProblem(
+        response,
+        "/contact_email",
+        email === undefined ? "missing" : "invalid_type",
+      );
+      return undefined;
+    }
+    const trimmed = email.trim();
+    if (trimmed.length > 320) {
+      validationProblem(response, "/contact_email", "too_long");
+      return undefined;
+    }
+    if (!EMAIL.test(trimmed)) {
+      validationProblem(response, "/contact_email", "invalid_format");
+      return undefined;
+    }
+    fields.contact_email = trimmed.toLowerCase();
+  }
+  if (body.notes !== undefined && body.notes !== null) {
+    if (typeof body.notes !== "string") {
+      validationProblem(response, "/notes", "invalid_type");
+      return undefined;
+    }
+    const notes = body.notes.trim().replace(/\r\n?/g, "\n");
+    if (notes.length > 1000) {
+      validationProblem(response, "/notes", "too_long");
+      return undefined;
+    }
+    fields.notes = notes === "" ? null : notes;
+  }
+  if (partial && body.is_active !== undefined) {
+    if (typeof body.is_active !== "boolean") {
+      validationProblem(response, "/is_active", "invalid_type");
+      return undefined;
+    }
+    fields.is_active = body.is_active;
+  }
+  return fields;
+}
+
+/** @param {string} name @param {string} [exceptId] */
+function companyNameTaken(name, exceptId) {
+  return companies.some(
+    (company) =>
+      company.id !== exceptId &&
+      company.name.toLowerCase() === name.toLowerCase(),
+  );
+}
+
+/**
+ * @param {URL} url
+ * @param {ServerResponse} response
+ */
+function listCompanies(url, response) {
+  const q = url.searchParams.get("q")?.trim() || null;
+  if (q !== null && q.length > 100) {
+    return validationProblem(response, "/q", "too_long", "query");
+  }
+  const active = url.searchParams.get("is_active");
+  if (active !== null && !["true", "false"].includes(active)) {
+    return validationProblem(response, "/is_active", "invalid_type", "query");
+  }
+  const limit = Number(url.searchParams.get("limit") ?? 25);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return validationProblem(response, "/limit", "out_of_range", "query");
+  }
+  const cursor = url.searchParams.get("cursor");
+  const offset =
+    cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
+  if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
+    return problem(response, 422, "INVALID_CURSOR");
+  }
+  const matching = companies
+    .filter(
+      (company) =>
+        (q === null ||
+          company.name.toLowerCase().startsWith(q.toLowerCase())) &&
+        (active === null || company.is_active === (active === "true")),
+    )
+    .sort(
+      (a, b) =>
+        b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
+    );
+  /** @type {Schemas["CompanyPage"]} */
+  const page = {
+    items: matching.slice(offset, offset + limit),
+    next_cursor:
+      offset + limit < matching.length
+        ? Buffer.from(String(offset + limit)).toString("base64url")
+        : null,
+  };
+  send(response, 200, page);
+}
+
+/**
+ * Routes, filtered by company only (what company details need).
+ * @param {URL} url
+ * @param {ServerResponse} response
+ */
+function listRoutes(url, response) {
+  const company = url.searchParams.get("company_id");
+  if (company !== null && !UUID.test(company)) {
+    return validationProblem(
+      response,
+      "/company_id",
+      "invalid_format",
+      "query",
+    );
+  }
+  const items = routes
+    .filter((route) => company === null || route.companyId === company)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .map(routeRead);
+  /** @type {Schemas["RoutePage"]} */
+  const page = { items, next_cursor: null };
+  send(response, 200, page);
+}
+
 const api = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://localhost");
   if (request.method === "OPTIONS") return send(response, 204);
@@ -769,6 +1076,98 @@ const api = createServer(async (request, response) => {
         return problem(response, 409, "CORRIDOR_IN_USE");
       }
       corridors.splice(corridors.indexOf(corridor), 1);
+      return send(response, 204);
+    }
+  }
+
+  if (request.method === "GET" && url.pathname === "/v1/routes") {
+    return listRoutes(url, response);
+  }
+
+  if (url.pathname === "/v1/companies") {
+    if (request.method === "GET") return listCompanies(url, response);
+    if (request.method === "POST") {
+      const key = idempotencyKey(request, response);
+      if (key === undefined) return;
+      const body = await readJson(request);
+      const fingerprint = JSON.stringify(body);
+      const replay = companyKeys.get(`${user.email}|${key}`);
+      if (replay) {
+        if (replay.fingerprint !== fingerprint) {
+          return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+        }
+        return send(response, 201, replay.company, {
+          "Idempotent-Replayed": "true",
+        });
+      }
+      const fields = companyFields(response, body, { partial: false });
+      if (!fields) return;
+      if (companyNameTaken(String(fields.name))) {
+        return problem(response, 409, "COMPANY_NAME_TAKEN");
+      }
+      const now = new Date().toISOString();
+      /** @type {FakeCompany} */
+      const company = {
+        id: randomUUID(),
+        name: String(fields.name),
+        contact_name: String(fields.contact_name),
+        contact_phone: String(fields.contact_phone),
+        contact_email: String(fields.contact_email),
+        billing: "postpaid",
+        notes: fields.notes ?? null,
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+      };
+      companies.push(company);
+      companyKeys.set(`${user.email}|${key}`, { company, fingerprint });
+      return send(response, 201, company);
+    }
+  }
+
+  const companyMatch = /^\/v1\/companies\/([^/]+)$/.exec(url.pathname);
+  if (companyMatch && !UUID.test(companyMatch[1] ?? "")) {
+    return validationProblem(response, "/company_id", "invalid_format", "path");
+  }
+  if (companyMatch) {
+    if (request.method === "DELETE" && !isAdmin) {
+      return problem(response, 403, "FORBIDDEN");
+    }
+    // The body is validated before the company is looked up, as FastAPI does.
+    const body = request.method === "PATCH" ? await readJson(request) : {};
+    const fields =
+      request.method === "PATCH"
+        ? companyFields(response, body, { partial: true })
+        : {};
+    if (!fields) return;
+    const company = companies.find(
+      (candidate) => candidate.id === companyMatch[1],
+    );
+    if (!company) return problem(response, 404, "NOT_FOUND");
+    if (request.method === "GET") return send(response, 200, company);
+    if (request.method === "PATCH") {
+      const runsARoute = routes.some(
+        (route) =>
+          route.companyId === company.id &&
+          (route.status === "active" || route.status === "paused"),
+      );
+      if (company.is_active && fields.is_active === false && runsARoute) {
+        return problem(response, 409, "COMPANY_IN_USE");
+      }
+      if (
+        fields.name !== undefined &&
+        companyNameTaken(fields.name, company.id)
+      ) {
+        return problem(response, 409, "COMPANY_NAME_TAKEN");
+      }
+      Object.assign(company, fields, { updated_at: new Date().toISOString() });
+      return send(response, 200, company);
+    }
+    if (request.method === "DELETE") {
+      if (routes.some((route) => route.companyId === company.id)) {
+        return problem(response, 409, "COMPANY_IN_USE");
+      }
+      companies.splice(companies.indexOf(company), 1);
       return send(response, 204);
     }
   }

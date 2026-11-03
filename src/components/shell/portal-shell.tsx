@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Sheet,
   SheetClose,
@@ -40,7 +40,6 @@ type PortalShellProps = {
  */
 export function PortalShell({ children, items = navItems }: PortalShellProps) {
   const t = useTranslations("Shell");
-  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
   const staff = useCurrentStaff();
@@ -55,13 +54,6 @@ export function PortalShell({ children, items = navItems }: PortalShellProps) {
     void signOut("not_staff");
   }, [forbidden, signOut]);
 
-  // Any change of page (a link, Back) closes the drawer.
-  const [menuPath, setMenuPath] = useState(pathname);
-  if (menuPath !== pathname) {
-    setMenuPath(pathname);
-    setMenuOpen(false);
-  }
-
   // The drawer is for narrow screens: widening past 1024 px closes it.
   useEffect(() => {
     const wide = window.matchMedia?.("(min-width: 1024px)");
@@ -75,6 +67,10 @@ export function PortalShell({ children, items = navItems }: PortalShellProps) {
 
   return (
     <div className="flex min-h-full flex-1 flex-col lg:flex-row">
+      {/* Reads the URL: on pages with an id in it, that's only known at request time. */}
+      <Suspense fallback={null}>
+        <CloseOnNavigation onNavigate={closeMenu} />
+      </Suspense>
       <a
         href="#content"
         className="sr-only z-50 rounded-lg bg-surface px-4 py-2 font-semibold text-navy focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
@@ -111,11 +107,7 @@ export function PortalShell({ children, items = navItems }: PortalShellProps) {
                 <span className="sr-only">{t("closeMenu")}</span>
               </SheetClose>
             </div>
-            <SidebarBody
-              items={items}
-              pathname={pathname}
-              onNavigate={closeMenu}
-            />
+            <SidebarBody items={items} onNavigate={closeMenu} />
           </SheetContent>
         </Sheet>
         <Brand />
@@ -124,7 +116,7 @@ export function PortalShell({ children, items = navItems }: PortalShellProps) {
       {/* From 1024 px: the sidebar. */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-6 bg-navy px-4 py-6 lg:flex">
         <Brand />
-        <SidebarBody items={items} pathname={pathname} />
+        <SidebarBody items={items} />
       </aside>
 
       <main
@@ -166,13 +158,23 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+/** Any change of page (a link, Back) closes the drawer. */
+function CloseOnNavigation({ onNavigate }: { onNavigate: () => void }) {
+  const pathname = usePathname();
+  const shown = useRef(pathname);
+  useEffect(() => {
+    if (shown.current === pathname) return;
+    shown.current = pathname;
+    onNavigate();
+  }, [pathname, onNavigate]);
+  return null;
+}
+
 function SidebarBody({
   items,
-  pathname,
   onNavigate,
 }: {
   items: readonly NavItem[];
-  pathname: string;
   onNavigate?: () => void;
 }) {
   const t = useTranslations("Shell");
@@ -185,26 +187,16 @@ function SidebarBody({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       <nav aria-label={t("navLabel")} className="grid gap-4 overflow-y-auto">
-        <NavList
-          items={ungrouped}
-          pathname={pathname}
-          onNavigate={onNavigate}
-        />
+        <NavList items={ungrouped} onNavigate={onNavigate} />
         {places.length > 0 && (
           <div className="grid gap-1">
             <p className="px-3 text-meta font-semibold tracking-wider text-white/70 uppercase">
               {t("groupPlaces")}
             </p>
-            <NavList
-              items={places}
-              pathname={pathname}
-              onNavigate={onNavigate}
-            />
+            <NavList items={places} onNavigate={onNavigate} />
           </div>
         )}
-        {admin.length > 0 && (
-          <NavList items={admin} pathname={pathname} onNavigate={onNavigate} />
-        )}
+        {admin.length > 0 && <NavList items={admin} onNavigate={onNavigate} />}
       </nav>
       <div className="mt-auto">
         <AccountPanel />
@@ -215,36 +207,63 @@ function SidebarBody({
 
 function NavList({
   items,
-  pathname,
   onNavigate,
 }: {
   items: NavItem[];
-  pathname: string;
+  onNavigate?: () => void;
+}) {
+  return (
+    <ul className="grid gap-0.5">
+      {items.map((item) => (
+        <li key={item.key}>
+          {/*
+            The current page comes from the URL. On pages with an id in it (/companies/[id]) that
+            is only known at request time, so until then the link shows unmarked
+            (node_modules/next/dist/docs: usePathname, "Cache Components"). Only the mark waits:
+            what depends on data (which links show) stays outside, so a boundary that hydrates
+            late can't render differently from the server.
+          */}
+          <Suspense
+            fallback={
+              <NavLink item={item} current={false} onNavigate={onNavigate} />
+            }
+          >
+            <CurrentNavLink item={item} onNavigate={onNavigate} />
+          </Suspense>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CurrentNavLink(props: { item: NavItem; onNavigate?: () => void }) {
+  const current = isCurrentPath(props.item.href, usePathname());
+  return <NavLink {...props} current={current} />;
+}
+
+function NavLink({
+  item,
+  current,
+  onNavigate,
+}: {
+  item: NavItem;
+  current: boolean;
   onNavigate?: () => void;
 }) {
   const t = useTranslations("Shell.nav");
   return (
-    <ul className="grid gap-0.5">
-      {items.map((item) => {
-        const current = isCurrentPath(item.href, pathname);
-        return (
-          <li key={item.key}>
-            <Link
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={current ? "page" : undefined}
-              className={cn(
-                "relative flex min-h-10 items-center rounded-lg px-3 text-body text-white/85 transition-colors duration-150 hover:bg-white/10 hover:text-white",
-                onNavy,
-                current &&
-                  "bg-white/10 font-semibold text-white before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-blue",
-              )}
-            >
-              {t(item.key)}
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={current ? "page" : undefined}
+      className={cn(
+        "relative flex min-h-10 items-center rounded-lg px-3 text-body text-white/85 transition-colors duration-150 hover:bg-white/10 hover:text-white",
+        onNavy,
+        current &&
+          "bg-white/10 font-semibold text-white before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-blue",
+      )}
+    >
+      {t(item.key)}
+    </Link>
   );
 }
