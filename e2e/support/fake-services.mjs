@@ -620,6 +620,7 @@ function companyId(name) {
  *   prices: Schemas["Prices"] | null; status: Schemas["RouteStatus"];
  *   copied_from_route_id: string | null; taken: number; reserved: number;
  *   hasRiders: boolean; hasRequests: boolean; created_at: string; updated_at: string;
+ *   laterReserved?: number;
  * }} FakeRoute
  */
 /** @param {string} origin @param {string} destination */
@@ -664,6 +665,9 @@ const routes = [
     prices: { round_trip: 2400, one_way: 1400, saturday: 300 },
     taken: 9,
     reserved: 7,
+    // 4 more riders start in later months: those months are ready (11 of 10), the earliest
+    // isn't (the API judges a route's launch move for the earliest month only).
+    laterReserved: 11,
     hasRiders: true,
   },
   // A student route made before arrival times existed.
@@ -686,6 +690,19 @@ const routes = [
     launch_minimum: 10,
     copied_from_route_id: "00000000-0000-4000-d000-000000000999",
   },
+  // Forming and ready to launch (6 of 5 reserved, priced). Two, one per Playwright project
+  // (B-04 wide, B-05 narrow): the data is shared, and a launch can't be undone. The stand-in
+  // can't reserve riders, so no test can make a route ready itself.
+  ...["B-04", "B-05"].map((code) => ({
+    code,
+    corridorId: corridorId("Megenagna", "Mexico"),
+    route_type: /** @type {const} */ ("public"),
+    launch_minimum: 5,
+    status: /** @type {const} */ ("forming"),
+    prices: { round_trip: 2000, one_way: 1200, saturday: null },
+    reserved: 6,
+    hasRiders: true,
+  })),
 ].map((seed, index) => {
   const at = new Date(Date.UTC(2026, 9, 4, 6, index)).toISOString();
   return {
@@ -718,6 +735,98 @@ const routes = [
 /** A live route runs on the corridor: its ends can't change, it can't be deleted. */
 function corridorUsedByRoute(/** @type {string} */ id) {
   return routes.some((route) => route.corridorId === id);
+}
+
+// Status moves, like GZ-024/GZ-067: the moves each type of route may make, and what would refuse
+// each now (the same checks the status endpoint makes, in its order).
+const MOVES = {
+  individual: [
+    ["draft", "forming"],
+    ["forming", "draft"],
+    ["forming", "active"],
+    ["active", "paused"],
+    ["paused", "active"],
+  ],
+  corporate: [
+    ["draft", "active"],
+    ["active", "paused"],
+    ["paused", "active"],
+  ],
+};
+
+/** @param {FakeRoute} route */
+function movesOf(route) {
+  return MOVES[route.route_type === "corporate" ? "corporate" : "individual"];
+}
+
+/** Today in Addis Ababa (UTC+3, no daylight saving), like the API's `addis_today()`. */
+function addisToday() {
+  return new Date(Date.now() + 3 * 60 * 60 * 1000);
+}
+
+/** The 1st of the month a launch may name first (today on the 1st), as YYYY-MM-DD. */
+function nextLaunchDay() {
+  const today = addisToday();
+  const year = today.getUTCFullYear();
+  const month = today.getUTCMonth() + (today.getUTCDate() === 1 ? 0 : 1);
+  return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+}
+
+/** Every launch day: the 1st of each month from the earliest to a year ahead. */
+function launchDays() {
+  const first = new Date(`${nextLaunchDay()}T00:00:00Z`);
+  const latest = addisToday();
+  latest.setUTCFullYear(latest.getUTCFullYear() + 1);
+  const days = [];
+  for (
+    let at = first;
+    at <= latest;
+    at = new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + 1, 1))
+  ) {
+    days.push(at.toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+/** @param {FakeRoute} route */
+function companyInactive(route) {
+  const company = companies.find(
+    (candidate) => candidate.id === route.companyId,
+  );
+  return !company || !company.is_active;
+}
+
+/** @param {FakeRoute} route @returns {Schemas["StatusChange"][]} */
+function statusChanges(route) {
+  const corporate = route.route_type === "corporate";
+  return movesOf(route)
+    .filter(([from]) => from === route.status)
+    .map(([, to]) => {
+      /** @type {Schemas["RouteBlocker"][]} */
+      const blocked = [];
+      if (
+        to === "forming" &&
+        (route.prices?.round_trip == null || route.prices?.one_way == null)
+      ) {
+        blocked.push("PRICES_MISSING");
+      }
+      if (route.status === "forming" && to === "draft" && route.hasRiders) {
+        blocked.push("ROUTE_HAS_RIDERS");
+      }
+      if (corporate && to === "active" && companyInactive(route)) {
+        blocked.push("COMPANY_INACTIVE");
+      }
+      const launching = route.status === "forming" && to === "active";
+      if (launching && route.reserved < (route.launch_minimum ?? 0)) {
+        blocked.push("NOT_ENOUGH_RIDERS");
+      }
+      return {
+        to: /** @type {Schemas["RouteStatus"]} */ (to),
+        ready: blocked.length === 0,
+        blocked_by: blocked,
+        launch_date: launching ? nextLaunchDay() : null,
+      };
+    });
 }
 
 /** @param {FakeRoute} route @returns {Schemas["RouteRead"]} */
@@ -762,7 +871,7 @@ function routeRead(route) {
       next_month: route.seats - route.taken,
     },
     reserved: route.reserved,
-    status_changes: [],
+    status_changes: statusChanges(route),
     created_at: route.created_at,
     updated_at: route.updated_at,
   };
@@ -1494,6 +1603,120 @@ const api = createServer(async (request, response) => {
     }
   }
 
+  // Status (GZ-024): staff and admins; the body's format first, then the route, then the moves.
+  const statusMatch = /^\/v1\/routes\/([^/]+)\/status$/.exec(url.pathname);
+  if (statusMatch && request.method === "PUT") {
+    if (!UUID.test(statusMatch[1] ?? "")) {
+      return validationProblem(response, "/route_id", "invalid_format", "path");
+    }
+    const body = (await readJson(request)) ?? {};
+    const unknown = Object.keys(body).find(
+      (key) => !["status", "launch_date"].includes(key),
+    );
+    if (unknown)
+      return validationProblem(response, `/${unknown}`, "unknown_field");
+    if (body.status === undefined) {
+      return validationProblem(response, "/status", "missing");
+    }
+    if (!ROUTE_STATUSES.includes(String(body.status))) {
+      return validationProblem(response, "/status", "not_allowed");
+    }
+    const launchDate = body.launch_date ?? null;
+    if (launchDate !== null) {
+      if (
+        typeof launchDate !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(launchDate)
+      ) {
+        return validationProblem(response, "/launch_date", "invalid_format");
+      }
+      // The model's own check: only a launch (status active) names a day, the 1st.
+      if (body.status !== "active" || !launchDate.endsWith("-01")) {
+        return validationProblem(response, "/launch_date", "invalid");
+      }
+    }
+    const route = routes.find((candidate) => candidate.id === statusMatch[1]);
+    if (!route) return problem(response, 404, "NOT_FOUND");
+    const to = /** @type {FakeRoute["status"]} */ (body.status);
+    if (to === route.status) return send(response, 200, routeRead(route));
+    if (
+      !movesOf(route).some(
+        ([from, next]) => from === route.status && next === to,
+      )
+    ) {
+      return problem(response, 409, "INVALID_STATUS_CHANGE");
+    }
+    const launching = route.status === "forming" && to === "active";
+    if (launching !== (launchDate !== null)) {
+      return validationProblem(response, "/launch_date", "invalid");
+    }
+    if (launchDate !== null && !launchDays().includes(launchDate)) {
+      return validationProblem(response, "/launch_date", "invalid");
+    }
+    if (
+      to === "forming" &&
+      (route.prices?.round_trip == null || route.prices?.one_way == null)
+    ) {
+      return problem(response, 409, "ROUTE_NOT_READY");
+    }
+    if (route.status === "forming" && to === "draft" && route.hasRiders) {
+      return problem(response, 409, "ROUTE_HAS_RIDERS");
+    }
+    if (
+      route.route_type === "corporate" &&
+      to === "active" &&
+      companyInactive(route)
+    ) {
+      return problem(response, 409, "ROUTE_NOT_READY");
+    }
+    const reservedThen =
+      launchDate !== null &&
+      launchDate !== nextLaunchDay() &&
+      route.laterReserved !== undefined
+        ? route.laterReserved
+        : route.reserved;
+    if (launching && reservedThen < (route.launch_minimum ?? 0)) {
+      return problem(response, 409, "NOT_ENOUGH_RIDERS");
+    }
+    if (launching) {
+      route.taken += route.reserved;
+      route.reserved = 0;
+    }
+    route.status = to;
+    route.updated_at = new Date().toISOString();
+    return send(response, 200, routeRead(route));
+  }
+
+  const monthsMatch = /^\/v1\/routes\/([^/]+)\/launch-months$/.exec(
+    url.pathname,
+  );
+  if (monthsMatch && request.method === "GET") {
+    if (!UUID.test(monthsMatch[1] ?? "")) {
+      return validationProblem(response, "/route_id", "invalid_format", "path");
+    }
+    const route = routes.find((candidate) => candidate.id === monthsMatch[1]);
+    if (!route) return problem(response, 404, "NOT_FOUND");
+    // The earliest month counts `reserved`; later ones `laterReserved` when a route has one.
+    /** @type {Schemas["RouteLaunchMonths"]} */
+    const months = {
+      status: route.status,
+      launch_minimum: route.launch_minimum,
+      months: launchDays().map((day, index) => {
+        const reserved =
+          index > 0 && route.laterReserved !== undefined
+            ? route.laterReserved
+            : route.reserved;
+        return {
+          launch_date: day,
+          reserved,
+          ready:
+            route.status === "forming" &&
+            reserved >= (route.launch_minimum ?? 0),
+        };
+      }),
+    };
+    return send(response, 200, months);
+  }
+
   // Areas served (GZ-023): staff and admins; the whole ordered list at once.
   const areasMatch = /^\/v1\/routes\/([^/]+)\/areas$/.exec(url.pathname);
   if (areasMatch && request.method === "PUT") {
@@ -1575,6 +1798,10 @@ const api = createServer(async (request, response) => {
     return validationProblem(response, "/route_id", "invalid_format", "path");
   }
   if (routeMatch) {
+    // Delete is admin-only (a dependency, before anything else).
+    if (request.method === "DELETE" && !isAdmin) {
+      return problem(response, 403, "FORBIDDEN");
+    }
     // The body is validated before the route is looked up, as FastAPI does.
     const body = request.method === "PATCH" ? await readJson(request) : {};
     const fields =
@@ -1585,6 +1812,13 @@ const api = createServer(async (request, response) => {
     const route = routes.find((candidate) => candidate.id === routeMatch[1]);
     if (!route) return problem(response, 404, "NOT_FOUND");
     if (request.method === "GET") return send(response, 200, routeRead(route));
+    if (request.method === "DELETE") {
+      if (route.hasRiders) return problem(response, 409, "ROUTE_HAS_RIDERS");
+      if (route.hasRequests)
+        return problem(response, 409, "ROUTE_HAS_REQUESTS");
+      routes.splice(routes.indexOf(route), 1);
+      return send(response, 204);
+    }
     if (request.method === "PATCH") {
       // Like the service, in its order.
       const notForType = [

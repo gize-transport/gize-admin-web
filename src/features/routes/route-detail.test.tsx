@@ -1,7 +1,9 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
+import { apiUrl, server, type Schemas } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { currentStaffQueryKey } from "@/lib/auth/use-current-staff";
@@ -28,7 +30,8 @@ vi.mock("@/lib/auth/supabase-browser", () => ({
   getSupabaseBrowserClient: () => ({ auth: { signOut: vi.fn() } }),
   getAccessToken: async () => "access-token",
 }));
-vi.mock("@/components/toast", () => ({ showSuccessToast: vi.fn() }));
+const toast = vi.hoisted(() => vi.fn());
+vi.mock("@/components/toast", () => ({ showSuccessToast: toast }));
 
 const t = messages.Routes;
 
@@ -243,5 +246,202 @@ describe("RouteDetail", () => {
         name: fill(t.areasTitle, { code: "B-01" }),
       }),
     ).toBeVisible();
+  });
+  it("lets an admin delete a route, then hands back to the list", async () => {
+    serveRole("admin");
+    const draft = route("B-03", 6);
+    serveRoute(draft);
+    let deleted: string | undefined;
+    server.use(
+      http.delete(apiUrl("/v1/routes/{route_id}"), ({ params }) => {
+        deleted = String(params.route_id);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const onDeleted = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <RouteDetail routeId={draft.id} variant="page" onDeleted={onDeleted} />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: t.deleteRoute }),
+    );
+    const dialog = await screen.findByRole("alertdialog", {
+      name: fill(t.deleteTitle, { code: "B-03" }),
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: t.deleteRoute }),
+    );
+
+    await waitFor(() => expect(onDeleted).toHaveBeenCalled());
+    expect(deleted).toBe(draft.id);
+  });
+
+  it("explains why a route with riders or requests can't be deleted", async () => {
+    serveRole("admin");
+    const answers: [Schemas["ErrorCode"], string][] = [
+      ["ROUTE_HAS_RIDERS", t.deleteHasRiders],
+      ["ROUTE_HAS_REQUESTS", t.deleteHasRequests],
+    ];
+    for (const [code, text] of answers) {
+      serveRoute(forming);
+      server.use(
+        http.delete(apiUrl("/v1/routes/{route_id}"), () =>
+          HttpResponse.json(
+            {
+              type: "about:blank",
+              title: code,
+              status: 409,
+              code,
+              request_id: `req-${code}`,
+            },
+            {
+              status: 409,
+              headers: { "Content-Type": "application/problem+json" },
+            },
+          ),
+        ),
+      );
+      const user = userEvent.setup();
+      const { unmount } = renderWithProviders(
+        <RouteDetail routeId={forming.id} variant="page" />,
+      );
+      await user.click(
+        await screen.findByRole("button", { name: t.deleteRoute }),
+      );
+      const dialog = await screen.findByRole("alertdialog");
+      await user.click(
+        within(dialog).getByRole("button", { name: t.deleteRoute }),
+      );
+      expect(await within(dialog).findByText(text)).toBeVisible();
+      expect(within(dialog).getByText(`req-${code}`)).toBeVisible();
+      unmount();
+    }
+  });
+
+  it("offers Delete to admins only", async () => {
+    serveRoute(forming);
+    const { queryClient } = renderWithProviders(
+      <RouteDetail routeId={forming.id} variant="page" />,
+    );
+    await screen.findByRole("heading", { name: "B-01" });
+    await waitFor(() =>
+      expect(queryClient.getQueryState(currentStaffQueryKey)?.status).toBe(
+        "success",
+      ),
+    );
+
+    expect(screen.queryByRole("button", { name: t.deleteRoute })).toBeNull();
+  });
+  it("keeps the launch a launch while the route updates, and confirms it", async () => {
+    // A move's answer updates the route (its status), and the lists refetch: the open dialog must
+    // stay the launch, and its confirmation must still show.
+    const readyRoute = route("B-04", 9, {
+      status: "forming",
+      launch_minimum: 5,
+      reserved: 6,
+      prices: { round_trip: 2000, one_way: 1200, saturday: null },
+      status_changes: [
+        {
+          to: "active",
+          ready: true,
+          blocked_by: [],
+          launch_date: "2026-12-01",
+        },
+      ],
+    });
+    let current = readyRoute;
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}"), () =>
+        HttpResponse.json<Schemas["RouteRead"]>(current),
+      ),
+      http.get(apiUrl("/v1/routes/{route_id}/launch-months"), () =>
+        HttpResponse.json<Schemas["RouteLaunchMonths"]>({
+          status: "forming",
+          launch_minimum: 5,
+          months: [{ launch_date: "2026-12-01", reserved: 6, ready: true }],
+        }),
+      ),
+      http.put(apiUrl("/v1/routes/{route_id}/status"), () => {
+        current = {
+          ...readyRoute,
+          status: "active",
+          updated_at: "2026-11-03T10:00:00Z",
+          status_changes: [
+            { to: "paused", ready: true, blocked_by: [], launch_date: null },
+          ],
+        };
+        return HttpResponse.json<Schemas["RouteRead"]>(current);
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <RouteDetail routeId={readyRoute.id} variant="panel" />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: t.moveLaunch }));
+    const dialog = await screen.findByRole("dialog", {
+      name: fill(t.launchTitle, { code: "B-04" }),
+    });
+    await within(dialog).findByRole("radio", { name: /December 2026/ });
+    await user.click(
+      within(dialog).getByRole("button", { name: t.moveLaunch }),
+    );
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        fill(t.launched, { code: "B-04", date: "December 1, 2026" }),
+      ),
+    );
+    expect(screen.queryByRole("alertdialog", { name: /Resume/ })).toBeNull();
+    // The moves now start from active: focus goes to them.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("group", { name: t.statusActionsLabel }),
+      ).toHaveFocus(),
+    );
+  });
+
+  it("keeps Delete disabled until Retry-After has passed after a 429", async () => {
+    serveRole("admin");
+    serveRoute(forming);
+    server.use(
+      http.delete(apiUrl("/v1/routes/{route_id}"), () =>
+        HttpResponse.json(
+          {
+            type: "about:blank",
+            title: "RATE_LIMITED",
+            status: 429,
+            code: "RATE_LIMITED",
+            request_id: "req-429",
+          },
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/problem+json",
+              "Retry-After": "1",
+            },
+          },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<RouteDetail routeId={forming.id} variant="page" />);
+
+    await user.click(
+      await screen.findByRole("button", { name: t.deleteRoute }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    const confirm = within(dialog).getByRole("button", { name: t.deleteRoute });
+    await user.click(confirm);
+
+    expect(
+      await within(dialog).findByText(messages.Errors.RATE_LIMITED),
+    ).toBeVisible();
+    expect(confirm).toHaveAttribute("aria-disabled", "true");
+    await waitFor(() => expect(confirm).not.toHaveAttribute("aria-disabled"), {
+      timeout: 2500,
+    });
   });
 });

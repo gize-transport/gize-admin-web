@@ -421,4 +421,173 @@ test.describe("routes", () => {
       page.getByText(fill(t.savedToast, { code: upper })),
     ).toBeVisible();
   });
+  test("a route starts forming only once priced, and goes back to draft", async ({
+    page,
+  }) => {
+    await signIn(page, "admin", "/sign-in?next=%2Froutes");
+    const { code, dialog } = await addRoute(page, "public");
+    await expect(dialog).toBeHidden();
+    const upper = code.toUpperCase();
+    await page.getByLabel(t.searchLabel).fill(code);
+    const details = await openRoute(page, upper);
+
+    const startForming = details.getByRole("button", {
+      name: t.moveStartForming,
+    });
+    await expect(startForming).toHaveAttribute("aria-disabled", "true");
+    await expect(details.getByText(t.blockedPrices)).toBeVisible();
+
+    await details.getByRole("button", { name: t.setPrices }).click();
+    const prices = page.getByRole("dialog", {
+      name: fill(t.pricesTitle, { code: upper }),
+    });
+    await prices.getByLabel(t.roundTripLabel).fill("2400");
+    await prices.getByLabel(t.oneWayLabel).fill("1400");
+    await prices.getByRole("button", { name: t.save }).click();
+    await expect(prices).toBeHidden();
+
+    await expect(startForming).not.toHaveAttribute("aria-disabled");
+    await startForming.click();
+    const confirm = page.getByRole("alertdialog", {
+      name: fill(t.confirmStartFormingTitle, { code: upper }),
+    });
+    await confirm.getByRole("button", { name: t.moveStartForming }).click();
+    await expect(
+      page.getByText(
+        fill(t.statusChanged, {
+          code: upper,
+          status: messages.RouteStatus.formingNoMinimum,
+        }),
+      ),
+    ).toBeVisible();
+
+    await details.getByRole("button", { name: t.moveBackToDraft }).click();
+    await page
+      .getByRole("alertdialog", {
+        name: fill(t.confirmBackToDraftTitle, { code: upper }),
+      })
+      .getByRole("button", { name: t.moveBackToDraft })
+      .click();
+    await expect(
+      page.getByText(
+        fill(t.statusChanged, {
+          code: upper,
+          status: messages.RouteStatus.draft,
+        }),
+      ),
+    ).toBeVisible();
+    await expect(startForming).toBeVisible();
+  });
+
+  test("staff launch a ready route for a chosen month, then pause and resume it", async ({
+    page,
+  }) => {
+    // One ready route per project (the data is shared, and a launch can't be undone).
+    const [id, code] = isWide(page)
+      ? ["00000000-0000-4000-d000-000000000006", "B-04"]
+      : ["00000000-0000-4000-d000-000000000007", "B-05"];
+    await signIn(page, "staff");
+    await page.goto(`/routes/${id}`);
+    const details = page.getByRole("article", { name: code });
+
+    // A launch can't be undone: on a retry (CI) the route is already active, so go on to pause.
+    if (test.info().retry === 0) {
+      await details.getByRole("button", { name: t.moveLaunch }).click();
+      const launch = page.getByRole("dialog", {
+        name: fill(t.launchTitle, { code }),
+      });
+      const months = launch.getByRole("radiogroup", {
+        name: t.launchMonthsLabel,
+      });
+      await expect(months.getByRole("radio").first()).toBeChecked();
+      await months.getByRole("radio").nth(1).check();
+      await expect(launch.getByText(/becomes active now/)).toBeVisible();
+      await launch.getByRole("button", { name: t.moveLaunch }).click();
+      await expect(
+        page.getByText(new RegExp(`^${code} launched`)),
+      ).toBeVisible();
+      await expect(launch).toBeHidden();
+    }
+
+    await details.getByRole("button", { name: t.movePause }).click();
+    await page
+      .getByRole("alertdialog", { name: fill(t.confirmPauseTitle, { code }) })
+      .getByRole("button", { name: t.movePause })
+      .click();
+    await expect(
+      page.getByText(
+        fill(t.statusChanged, { code, status: messages.RouteStatus.paused }),
+      ),
+    ).toBeVisible();
+
+    await details.getByRole("button", { name: t.moveResume }).click();
+    await page
+      .getByRole("alertdialog", { name: fill(t.confirmResumeTitle, { code }) })
+      .getByRole("button", { name: t.moveResume })
+      .click();
+    await expect(
+      page.getByText(
+        fill(t.statusChanged, { code, status: messages.RouteStatus.active }),
+      ),
+    ).toBeVisible();
+  });
+
+  test("an admin deletes a route; one with riders or requests is refused", async ({
+    page,
+  }) => {
+    await signIn(page, "admin", "/sign-in?next=%2Froutes");
+    const { code, dialog } = await addRoute(page, "public");
+    await expect(dialog).toBeHidden();
+    const upper = code.toUpperCase();
+    await page.getByLabel(t.searchLabel).fill(code);
+    const details = await openRoute(page, upper);
+    await details.getByRole("button", { name: t.deleteRoute }).click();
+    await page
+      .getByRole("alertdialog", { name: fill(t.deleteTitle, { code: upper }) })
+      .getByRole("button", { name: t.deleteRoute })
+      .click();
+    await expect(
+      page.getByText(fill(t.deleted, { code: upper })),
+    ).toBeVisible();
+    await expect(page).toHaveURL(/\/routes(\?q=[^&]*)?$/);
+
+    for (const [id, codeOf, reason] of [
+      [B01, "B-01", t.deleteHasRiders],
+      ["00000000-0000-4000-d000-000000000004", "S-03", t.deleteHasRequests],
+    ] as const) {
+      await page.goto(`/routes/${id}`);
+      await page
+        .getByRole("article", { name: codeOf })
+        .getByRole("button", { name: t.deleteRoute })
+        .click();
+      const confirm = page.getByRole("alertdialog");
+      await confirm.getByRole("button", { name: t.deleteRoute }).click();
+      await expect(confirm.getByText(reason)).toBeVisible();
+      await page.keyboard.press("Escape");
+    }
+  });
+  test("Launch opens when only the earliest month lacks riders, offering the ready ones", async ({
+    page,
+  }) => {
+    await signIn(page, "staff");
+    await page.goto(`/routes/${B01}`);
+    const details = page.getByRole("article", { name: "B-01" });
+    const launchButton = details.getByRole("button", { name: t.moveLaunch });
+    // The reason stays shown, and the button can still be used.
+    await expect(launchButton).not.toHaveAttribute("aria-disabled");
+    await expect(
+      details.getByText(/7 of 10 riders reserved for/),
+    ).toBeVisible();
+
+    await launchButton.click();
+    const launch = page.getByRole("dialog", {
+      name: fill(t.launchTitle, { code: "B-01" }),
+    });
+    const months = launch.getByRole("radio");
+    await expect(months.first()).toBeDisabled();
+    await expect(months.nth(1)).toBeChecked();
+    // Not launched here: B-01 is shared sample data.
+    await launch.getByRole("button", { name: messages.Common.cancel }).click();
+    await expect(launch).toBeHidden();
+  });
 });

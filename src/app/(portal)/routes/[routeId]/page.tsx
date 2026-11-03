@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RouteDetail } from "@/features/routes/route-detail";
+import { RoutePage } from "@/features/routes/route-page";
 
 // The route's code needs the signed-in person's token, so the tab says "Routes".
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,7 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 async function Route({ params }: PageProps<"/routes/[routeId]">) {
   const { routeId } = await params;
-  return <RouteDetail routeId={routeId} variant="page" />;
+  return <RoutePage routeId={routeId} />;
 }
 
 export default function RouteRoute(props: PageProps<"/routes/[routeId]">) {

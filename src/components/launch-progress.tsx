@@ -10,17 +10,22 @@ import { useTranslations } from "next-intl";
 export function LaunchProgress({
   reserved,
   minimum,
+  barOnly = false,
 }: {
   reserved: number;
   minimum: number;
+  /** Just the meter, where the numbers are already written next to it. */
+  barOnly?: boolean;
 }) {
   const t = useTranslations("LaunchProgress");
   const text = t("needed", { reserved, minimum });
   return (
     <div className="grid max-w-56 gap-1">
-      <span className="text-table text-ink" aria-hidden>
-        {text}
-      </span>
+      {!barOnly && (
+        <span className="text-table text-ink" aria-hidden>
+          {text}
+        </span>
+      )}
       <meter
         value={Math.min(reserved, minimum)}
         min={0}

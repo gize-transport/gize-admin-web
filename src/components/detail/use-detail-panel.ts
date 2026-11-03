@@ -39,17 +39,19 @@ export function useDetailPanel({
   }, [selectedId, wide, router, basePath]);
 
   // Back to the row that opened the panel (WCAG 2.4.3), once the navigation that closes it has
-  // rendered.
-  const focusRowAfterClose = useRef<string | null>(null);
+  // rendered; after a delete (the row is gone), to the page content.
+  const focusAfterClose = useRef<{ row: string } | "content" | null>(null);
   useEffect(() => {
-    const id = focusRowAfterClose.current;
-    if (id === null || selectedId !== null) return;
-    focusRowAfterClose.current = null;
-    document
-      .querySelector<HTMLElement>(
-        `[data-row-action][href="${basePath}/${CSS.escape(id)}"]`,
-      )
-      ?.focus();
+    const target = focusAfterClose.current;
+    if (target === null || selectedId !== null) return;
+    focusAfterClose.current = null;
+    const element =
+      target === "content"
+        ? document.getElementById("content")
+        : document.querySelector<HTMLElement>(
+            `[data-row-action][href="${basePath}/${CSS.escape(target.row)}"]`,
+          );
+    element?.focus();
   }, [selectedId, basePath]);
 
   const panelOpen = wide === true && selectedId !== null;
@@ -80,11 +82,12 @@ export function useDetailPanel({
         };
       },
       closePanel() {
-        focusRowAfterClose.current = selectedId;
+        focusAfterClose.current = selectedId ? { row: selectedId } : null;
         setParams({ [param]: null });
       },
       /** After the record is deleted: replaced, so Back doesn't reopen it. */
       closeAfterDelete() {
+        focusAfterClose.current = "content";
         setParams({ [param]: null }, { replace: true });
       },
     }),

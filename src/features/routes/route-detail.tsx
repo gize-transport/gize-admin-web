@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
@@ -11,16 +12,23 @@ import {
   isNotFound,
   type DetailLayout,
 } from "@/components/detail/detail-frame";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { LaunchProgress } from "@/components/launch-progress";
+import { ProblemAlert } from "@/components/problem-alert";
+import { showSuccessToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
+import { useApiErrorMessages } from "@/lib/api/errors";
+import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
+import { useRetryWait } from "@/lib/api/use-retry-wait";
 import { useCurrentStaff } from "@/lib/auth/use-current-staff";
 import { useTimestampFormat } from "@/lib/time";
-import { useRoute } from "./queries";
+import { refetchRoute, useDeleteRoute, useRoute } from "./queries";
 import { RouteCorridor } from "./route-corridor";
 import { RouteAreasDialog } from "./route-areas-dialog";
 import { RouteFormDialog } from "./route-form-dialog";
 import { RoutePricesDialog } from "./route-prices-dialog";
+import { RouteStatusActions } from "./route-status-actions";
 import { RouteStatusPill } from "./route-status-pill";
 
 type RouteRead = components["schemas"]["RouteRead"];
@@ -30,6 +38,8 @@ type RouteDetailProps = {
   /** Its own page (h1, a link back) or the list's side panel (h2, a close button). */
   variant: "page" | "panel";
   onClose?: () => void;
+  /** After the route is deleted: the page goes back to the list, the panel closes. */
+  onDeleted?: () => void;
 };
 
 /**
@@ -37,7 +47,12 @@ type RouteDetailProps = {
  * times, seats and launch progress, areas served, prices and status. Prices, areas served and
  * status moves are edited by their own tickets (GZW-022, GZW-023, GZW-024); here they're shown.
  */
-export function RouteDetail({ routeId, variant, onClose }: RouteDetailProps) {
+export function RouteDetail({
+  routeId,
+  variant,
+  onClose,
+  onDeleted,
+}: RouteDetailProps) {
   const t = useTranslations("Routes");
   const route = useRoute(routeId);
   return (
@@ -53,7 +68,9 @@ export function RouteDetail({ routeId, variant, onClose }: RouteDetailProps) {
       }}
       onClose={onClose}
     >
-      {(data, layout) => <Loaded route={data} layout={layout} />}
+      {(data, layout) => (
+        <Loaded route={data} layout={layout} onDeleted={onDeleted} />
+      )}
     </DetailFrame>
   );
 }
@@ -61,14 +78,19 @@ export function RouteDetail({ routeId, variant, onClose }: RouteDetailProps) {
 function Loaded({
   route,
   layout: { variant, headingId, SectionHeading, backLink },
+  onDeleted,
 }: {
   route: RouteRead;
   layout: DetailLayout;
+  onDeleted?: () => void;
 }) {
   const t = useTranslations("Routes");
   const { date } = useTimestampFormat();
   const [formKey, setFormKey] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  // Delete shows for admins only; the API still refuses others.
+  const isAdmin = useCurrentStaff().data?.role === "admin";
   const origin = route.corridor.origin_area.name;
   const destination = route.corridor.destination_area.name;
   const time = (value: string | null) => value ?? t("notSet");
@@ -181,9 +203,17 @@ function Loaded({
         <Prices route={route} />
       </section>
 
-      <section className="border-t border-line pt-5">
+      <section className="grid gap-3">
+        <SectionHeading className={sectionHeading}>
+          {t("status")}
+        </SectionHeading>
+        <RouteStatusActions route={route} />
+      </section>
+
+      <section className="grid gap-4 border-t border-line pt-5">
         <Button
           variant="secondary"
+          className="w-fit"
           onClick={() => {
             setFormKey((key) => (key ?? 0) + 1);
             setFormOpen(true);
@@ -191,7 +221,28 @@ function Loaded({
         >
           {t("edit")}
         </Button>
+        {isAdmin && (
+          <div className="grid gap-2 border-t border-line pt-4">
+            <SectionHeading className="text-table font-semibold text-danger">
+              {t("deleteSection")}
+            </SectionHeading>
+            <Button
+              variant="destructive"
+              className="w-fit"
+              onClick={() => setDeleting(true)}
+            >
+              {t("deleteRoute")}
+            </Button>
+          </div>
+        )}
       </section>
+
+      <DeleteRouteDialog
+        route={route}
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        onDeleted={onDeleted}
+      />
 
       {formKey !== null && (
         <RouteFormDialog
@@ -364,5 +415,71 @@ function CopiedFrom({ id }: { id: string }) {
     >
       {original.data.code}
     </Link>
+  );
+}
+
+/** Admin delete, confirmed; refused while riders hold seats or a request names the route. */
+function DeleteRouteDialog({
+  route,
+  open,
+  onClose,
+  onDeleted,
+}: {
+  route: RouteRead;
+  open: boolean;
+  onClose: () => void;
+  onDeleted?: () => void;
+}) {
+  const t = useTranslations("Routes");
+  const { message } = useApiErrorMessages();
+  const queryClient = useQueryClient();
+  const remove = useDeleteRoute();
+  const error = remove.error;
+  const waiting = useRetryWait(error);
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) return;
+        // Gone already (deleted meanwhile): its detail shows that once the dialog closes.
+        if (error instanceof ApiError && error.status === 404) {
+          refetchRoute(queryClient, route.id);
+        }
+        // The next time it opens, it starts without this attempt's error.
+        remove.reset();
+        onClose();
+      }}
+      title={t("deleteTitle", { code: route.code })}
+      description={t("deleteDescription")}
+      confirmLabel={t("deleteRoute")}
+      tone="destructive"
+      pending={remove.isPending}
+      confirmDisabled={waiting}
+      onConfirm={() =>
+        remove.mutate(route.id, {
+          onSuccess: () => {
+            showSuccessToast(t("deleted", { code: route.code }));
+            onClose();
+            onDeleted?.();
+          },
+        })
+      }
+    >
+      {error && (
+        <ProblemAlert
+          message={
+            error instanceof ApiError && error.code === "ROUTE_HAS_RIDERS"
+              ? t("deleteHasRiders")
+              : error instanceof ApiError && error.code === "ROUTE_HAS_REQUESTS"
+                ? t("deleteHasRequests")
+                : message(error)
+          }
+          requestId={error instanceof ApiError ? error.requestId : null}
+          retryAfterSeconds={
+            error instanceof ApiError ? error.retryAfterSeconds : null
+          }
+        />
+      )}
+    </ConfirmDialog>
   );
 }
