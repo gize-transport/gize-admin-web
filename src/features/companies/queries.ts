@@ -48,16 +48,17 @@ export function useCompanies(filters: CompanyFilters) {
   });
 }
 
-/** One company (`companies_get`). */
-export function useCompany(id: string) {
+/** One company (`companies_get`); off while `id` is null. */
+export function useCompany(id: string | null) {
   return useQuery({
-    queryKey: companyKeys.detail(id),
+    queryKey: companyKeys.detail(id ?? ""),
     queryFn: () =>
       unwrap(
         api.GET("/v1/companies/{company_id}", {
-          params: { path: { company_id: id } },
+          params: { path: { company_id: id ?? "" } },
         }),
       ),
+    enabled: id !== null,
   });
 }
 
@@ -74,16 +75,17 @@ export function useCompanyRoutes(id: string) {
   });
 }
 
-/** For CompanyPicker: the first active companies whose name starts with `q`. */
-export async function searchActiveCompanies(
+/** For CompanyPicker: the first companies whose name starts with `q` (active ones only, or all). */
+export async function searchCompanies(
   q: string,
+  { activeOnly }: { activeOnly: boolean },
 ): Promise<PickerResult<CompanyRef>> {
   const page = await unwrap(
     api.GET("/v1/companies", {
       params: {
         query: {
           limit: PICKER_LIMIT,
-          is_active: true,
+          is_active: activeOnly ? true : undefined,
           q: q.trim() || undefined,
         },
       },
@@ -155,8 +157,12 @@ export function useUpdateCompany() {
           body: change,
         }),
       ),
+    // Routes show their company's name (by the literal key: features/routes imports from here).
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: companyKeys.all }),
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: companyKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ["routes"] }),
+      ]),
     onError: (error, { id }) => {
       if (isNotFound(error)) void refetchCompaniesExcept(queryClient, id);
     },

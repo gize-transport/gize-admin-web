@@ -107,7 +107,10 @@ export function useCreateArea() {
   });
 }
 
-/** `areas_update` (rename). Corridors show their areas' names, so their lists refetch too. */
+/**
+ * `areas_update` (rename). Corridors and routes show their areas' names, so they refetch too
+ * (routes by their literal key: features/routes imports from here).
+ */
 export function useRenameArea() {
   const queryClient = useQueryClient();
   const refetch = refetchAreasAfter(queryClient);
@@ -123,6 +126,7 @@ export function useRenameArea() {
       Promise.all([
         refetch.onSuccess(),
         queryClient.invalidateQueries({ queryKey: corridorKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ["routes"] }),
       ]),
     onError: refetch.onError,
   });

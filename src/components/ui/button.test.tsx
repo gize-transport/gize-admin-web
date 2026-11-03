@@ -62,4 +62,23 @@ describe("Button", () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  it("doesn't submit its form unless it is a submit button", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
+    renderWithProviders(
+      <form
+        onSubmit={(event) => onSubmit(event.nativeEvent as SubmitEvent)}
+        aria-label="Route"
+      >
+        <Button>Copy reference</Button>
+        <Button type="submit">Save</Button>
+      </form>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Copy reference" }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
 });

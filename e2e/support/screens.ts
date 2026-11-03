@@ -40,6 +40,27 @@ export const screens: readonly Screen[] = [
     readyText: "ሳሪስ",
   },
   {
+    name: "routes",
+    path: "/routes",
+    signInAs: "admin",
+    // A sample route no e2e test changes (they add their own).
+    readyText: "S-03",
+  },
+  {
+    name: "route",
+    // B-01: forming, priced, two areas served.
+    path: "/routes/00000000-0000-4000-d000-000000000003",
+    signInAs: "admin",
+    readyText: messages.Routes.prices,
+  },
+  {
+    name: "route-panel",
+    // From 1280 px the details open beside the list; narrower, this opens the route's page.
+    path: "/routes?route=00000000-0000-4000-d000-000000000003",
+    signInAs: "admin",
+    readyText: messages.Routes.prices,
+  },
+  {
     name: "companies",
     path: "/companies",
     signInAs: "admin",

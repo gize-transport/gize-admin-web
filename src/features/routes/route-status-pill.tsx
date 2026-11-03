@@ -16,14 +16,17 @@ const tones: Record<RouteRead["status"], StatusTone> = {
 /** A route's status (design-system.md): a forming route also shows its launch progress. */
 export function RouteStatusPill({
   route,
+  showProgress = true,
 }: {
   route: Pick<RouteRead, "status" | "reserved" | "launch_minimum">;
+  /** Off where a LaunchProgress next to it shows the numbers. */
+  showProgress?: boolean;
 }) {
   const t = useTranslations("RouteStatus");
   const label =
     route.status !== "forming"
       ? t(route.status)
-      : route.launch_minimum === null
+      : route.launch_minimum === null || !showProgress
         ? t("formingNoMinimum")
         : t("forming", {
             reserved: route.reserved,

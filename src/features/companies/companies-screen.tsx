@@ -1,9 +1,8 @@
 "use client";
 
 import { Building2Icon, PlusIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   createDataTableColumnHelper,
   DataTable,
@@ -11,6 +10,7 @@ import {
   RowAction,
   useListParams,
 } from "@/components/data-table";
+import { useDetailPanel } from "@/components/detail/use-detail-panel";
 import { EmptyState } from "@/components/empty-state";
 import { NoPermission } from "@/components/no-permission";
 import { PageHeader } from "@/components/page-header";
@@ -22,7 +22,6 @@ import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError, isForbidden } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
 import { useTimestampFormat } from "@/lib/time";
-import { useMediaQuery } from "@/lib/use-media-query";
 import { CompanyDetail } from "./company-detail";
 import { CompanyFormDialog } from "./company-form-dialog";
 import { useCompanies } from "./queries";
@@ -30,11 +29,6 @@ import { useCompanies } from "./queries";
 type CompanyRead = components["schemas"]["CompanyRead"];
 
 const col = createDataTableColumnHelper<CompanyRead>();
-
-/** From this width a company's details open beside the list (design-system.md, "DataTable"). */
-const PANEL_QUERY = "(min-width: 1280px)";
-/** The company whose details are open in the side panel. */
-const SELECTED_PARAM = "company";
 
 /** "true" / "false" in the URL; anything else is no filter. */
 function activeFilter(value: string | null) {
@@ -51,50 +45,17 @@ export function CompaniesScreen() {
   const t = useTranslations("Companies");
   const { message } = useApiErrorMessages();
   const { date } = useTimestampFormat();
-  const router = useRouter();
-  const { cursor, get, setFilters, setParams } = useListParams();
+  const { cursor, get, setFilters } = useListParams();
+  const detail = useDetailPanel({ param: "company", basePath: "/companies" });
   const q = get("q");
   const isActive = activeFilter(get("is_active"));
-  const selectedId = get(SELECTED_PARAM) || null;
-  const wide = useMediaQuery(PANEL_QUERY);
   const companies = useCompanies({ q, isActive, cursor });
   const [formKey, setFormKey] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
-  // A panel link opened below the panel's width shows the page instead. Only when it is opened:
-  // narrowing the window later just hides the panel (an open form in it isn't thrown away), and
-  // widening shows it again.
-  const checkedWidth = useRef(false);
-  useEffect(() => {
-    if (wide === null || checkedWidth.current) return;
-    checkedWidth.current = true;
-    if (selectedId && !wide) {
-      router.replace(`/companies/${encodeURIComponent(selectedId)}`);
-    }
-  }, [selectedId, wide, router]);
-
   function openForm() {
     setFormKey((key) => (key ?? 0) + 1);
     setFormOpen(true);
-  }
-
-  // Closing the panel sends focus back to the row that opened it (WCAG 2.4.3), once the
-  // navigation that closes it has rendered.
-  const focusRowAfterClose = useRef<string | null>(null);
-  useEffect(() => {
-    const id = focusRowAfterClose.current;
-    if (id === null || selectedId !== null) return;
-    focusRowAfterClose.current = null;
-    document
-      .querySelector<HTMLElement>(
-        `[data-row-action][href="/companies/${CSS.escape(id)}"]`,
-      )
-      ?.focus();
-  }, [selectedId]);
-
-  function closePanel() {
-    focusRowAfterClose.current = selectedId;
-    setParams({ [SELECTED_PARAM]: null });
   }
 
   const columns = useMemo(
@@ -105,24 +66,7 @@ export function CompaniesScreen() {
           cell: (info) => {
             const id = info.row.original.id;
             return (
-              <RowAction
-                href={`/companies/${id}`}
-                current={wide === true && id === selectedId}
-                onNavigate={(event) => {
-                  // New tabs and narrow screens follow the link to the page.
-                  const plainClick =
-                    event.button === 0 &&
-                    !event.metaKey &&
-                    !event.ctrlKey &&
-                    !event.shiftKey &&
-                    !event.altKey;
-                  if (wide !== true || !plainClick) return;
-                  event.preventDefault();
-                  setParams({ [SELECTED_PARAM]: id });
-                }}
-              >
-                {info.getValue()}
-              </RowAction>
+              <RowAction {...detail.rowLink(id)}>{info.getValue()}</RowAction>
             );
           },
         }),
@@ -141,7 +85,7 @@ export function CompaniesScreen() {
           cell: (info) => date(info.getValue()),
         }),
       ]),
-    [t, date, wide, selectedId, setParams],
+    [t, date, detail],
   );
 
   const addButton = (
@@ -161,7 +105,6 @@ export function CompaniesScreen() {
   }
 
   const filtered = Boolean(q) || isActive !== null;
-  const panelOpen = wide === true && selectedId !== null;
   return (
     <>
       <PageHeader
@@ -186,7 +129,7 @@ export function CompaniesScreen() {
       </div>
       <div
         className={
-          panelOpen
+          detail.panelId
             ? "grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]"
             : "grid"
         }
@@ -198,7 +141,7 @@ export function CompaniesScreen() {
           getRowId={(company) => company.id}
           isLoading={companies.isPending}
           nextCursor={companies.data?.next_cursor ?? null}
-          selectedRowId={panelOpen ? selectedId : null}
+          selectedRowId={detail.panelId}
           error={
             companies.isError ? (
               <ProblemAlert
@@ -242,17 +185,14 @@ export function CompaniesScreen() {
             )
           }
         />
-        {panelOpen && selectedId && (
+        {detail.panelId && (
           <div className="xl:sticky xl:top-6">
             <CompanyDetail
-              key={selectedId}
-              companyId={selectedId}
+              key={detail.panelId}
+              companyId={detail.panelId}
               variant="panel"
-              onClose={closePanel}
-              // Replaced, so Back doesn't reopen the deleted company.
-              onDeleted={() =>
-                setParams({ [SELECTED_PARAM]: null }, { replace: true })
-              }
+              onClose={detail.closePanel}
+              onDeleted={detail.closeAfterDelete}
             />
           </div>
         )}

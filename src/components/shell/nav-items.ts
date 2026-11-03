@@ -27,7 +27,7 @@ export type NavItem = {
 /** The portal's navigation (milestones.md, GZW-011): MVP screens only, in this order. */
 export const navItems: readonly NavItem[] = [
   { key: "overview", href: "/", available: true },
-  { key: "routes", href: "/routes", available: false },
+  { key: "routes", href: "/routes", available: true },
   { key: "routeRequests", href: "/route-requests", available: false },
   { key: "demand", href: "/demand", available: false },
   { key: "companies", href: "/companies", available: true },

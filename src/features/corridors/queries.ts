@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
@@ -16,7 +21,54 @@ export type CorridorFilters = {
 export const corridorKeys = {
   all: ["corridors"] as const,
   list: (filters: CorridorFilters) => ["corridors", "list", filters] as const,
+  detail: (id: string) => ["corridors", "detail", id] as const,
+  between: (originAreaId: string, destinationAreaId: string) =>
+    ["corridors", "between", originAreaId, destinationAreaId] as const,
 };
+
+/** One corridor (`corridors_get`), e.g. to name a corridor whose id is in the URL. */
+export function useCorridor(id: string | null) {
+  return useQuery({
+    queryKey: corridorKeys.detail(id ?? ""),
+    queryFn: () =>
+      unwrap(
+        api.GET("/v1/corridors/{corridor_id}", {
+          params: { path: { corridor_id: id ?? "" } },
+        }),
+      ),
+    enabled: id !== null,
+  });
+}
+
+/**
+ * The corridor from one area to the other (`corridors_list` filtered by both: a pair has at most
+ * one), or null when there is none yet. Cached like any query, under "corridors".
+ */
+export function fetchCorridorBetween(
+  queryClient: QueryClient,
+  originAreaId: string,
+  destinationAreaId: string,
+) {
+  return queryClient.fetchQuery({
+    queryKey: corridorKeys.between(originAreaId, destinationAreaId),
+    queryFn: async () => {
+      const page = await unwrap(
+        api.GET("/v1/corridors", {
+          params: {
+            query: {
+              limit: 1,
+              origin_area_id: originAreaId,
+              destination_area_id: destinationAreaId,
+            },
+          },
+        }),
+      );
+      const [corridor] = page.items;
+      return corridor ?? null;
+    },
+    staleTime: 30_000,
+  });
+}
 
 /** One page of corridors (`corridors_list`), newest first; both filters together (AND). */
 export function useCorridors(filters: CorridorFilters) {
@@ -90,6 +142,12 @@ export function useUpdateCorridor() {
         }),
       ),
     ...refetchCorridorsAfter(queryClient),
+    // Routes show their corridor's areas (literal key: features/routes reaches here).
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: corridorKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ["routes"] }),
+      ]),
   });
 }
 

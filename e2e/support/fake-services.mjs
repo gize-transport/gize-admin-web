@@ -416,7 +416,7 @@ function listAreas(url, response) {
 // once, newest first, filters by origin and destination area.
 /**
  * @typedef {{ id: string; originId: string; destinationId: string; created_at: string;
- *   updated_at: string; usedByRoute?: boolean }} FakeCorridor
+ *   updated_at: string }} FakeCorridor
  */
 /** @param {string} name */
 function areaId(name) {
@@ -439,8 +439,6 @@ const corridors = [
     destinationId: areaId(destination),
     created_at: at,
     updated_at: at,
-    // A live route runs on it: changing its ends or deleting it is refused (CORRIDOR_IN_USE).
-    usedByRoute: origin === "Bole" && destination === "Piassa",
   };
 });
 /** @type {Map<string, { corridor: FakeCorridor; fingerprint: string }>} */
@@ -609,8 +607,23 @@ function companyId(name) {
   return company.id;
 }
 
+// Routes, like GZ-021/GZ-023: codes stored upper case and unique, the type fixed (student: a
+// school, corporate: an active company and no launch minimum), four times in order, newest first.
+// Facts the stand-in can't derive (seats taken, riders, open requests) are fixed per route.
+/**
+ * @typedef {{
+ *   id: string; code: string; corridorId: string; route_type: Schemas["RouteType"];
+ *   school_name: string | null; companyId: string | null;
+ *   morning_time: string; morning_arrival_time: string | null;
+ *   return_time: string; return_arrival_time: string | null;
+ *   servedAreaIds: string[]; seats: number; launch_minimum: number | null;
+ *   prices: Schemas["Prices"] | null; status: Schemas["RouteStatus"];
+ *   copied_from_route_id: string | null; taken: number; reserved: number;
+ *   hasRiders: boolean; hasRequests: boolean; created_at: string; updated_at: string;
+ * }} FakeRoute
+ */
 /** @param {string} origin @param {string} destination */
-function corridorRef(origin, destination) {
+function corridorId(origin, destination) {
   const corridor = corridors.find(
     (candidate) =>
       candidate.originId === areaId(origin) &&
@@ -618,58 +631,310 @@ function corridorRef(origin, destination) {
   );
   if (!corridor)
     throw new Error(`no seeded corridor ${origin} → ${destination}`);
-  return {
-    id: corridor.id,
-    origin_area: areaRef(corridor.originId),
-    destination_area: areaRef(corridor.destinationId),
-  };
+  return corridor.id;
 }
 
-// Corporate routes (only what company details show is modelled; routes get their own endpoints
-// with GZW-021). Addis Brewery runs one (can't be deactivated or deleted); Ethio Ceramics has a
-// draft one (can be deactivated, not deleted).
-/** @type {(Schemas["RouteRead"] & { companyId: string })[]} */
+/** @type {FakeRoute[]} */
 const routes = [
-  ["R-21", "Addis Brewery", "Bole", "Piassa", "active"],
-  ["R-22", "Ethio Ceramics", "Megenagna", "Mexico", "draft"],
-].map(([code, company, origin, destination, status], index) => {
+  // Addis Brewery runs it: the company can't be deactivated or deleted.
+  {
+    code: "R-21",
+    corridorId: corridorId("Bole", "Piassa"),
+    route_type: "corporate",
+    companyId: companyId("Addis Brewery"),
+    status: "active",
+    taken: 9,
+    hasRiders: true,
+  },
+  // Ethio Ceramics' draft route: the company can be deactivated, not deleted.
+  {
+    code: "R-22",
+    corridorId: corridorId("Megenagna", "Mexico"),
+    route_type: "corporate",
+    companyId: companyId("Ethio Ceramics"),
+  },
+  // Forming, priced, serving two areas, 7 of 10 reserved: corridor fixed (prices), seats ≥ 9.
+  {
+    code: "B-01",
+    corridorId: corridorId("Bole", "Piassa"),
+    route_type: "public",
+    launch_minimum: 10,
+    status: "forming",
+    servedAreaIds: [areaId("Megenagna"), areaId("Mexico")],
+    prices: { round_trip: 2400, one_way: 1400, saturday: 300 },
+    taken: 9,
+    reserved: 7,
+    hasRiders: true,
+  },
+  // A student route made before arrival times existed.
+  {
+    code: "S-03",
+    corridorId: corridorId("Megenagna", "Mexico"),
+    route_type: "student",
+    school_name: "Lycée Guebre-Mariam",
+    launch_minimum: 8,
+    seats: 20,
+    morning_arrival_time: null,
+    return_arrival_time: null,
+    hasRequests: true,
+  },
+  // A van added from a route since deleted.
+  {
+    code: "B-02",
+    corridorId: corridorId("Piassa", "Bole"),
+    route_type: "public",
+    launch_minimum: 10,
+    copied_from_route_id: "00000000-0000-4000-d000-000000000999",
+  },
+].map((seed, index) => {
   const at = new Date(Date.UTC(2026, 9, 4, 6, index)).toISOString();
-  const id = companyId(String(company));
   return {
-    companyId: id,
     id: `00000000-0000-4000-d000-${String(index + 1).padStart(12, "0")}`,
-    code: String(code),
-    corridor: corridorRef(String(origin), String(destination)),
-    route_type: /** @type {const} */ ("corporate"),
     school_name: null,
-    company: { id, name: String(company) },
+    companyId: null,
     morning_time: "06:30",
     morning_arrival_time: "07:15",
     return_time: "17:30",
     return_arrival_time: "18:15",
-    served_areas: [],
+    servedAreaIds: [],
     seats: 14,
     launch_minimum: null,
-    prices: null,
-    status: /** @type {Schemas["RouteStatus"]} */ (status),
+    prices:
+      seed.route_type === "corporate"
+        ? null
+        : { round_trip: null, one_way: null, saturday: null },
+    status: "draft",
     copied_from_route_id: null,
-    seats_taken: { this_month: 9, next_month: 9 },
-    seats_free: { this_month: 5, next_month: 5 },
+    taken: 0,
     reserved: 0,
-    status_changes: [],
+    hasRiders: false,
+    hasRequests: false,
     created_at: at,
     updated_at: at,
+    ...seed,
   };
 });
 
-/** @param {Schemas["RouteRead"] & { companyId: string }} route @returns {Schemas["RouteRead"]} */
-function routeRead({ companyId: _companyId, ...route }) {
+/** A live route runs on the corridor: its ends can't change, it can't be deleted. */
+function corridorUsedByRoute(/** @type {string} */ id) {
+  return routes.some((route) => route.corridorId === id);
+}
+
+/** @param {FakeRoute} route @returns {Schemas["RouteRead"]} */
+function routeRead(route) {
   // Names follow renames, like the API's joins.
-  const company = companies.find((candidate) => candidate.id === _companyId);
+  const corridor = corridors.find(
+    (candidate) => candidate.id === route.corridorId,
+  );
+  const company = companies.find(
+    (candidate) => candidate.id === route.companyId,
+  );
   return {
-    ...route,
-    company: company ? { id: company.id, name: company.name } : route.company,
+    id: route.id,
+    code: route.code,
+    corridor: corridor
+      ? {
+          id: corridor.id,
+          origin_area: areaRef(corridor.originId),
+          destination_area: areaRef(corridor.destinationId),
+        }
+      : {
+          id: route.corridorId,
+          origin_area: { id: "", name: "?" },
+          destination_area: { id: "", name: "?" },
+        },
+    route_type: route.route_type,
+    school_name: route.school_name,
+    company: company ? { id: company.id, name: company.name } : null,
+    morning_time: route.morning_time,
+    morning_arrival_time: route.morning_arrival_time,
+    return_time: route.return_time,
+    return_arrival_time: route.return_arrival_time,
+    served_areas: route.servedAreaIds.map(areaRef),
+    seats: route.seats,
+    launch_minimum: route.launch_minimum,
+    prices: route.prices,
+    status: route.status,
+    copied_from_route_id: route.copied_from_route_id,
+    seats_taken: { this_month: route.taken, next_month: route.taken },
+    seats_free: {
+      this_month: route.seats - route.taken,
+      next_month: route.seats - route.taken,
+    },
+    reserved: route.reserved,
+    status_changes: [],
+    created_at: route.created_at,
+    updated_at: route.updated_at,
   };
+}
+
+const ROUTE_CODE = /^[A-Za-z0-9][A-Za-z0-9-]{0,18}[A-Za-z0-9]$/;
+const LOCAL_TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+const ROUTE_TYPES = ["public", "student", "corporate"];
+const ROUTE_STATUSES = ["draft", "forming", "active", "paused"];
+
+/**
+ * A route body's fields, checked like the API's models (RouteCreate / RouteUpdate) before any
+ * lookup: formats, limits, and on create the type's rules and the times' order.
+ * @param {ServerResponse} response
+ * @param {Record<string, unknown>} body
+ * @param {{ partial: boolean }} options
+ * @returns {Record<string, unknown> | undefined} normalised fields, or undefined after a 422
+ */
+function routeFields(response, body, { partial }) {
+  const allowed = [
+    "code",
+    "corridor_id",
+    "school_name",
+    "company_id",
+    "morning_time",
+    "morning_arrival_time",
+    "return_time",
+    "return_arrival_time",
+    "seats",
+    "launch_minimum",
+  ];
+  if (!partial) allowed.push("route_type");
+  const unknown = Object.keys(body).find((key) => !allowed.includes(key));
+  if (unknown) {
+    validationProblem(response, `/${unknown}`, "unknown_field");
+    return undefined;
+  }
+  if (partial) {
+    const sent = Object.keys(body);
+    if (sent.length === 0 || sent.some((key) => body[key] === null)) {
+      validationProblem(response, "", "invalid");
+      return undefined;
+    }
+  }
+  /** @type {Record<string, unknown>} */
+  const fields = {};
+  const required = partial
+    ? []
+    : [
+        "code",
+        "corridor_id",
+        "route_type",
+        "morning_time",
+        "morning_arrival_time",
+        "return_time",
+        "return_arrival_time",
+        "seats",
+      ];
+  for (const field of required) {
+    if (body[field] === undefined) {
+      validationProblem(response, `/${field}`, "missing");
+      return undefined;
+    }
+  }
+  if (body.code !== undefined) {
+    if (typeof body.code !== "string") {
+      validationProblem(response, "/code", "invalid_type");
+      return undefined;
+    }
+    const code = body.code.trim().toUpperCase();
+    if (code.length < 2)
+      return void validationProblem(response, "/code", "too_short");
+    if (code.length > 20)
+      return void validationProblem(response, "/code", "too_long");
+    if (!ROUTE_CODE.test(code))
+      return void validationProblem(response, "/code", "invalid_format");
+    fields.code = code;
+  }
+  if (body.route_type !== undefined) {
+    if (!ROUTE_TYPES.includes(String(body.route_type))) {
+      return void validationProblem(response, "/route_type", "not_allowed");
+    }
+    fields.route_type = body.route_type;
+  }
+  for (const field of ["corridor_id", "company_id"]) {
+    if (body[field] === undefined || body[field] === null) continue;
+    if (typeof body[field] !== "string" || !UUID.test(String(body[field]))) {
+      return void validationProblem(response, `/${field}`, "invalid_format");
+    }
+    fields[field] = body[field];
+  }
+  if (body.school_name !== undefined && body.school_name !== null) {
+    const school = shortText(response, body.school_name, "school_name");
+    if (school === undefined) return undefined;
+    fields.school_name = school;
+  }
+  for (const field of [
+    "morning_time",
+    "morning_arrival_time",
+    "return_time",
+    "return_arrival_time",
+  ]) {
+    if (body[field] === undefined) continue;
+    if (
+      typeof body[field] !== "string" ||
+      !LOCAL_TIME.test(String(body[field]))
+    ) {
+      return void validationProblem(response, `/${field}`, "invalid_format");
+    }
+    fields[field] = body[field];
+  }
+  for (const field of ["seats", "launch_minimum"]) {
+    if (body[field] === undefined || body[field] === null) continue;
+    if (!Number.isInteger(body[field])) {
+      return void validationProblem(response, `/${field}`, "invalid_type");
+    }
+    const value = Number(body[field]);
+    if (value < 1 || value > 60) {
+      return void validationProblem(response, `/${field}`, "out_of_range");
+    }
+    fields[field] = value;
+  }
+  // Both in one body and in disagreement: the model refuses it.
+  if (
+    typeof fields.seats === "number" &&
+    typeof fields.launch_minimum === "number" &&
+    fields.launch_minimum > fields.seats
+  ) {
+    return void validationProblem(response, "", "invalid");
+  }
+  if (!partial) {
+    const type = fields.route_type;
+    const fits =
+      (type === "student") === (fields.school_name !== undefined) &&
+      (type === "corporate") === (fields.company_id !== undefined) &&
+      (type === "corporate") === (fields.launch_minimum === undefined);
+    if (
+      !fits ||
+      !timesInOrder([
+        fields.morning_time,
+        fields.morning_arrival_time,
+        fields.return_time,
+        fields.return_arrival_time,
+      ])
+    ) {
+      return void validationProblem(response, "", "invalid");
+    }
+  }
+  return fields;
+}
+
+/** Leave A, arrive at B, leave B, arrive at A: each after the one before (null: not set). */
+function timesInOrder(/** @type {unknown[]} */ times) {
+  const known = times.filter((time) => typeof time === "string");
+  return known.every(
+    (time, index) => index === 0 || String(known[index - 1]) < String(time),
+  );
+}
+
+/** @param {string} code @param {string} [exceptId] */
+function routeCodeTaken(code, exceptId) {
+  return routes.some((route) => route.id !== exceptId && route.code === code);
+}
+
+/** @param {string} id */
+function liveCorridor(id) {
+  return corridors.some((corridor) => corridor.id === id);
+}
+
+/** @param {string} id */
+function activeCompany(id) {
+  return companies.some((company) => company.id === id && company.is_active);
 }
 
 /**
@@ -859,28 +1124,67 @@ function listCompanies(url, response) {
 }
 
 /**
- * Routes, filtered by company only (what company details need).
  * @param {URL} url
  * @param {ServerResponse} response
  */
 function listRoutes(url, response) {
-  const company = url.searchParams.get("company_id");
-  if (company !== null && !UUID.test(company)) {
-    return validationProblem(
-      response,
-      "/company_id",
-      "invalid_format",
-      "query",
-    );
+  const q = url.searchParams.get("q")?.trim() || null;
+  if (q !== null && q.length > 20) {
+    return validationProblem(response, "/q", "too_long", "query");
   }
-  const items = routes
-    .filter((route) => company === null || route.companyId === company)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .map(routeRead);
+  const type = url.searchParams.get("route_type");
+  if (type !== null && !ROUTE_TYPES.includes(type)) {
+    return validationProblem(response, "/route_type", "not_allowed", "query");
+  }
+  const status = url.searchParams.get("status");
+  if (status !== null && !ROUTE_STATUSES.includes(status)) {
+    return validationProblem(response, "/status", "not_allowed", "query");
+  }
+  /** @type {Record<string, string | null>} */
+  const ids = {};
+  for (const name of ["corridor_id", "company_id"]) {
+    const value = url.searchParams.get(name);
+    if (value !== null && !UUID.test(value)) {
+      return validationProblem(response, `/${name}`, "invalid_format", "query");
+    }
+    ids[name] = value;
+  }
+  const limit = Number(url.searchParams.get("limit") ?? 25);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return validationProblem(response, "/limit", "out_of_range", "query");
+  }
+  const cursor = url.searchParams.get("cursor");
+  const offset =
+    cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
+  if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
+    return problem(response, 422, "INVALID_CURSOR");
+  }
+  const matching = routes
+    .filter(
+      (route) =>
+        (q === null || route.code.startsWith(q.toUpperCase())) &&
+        (type === null || route.route_type === type) &&
+        (status === null || route.status === status) &&
+        (ids.corridor_id === null || route.corridorId === ids.corridor_id) &&
+        (ids.company_id === null || route.companyId === ids.company_id),
+    )
+    .sort(
+      (a, b) =>
+        b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
+    );
   /** @type {Schemas["RoutePage"]} */
-  const page = { items, next_cursor: null };
+  const page = {
+    items: matching.slice(offset, offset + limit).map(routeRead),
+    next_cursor:
+      offset + limit < matching.length
+        ? Buffer.from(String(offset + limit)).toString("base64url")
+        : null,
+  };
   send(response, 200, page);
 }
+
+/** @type {Map<string, { route: FakeRoute; fingerprint: string }>} */
+const routeKeys = new Map();
 
 const api = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://localhost");
@@ -907,6 +1211,9 @@ const api = createServer(async (request, response) => {
       if (key === undefined) return;
       const body = await readJson(request);
       const fingerprint = JSON.stringify(body);
+      // FastAPI validates the body before the handler looks at the key.
+      const name = validAreaName(response, body.name);
+      if (name === undefined) return;
       const replay = areaKeys.get(`${user.email}|${key}`);
       if (replay) {
         if (replay.fingerprint !== fingerprint) {
@@ -916,8 +1223,6 @@ const api = createServer(async (request, response) => {
           "Idempotent-Replayed": "true",
         });
       }
-      const name = validAreaName(response, body.name);
-      if (name === undefined) return;
       if (areaNameTaken(name)) return problem(response, 409, "AREA_NAME_TAKEN");
       const now = new Date().toISOString();
       /** @type {FakeArea} */
@@ -952,11 +1257,12 @@ const api = createServer(async (request, response) => {
       return send(response, 200, areaRead(area));
     }
     if (request.method === "DELETE") {
-      // In use while a corridor uses it (routes and route requests aren't modelled here).
-      const inUse = corridors.some(
-        (corridor) =>
-          corridor.originId === area.id || corridor.destinationId === area.id,
-      );
+      // In use while a corridor uses it or a route serves it (route requests aren't modelled).
+      const inUse =
+        corridors.some(
+          (corridor) =>
+            corridor.originId === area.id || corridor.destinationId === area.id,
+        ) || routes.some((route) => route.servedAreaIds.includes(area.id));
       if (inUse) return problem(response, 409, "AREA_IN_USE");
       areas.splice(areas.indexOf(area), 1);
       return send(response, 204);
@@ -970,6 +1276,8 @@ const api = createServer(async (request, response) => {
       if (key === undefined) return;
       const body = await readJson(request);
       const fingerprint = JSON.stringify(body);
+      // FastAPI validates the body before the handler looks at the key.
+      if (!corridorBodyValid(response, body, { partial: false })) return;
       const replay = corridorKeys.get(`${user.email}|${key}`);
       if (replay) {
         if (replay.fingerprint !== fingerprint) {
@@ -979,7 +1287,6 @@ const api = createServer(async (request, response) => {
           "Idempotent-Replayed": "true",
         });
       }
-      if (!corridorBodyValid(response, body, { partial: false })) return;
       const originId = String(body.origin_area_id);
       const destinationId = String(body.destination_area_id);
       if (!areaExists(response, originId, "origin_area_id")) return;
@@ -1058,7 +1365,7 @@ const api = createServer(async (request, response) => {
       const moved =
         nextOrigin !== corridor.originId ||
         nextDestination !== corridor.destinationId;
-      if (moved && corridor.usedByRoute) {
+      if (moved && corridorUsedByRoute(corridor.id)) {
         return problem(response, 409, "CORRIDOR_IN_USE");
       }
       if (pairTaken(nextOrigin, nextDestination, corridor.id)) {
@@ -1072,7 +1379,7 @@ const api = createServer(async (request, response) => {
       return send(response, 200, corridorRead(corridor));
     }
     if (request.method === "DELETE") {
-      if (corridor.usedByRoute) {
+      if (corridorUsedByRoute(corridor.id)) {
         return problem(response, 409, "CORRIDOR_IN_USE");
       }
       corridors.splice(corridors.indexOf(corridor), 1);
@@ -1080,8 +1387,179 @@ const api = createServer(async (request, response) => {
     }
   }
 
-  if (request.method === "GET" && url.pathname === "/v1/routes") {
-    return listRoutes(url, response);
+  if (url.pathname === "/v1/routes") {
+    if (request.method === "GET") return listRoutes(url, response);
+    if (request.method === "POST") {
+      const key = idempotencyKey(request, response);
+      if (key === undefined) return;
+      const body = await readJson(request);
+      const fingerprint = JSON.stringify(body);
+      // FastAPI validates the body before the handler looks at the key.
+      const fields = routeFields(response, body, { partial: false });
+      if (!fields) return;
+      const replay = routeKeys.get(`${user.email}|${key}`);
+      if (replay) {
+        if (replay.fingerprint !== fingerprint) {
+          return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+        }
+        return send(response, 201, routeRead(replay.route), {
+          "Idempotent-Replayed": "true",
+        });
+      }
+      // Places first: one that doesn't exist (or a company that isn't active) is a 422.
+      if (!liveCorridor(String(fields.corridor_id))) {
+        return validationProblem(response, "/corridor_id", "invalid");
+      }
+      if (
+        fields.company_id !== undefined &&
+        !activeCompany(String(fields.company_id))
+      ) {
+        return validationProblem(response, "/company_id", "invalid");
+      }
+      if (routeCodeTaken(String(fields.code))) {
+        return problem(response, 409, "ROUTE_CODE_TAKEN");
+      }
+      const now = new Date().toISOString();
+      const corporate = fields.route_type === "corporate";
+      /** @type {FakeRoute} */
+      const route = {
+        id: randomUUID(),
+        code: String(fields.code),
+        corridorId: String(fields.corridor_id),
+        route_type: /** @type {Schemas["RouteType"]} */ (fields.route_type),
+        school_name: /** @type {string | null} */ (fields.school_name ?? null),
+        companyId: /** @type {string | null} */ (fields.company_id ?? null),
+        morning_time: String(fields.morning_time),
+        morning_arrival_time: String(fields.morning_arrival_time),
+        return_time: String(fields.return_time),
+        return_arrival_time: String(fields.return_arrival_time),
+        servedAreaIds: [],
+        seats: Number(fields.seats),
+        launch_minimum: corporate ? null : Number(fields.launch_minimum),
+        prices: corporate
+          ? null
+          : { round_trip: null, one_way: null, saturday: null },
+        status: "draft",
+        copied_from_route_id: null,
+        taken: 0,
+        reserved: 0,
+        hasRiders: false,
+        hasRequests: false,
+        created_at: now,
+        updated_at: now,
+      };
+      routes.push(route);
+      routeKeys.set(`${user.email}|${key}`, { route, fingerprint });
+      return send(response, 201, routeRead(route));
+    }
+  }
+
+  const routeMatch = /^\/v1\/routes\/([^/]+)$/.exec(url.pathname);
+  if (routeMatch && !UUID.test(routeMatch[1] ?? "")) {
+    return validationProblem(response, "/route_id", "invalid_format", "path");
+  }
+  if (routeMatch) {
+    // The body is validated before the route is looked up, as FastAPI does.
+    const body = request.method === "PATCH" ? await readJson(request) : {};
+    const fields =
+      request.method === "PATCH"
+        ? routeFields(response, body, { partial: true })
+        : {};
+    if (!fields) return;
+    const route = routes.find((candidate) => candidate.id === routeMatch[1]);
+    if (!route) return problem(response, 404, "NOT_FOUND");
+    if (request.method === "GET") return send(response, 200, routeRead(route));
+    if (request.method === "PATCH") {
+      // Like the service, in its order.
+      const notForType = [
+        ["school_name", route.route_type !== "student"],
+        ["company_id", route.route_type !== "corporate"],
+        ["launch_minimum", route.route_type === "corporate"],
+      ].find(([field, refused]) => refused && String(field) in fields);
+      if (notForType) {
+        return validationProblem(response, `/${notForType[0]}`, "invalid");
+      }
+      const times = /** @type {(string | null)[]} */ ([
+        fields.morning_time ?? route.morning_time,
+        fields.morning_arrival_time ?? route.morning_arrival_time,
+        fields.return_time ?? route.return_time,
+        fields.return_arrival_time ?? route.return_arrival_time,
+      ]);
+      if (!timesInOrder(times))
+        return validationProblem(response, "", "invalid");
+      if (times[1] === null && times[3] !== null) {
+        return validationProblem(response, "/morning_arrival_time", "invalid");
+      }
+      if (times[3] === null && times[1] !== null) {
+        return validationProblem(response, "/return_arrival_time", "invalid");
+      }
+      const newCorridor =
+        fields.corridor_id !== undefined &&
+        fields.corridor_id !== route.corridorId;
+      if (newCorridor) {
+        if (
+          route.servedAreaIds.length > 0 ||
+          !liveCorridor(String(fields.corridor_id))
+        ) {
+          return validationProblem(response, "/corridor_id", "invalid");
+        }
+      }
+      const newCompany =
+        fields.company_id !== undefined &&
+        fields.company_id !== route.companyId;
+      if (newCompany && !activeCompany(String(fields.company_id))) {
+        return validationProblem(response, "/company_id", "invalid");
+      }
+      const seats = /** @type {number} */ (fields.seats ?? route.seats);
+      const minimum = /** @type {number | null} */ (
+        fields.launch_minimum ?? route.launch_minimum
+      );
+      if (minimum !== null && minimum > seats) {
+        return problem(response, 409, "SEATS_BELOW_LAUNCH_MINIMUM");
+      }
+      if (seats < route.seats && seats < route.taken) {
+        return problem(response, 409, "SEATS_BELOW_TAKEN");
+      }
+      if (
+        fields.code !== undefined &&
+        fields.code !== route.code &&
+        routeCodeTaken(String(fields.code), route.id)
+      ) {
+        return problem(response, 409, "ROUTE_CODE_TAKEN");
+      }
+      const newSchool =
+        fields.school_name !== undefined &&
+        (route.school_name === null ||
+          String(fields.school_name).toLowerCase() !==
+            route.school_name.toLowerCase());
+      const relocates = newCorridor || newSchool;
+      if ((relocates || newCompany) && route.hasRiders) {
+        return problem(response, 409, "ROUTE_HAS_RIDERS");
+      }
+      if (relocates && route.hasRequests) {
+        return problem(response, 409, "ROUTE_HAS_REQUESTS");
+      }
+      const priced =
+        route.prices !== null &&
+        Object.values(route.prices).some((price) => price !== null);
+      if (relocates && priced) {
+        return problem(response, 409, "ROUTE_HAS_PRICES");
+      }
+      Object.assign(route, {
+        code: fields.code ?? route.code,
+        corridorId: fields.corridor_id ?? route.corridorId,
+        companyId: fields.company_id ?? route.companyId,
+        school_name: fields.school_name ?? route.school_name,
+        morning_time: times[0],
+        morning_arrival_time: times[1],
+        return_time: times[2],
+        return_arrival_time: times[3],
+        seats,
+        launch_minimum: minimum,
+        updated_at: new Date().toISOString(),
+      });
+      return send(response, 200, routeRead(route));
+    }
   }
 
   if (url.pathname === "/v1/companies") {
@@ -1091,6 +1569,9 @@ const api = createServer(async (request, response) => {
       if (key === undefined) return;
       const body = await readJson(request);
       const fingerprint = JSON.stringify(body);
+      // FastAPI validates the body before the handler looks at the key.
+      const fields = companyFields(response, body, { partial: false });
+      if (!fields) return;
       const replay = companyKeys.get(`${user.email}|${key}`);
       if (replay) {
         if (replay.fingerprint !== fingerprint) {
@@ -1100,8 +1581,6 @@ const api = createServer(async (request, response) => {
           "Idempotent-Replayed": "true",
         });
       }
-      const fields = companyFields(response, body, { partial: false });
-      if (!fields) return;
       if (companyNameTaken(String(fields.name))) {
         return problem(response, 409, "COMPANY_NAME_TAKEN");
       }
