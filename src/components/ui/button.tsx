@@ -58,6 +58,9 @@ function Button({
   return (
     <Comp
       data-slot="button"
+      // A plain button unless it says otherwise: inside a form, an untyped button submits it
+      // (e.g. "Copy reference" in an error alert would send the form again).
+      type={asChild ? undefined : "button"}
       className={cn(buttonVariants({ variant, size }), className)}
       {...props}
       aria-disabled={inactive || undefined}

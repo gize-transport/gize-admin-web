@@ -83,7 +83,10 @@ describe("CompanyDetail", () => {
     expect(rows).toHaveLength(3); // header + 2
     const first = rows[1];
     if (!first) throw new Error("no first route row");
-    expect(within(first).getByText("R-21")).toBeVisible();
+    expect(within(first).getByRole("link", { name: "R-21" })).toHaveAttribute(
+      "href",
+      "/routes/00000000-0000-4000-d000-000000000001",
+    );
     // Heard as "from Bole to Piassa"; seen as "Bole → Piassa".
     expect(within(first).getByText("→")).toHaveAttribute("aria-hidden", "true");
     expect(first).toHaveTextContent(/Bole.*Piassa/);

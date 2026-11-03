@@ -178,3 +178,18 @@ export async function searchSampleCompanies(q: string) {
     hasMore: false,
   };
 }
+
+/** Routes for the picker demo (made up), shown by their code. */
+export const samplePickerRoutes = ["B-01", "B-02", "R-21", "S-03"].map(
+  (code, index) => ({ id: `sample-route-${index}`, name: code }),
+);
+
+/** Like `routes_list` with `q`: codes starting with it, in capitals. */
+export async function searchSampleRoutes(q: string) {
+  return {
+    items: samplePickerRoutes.filter((route) =>
+      route.name.startsWith(q.toUpperCase()),
+    ),
+    hasMore: false,
+  };
+}

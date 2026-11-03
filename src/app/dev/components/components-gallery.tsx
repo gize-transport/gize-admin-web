@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/empty-state";
 import { NoPermission } from "@/components/no-permission";
 import { AreaPicker } from "@/components/pickers/area-picker";
 import { CompanyPicker } from "@/components/pickers/company-picker";
+import { RoutePicker } from "@/components/pickers/route-picker";
 import { ProblemAlert } from "@/components/problem-alert";
 import { StatusPill, type StatusTone } from "@/components/status-pill";
 import { showSuccessToast } from "@/components/toast";
@@ -28,6 +29,7 @@ import {
   sampleRoutes,
   searchSampleAreas,
   searchSampleCompanies,
+  searchSampleRoutes,
   type SampleRoute,
 } from "./sample-data";
 
@@ -136,6 +138,10 @@ export function ComponentsGallery() {
         <CompanyPickerDemo />
       </Section>
 
+      <Section title={t("routePicker")}>
+        <RoutePickerDemo />
+      </Section>
+
       <Section title={t("noPermission")}>
         <NoPermission />
       </Section>
@@ -220,6 +226,27 @@ function CompanyPickerDemo() {
         {company
           ? t("companyPickerChosen", { name: company.name })
           : t("companyPickerNone")}
+      </p>
+    </div>
+  );
+}
+
+function RoutePickerDemo() {
+  const t = useTranslations("DevComponents");
+  const [route, setRoute] = useState<{ id: string; code: string } | null>(null);
+  return (
+    <div className="grid max-w-sm gap-1.5">
+      <Label htmlFor="demo-route">{t("routePickerLabel")}</Label>
+      <RoutePicker
+        id="demo-route"
+        value={route}
+        onChange={setRoute}
+        search={searchSampleRoutes}
+      />
+      <p className="text-table text-muted">
+        {route
+          ? t("routePickerChosen", { code: route.code })
+          : t("routePickerNone")}
       </p>
     </div>
   );
