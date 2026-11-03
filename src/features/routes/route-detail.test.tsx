@@ -231,4 +231,17 @@ describe("RouteDetail", () => {
 
     expect(screen.queryByRole("button", { name: t.changePrices })).toBeNull();
   });
+  it("lets staff edit the areas served", async () => {
+    serveRoute(forming);
+    const user = userEvent.setup();
+    renderWithProviders(<RouteDetail routeId={forming.id} variant="page" />);
+
+    await user.click(await screen.findByRole("button", { name: t.editAreas }));
+
+    expect(
+      await screen.findByRole("dialog", {
+        name: fill(t.areasTitle, { code: "B-01" }),
+      }),
+    ).toBeVisible();
+  });
 });

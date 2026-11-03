@@ -18,6 +18,7 @@ import { useCurrentStaff } from "@/lib/auth/use-current-staff";
 import { useTimestampFormat } from "@/lib/time";
 import { useRoute } from "./queries";
 import { RouteCorridor } from "./route-corridor";
+import { RouteAreasDialog } from "./route-areas-dialog";
 import { RouteFormDialog } from "./route-form-dialog";
 import { RoutePricesDialog } from "./route-prices-dialog";
 import { RouteStatusPill } from "./route-status-pill";
@@ -170,6 +171,7 @@ function Loaded({
         ) : (
           <AreasPath route={route} />
         )}
+        <EditAreas route={route} />
       </section>
 
       <section className="grid gap-3">
@@ -220,6 +222,35 @@ export function typeLabel(
       : route.route_type === "student"
         ? "typeStudent"
         : "typeCorporate",
+  );
+}
+
+/** Staff edit the areas served (GZW-023) in a dialog. */
+function EditAreas({ route }: { route: RouteRead }) {
+  const t = useTranslations("Routes");
+  const [dialogKey, setDialogKey] = useState<number | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  return (
+    <>
+      <Button
+        variant="secondary"
+        className="w-fit"
+        onClick={() => {
+          setDialogKey((key) => (key ?? 0) + 1);
+          setDialogOpen(true);
+        }}
+      >
+        {t("editAreas")}
+      </Button>
+      {dialogKey !== null && (
+        <RouteAreasDialog
+          key={dialogKey}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          route={route}
+        />
+      )}
+    </>
   );
 }
 

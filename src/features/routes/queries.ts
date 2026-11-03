@@ -169,3 +169,23 @@ export function useSetRoutePrices() {
     },
   });
 }
+
+/** `routes_set_areas` (staff): the whole ordered list; a PUT, so no Idempotency-Key. */
+export function useSetRouteAreas() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, areaIds }: { id: string; areaIds: string[] }) =>
+      unwrap(
+        api.PUT("/v1/routes/{route_id}/areas", {
+          params: { path: { route_id: id } },
+          body: { area_ids: areaIds },
+        }),
+      ),
+    onSuccess: () => refetchRoutes(queryClient),
+    onError: (error, { id }) => {
+      if (error instanceof ApiError && error.status === 404) {
+        void refetchRoutes(queryClient, id);
+      }
+    },
+  });
+}

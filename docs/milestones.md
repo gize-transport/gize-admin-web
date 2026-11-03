@@ -93,7 +93,7 @@ Status: done · Needs backend: GZ-011 (in `api-v1.2.0`)
 ### GZW-022 · Route prices (admin) · Needs backend: GZ-022 (in `api-v1.6.0`) · Status: done
 - `routes_set_prices` (admin): round trip and one-way required, Saturday add-on optional (`public` only), whole birr 1–100,000, all sent at once. Staff see prices read-only; unset prices show "Not set". Corporate routes (`prices` null) show "Rate agreed with the company" and no price form (`ROUTE_HAS_NO_PRICES` handled anyway).
 
-### GZW-023 · Areas served · Needs backend: GZ-023 (in `api-v2.0.0`), GZ-026 · Status: todo
+### GZW-023 · Areas served · Needs backend: GZ-023 (in `api-v2.0.0`), GZ-026 · Status: done
 - On route detail: the areas a route passes between A and B, in order, no times (replaces pickup points, owner decision 2026-10-31). Edit as one list – add with the area picker, remove, reorder (keyboard-accessible: move up / move down buttons) – saved with `routes_set_areas` (whole list, staff). Not A or B, each area once, at most 20: field errors from the API shown on the list. Shown as "A → CMC → Megenagna → B".
 
 ### GZW-024 · Route status and deletion · Needs backend: GZ-024 (in `api-v2.1.0`), GZ-067 (in `api-v2.5.0`) · Status: todo

@@ -1494,6 +1494,59 @@ const api = createServer(async (request, response) => {
     }
   }
 
+  // Areas served (GZ-023): staff and admins; the whole ordered list at once.
+  const areasMatch = /^\/v1\/routes\/([^/]+)\/areas$/.exec(url.pathname);
+  if (areasMatch && request.method === "PUT") {
+    if (!UUID.test(areasMatch[1] ?? "")) {
+      return validationProblem(response, "/route_id", "invalid_format", "path");
+    }
+    // The body's format first (FastAPI), then the route, then the service's checks.
+    const body = (await readJson(request)) ?? {};
+    if (typeof body !== "object" || Array.isArray(body)) {
+      return validationProblem(response, "", "invalid_type");
+    }
+    const unknown = Object.keys(body).find((key) => key !== "area_ids");
+    if (unknown) {
+      return validationProblem(response, `/${unknown}`, "unknown_field");
+    }
+    const ids = body.area_ids;
+    if (ids === undefined) {
+      return validationProblem(response, "/area_ids", "missing");
+    }
+    if (!Array.isArray(ids)) {
+      return validationProblem(response, "/area_ids", "invalid_type");
+    }
+    if (ids.length > 20) {
+      return validationProblem(response, "/area_ids", "too_long");
+    }
+    const bad = ids.findIndex((id) => typeof id !== "string" || !UUID.test(id));
+    if (bad !== -1) {
+      return validationProblem(response, `/area_ids/${bad}`, "invalid_format");
+    }
+    const route = routes.find((candidate) => candidate.id === areasMatch[1]);
+    if (!route) return problem(response, 404, "NOT_FOUND");
+    const corridor = corridors.find((c) => c.id === route.corridorId);
+    const ends = [corridor?.originId, corridor?.destinationId];
+    // Like the service: each once and not A or B, then the same list changes nothing, then
+    // every area must still exist.
+    if (
+      new Set(ids).size !== ids.length ||
+      ids.some((id) => ends.includes(id))
+    ) {
+      return validationProblem(response, "/area_ids", "invalid");
+    }
+    const same =
+      ids.length === route.servedAreaIds.length &&
+      ids.every((id, index) => id === route.servedAreaIds[index]);
+    if (same) return send(response, 200, routeRead(route));
+    if (ids.some((id) => !areas.some((area) => area.id === id))) {
+      return validationProblem(response, "/area_ids", "invalid");
+    }
+    route.servedAreaIds = [...ids];
+    route.updated_at = new Date().toISOString();
+    return send(response, 200, routeRead(route));
+  }
+
   // Prices (GZ-022): admins only; the body is checked before the route is looked up.
   const pricesMatch = /^\/v1\/routes\/([^/]+)\/prices$/.exec(url.pathname);
   if (pricesMatch && request.method === "PUT") {

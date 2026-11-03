@@ -58,6 +58,11 @@ export type PickerFieldProps<T extends PickerOption> = {
   placeholder?: string;
   /** Marks the field invalid (form errors). */
   invalid?: boolean;
+  /**
+   * Can't be used now (e.g. a list that's full): stays focusable, says so, doesn't open. Say why
+   * with `aria-describedby`.
+   */
+  disabled?: boolean;
   "aria-describedby"?: string;
   /**
    * Where the options come from; each picker defaults to its API list. Tests and the gallery
@@ -92,6 +97,7 @@ export function SearchPicker<T extends PickerOption>({
   onChange,
   placeholder,
   invalid,
+  disabled,
   "aria-describedby": describedBy,
   search,
   queryKey,
@@ -128,7 +134,7 @@ export function SearchPicker<T extends PickerOption>({
 
   return (
     <div className="flex items-center gap-1">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={(next) => setOpen(next && !disabled)}>
         <PopoverTrigger
           ref={(element) => {
             triggerRef.current = element;
@@ -141,8 +147,9 @@ export function SearchPicker<T extends PickerOption>({
           aria-expanded={open}
           aria-haspopup="dialog"
           aria-invalid={invalid || undefined}
+          aria-disabled={disabled || undefined}
           aria-describedby={describedBy}
-          className="flex h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 text-left text-body hover:border-muted aria-invalid:border-danger"
+          className="flex h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 text-left text-body hover:border-muted aria-disabled:cursor-not-allowed aria-disabled:opacity-70 aria-invalid:border-danger"
         >
           <span className={cn("truncate", !value && "text-muted")}>
             {value?.name ?? placeholder ?? labels.placeholder}

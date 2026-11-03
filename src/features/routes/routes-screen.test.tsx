@@ -226,11 +226,12 @@ describe("RoutesScreen", () => {
       "/routes?route_type=student",
       { scroll: false },
     );
+    // Clicked before the URL caught up: builds on the type just chosen, doesn't drop it.
     await user.click(
       screen.getByRole("button", { name: messages.RouteStatus.paused }),
     );
     expect(navigation().push).toHaveBeenLastCalledWith(
-      "/routes?status=paused",
+      "/routes?route_type=student&status=paused",
       { scroll: false },
     );
   });
