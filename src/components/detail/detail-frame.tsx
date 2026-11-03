@@ -21,6 +21,15 @@ import { cn } from "@/lib/utils";
 
 export type DetailVariant = "page" | "panel";
 
+/**
+ * A record about to be opened as a page from another one (a van just added): its heading takes
+ * focus once loaded, as the dialog that made it closes. One at a time.
+ */
+let focusOnOpen: string | null = null;
+export function focusDetailWhenOpened(id: string) {
+  focusOnOpen = id;
+}
+
 /** Deleted meanwhile (404), or an id the API can't read (422 on the path). */
 export function isNotFound(error: unknown) {
   return (
@@ -43,6 +52,8 @@ export type DetailLayout = {
 };
 
 type DetailFrameProps<TData> = {
+  /** The record's id (for focusing it when opened from another, see focusDetailWhenOpened). */
+  recordId?: string;
   query: UseQueryResult<TData>;
   variant: DetailVariant;
   /** The list, for the page's "← All …" link. */
@@ -64,6 +75,7 @@ type DetailFrameProps<TData> = {
  * record; the panel takes focus when it opens.
  */
 export function DetailFrame<TData>({
+  recordId,
   query,
   variant,
   listHref,
@@ -80,6 +92,14 @@ export function DetailFrame<TData>({
   useEffect(() => {
     if (variant === "panel") panelRef.current?.focus({ preventScroll: true });
   }, [variant]);
+
+  // Opened from another record (a van just added): its name takes focus once it's shown.
+  const loaded = query.isSuccess;
+  useEffect(() => {
+    if (!loaded || recordId === undefined || focusOnOpen !== recordId) return;
+    focusOnOpen = null;
+    document.getElementById(headingId)?.focus();
+  }, [loaded, recordId, headingId]);
 
   // Found gone while working on it (its controls vanish): focus the explanation, not <body>.
   const notFoundRef = useRef<HTMLHeadingElement>(null);

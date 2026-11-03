@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/form-field";
@@ -76,6 +76,9 @@ export function CompanyFormDialog({
   company,
 }: CompanyFormDialogProps) {
   const t = useTranslations("Companies");
+  // Ids unique to this instance: Next can keep earlier pages (with their own copy of this) in the
+  // document, and a duplicate id would label the wrong field.
+  const uid = useId();
   const tCommon = useTranslations("Common");
   const tErrors = useTranslations("Errors");
   const { message, fieldMessages } = useApiErrorMessages();
@@ -229,7 +232,7 @@ export function CompanyFormDialog({
             />
           )}
           <FormField
-            id="company-name"
+            id={`${uid}-company-name`}
             label={t("nameLabel")}
             error={errors.name}
           >
@@ -243,7 +246,7 @@ export function CompanyFormDialog({
             )}
           </FormField>
           <FormField
-            id="company-contact-name"
+            id={`${uid}-company-contact-name`}
             label={t("contactNameLabel")}
             error={errors.contact_name}
           >
@@ -257,7 +260,7 @@ export function CompanyFormDialog({
             )}
           </FormField>
           <FormField
-            id="company-contact-phone"
+            id={`${uid}-company-contact-phone`}
             label={t("contactPhoneLabel")}
             hint={t("contactPhoneHint")}
             error={errors.contact_phone}
@@ -274,7 +277,7 @@ export function CompanyFormDialog({
             )}
           </FormField>
           <FormField
-            id="company-contact-email"
+            id={`${uid}-company-contact-email`}
             label={t("contactEmailLabel")}
             error={errors.contact_email}
           >
@@ -289,7 +292,7 @@ export function CompanyFormDialog({
             )}
           </FormField>
           <FormField
-            id="company-notes"
+            id={`${uid}-company-notes`}
             label={t("notesLabel")}
             hint={t("notesHint")}
             error={errors.notes}

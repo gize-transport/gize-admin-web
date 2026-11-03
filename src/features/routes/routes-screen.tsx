@@ -2,7 +2,7 @@
 
 import { BusIcon, PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
   createDataTableColumnHelper,
   DataTable,
@@ -299,6 +299,7 @@ export function RoutesScreen() {
               variant="panel"
               onClose={detail.closePanel}
               onDeleted={detail.closeAfterDelete}
+              onOpenRoute={detail.openPanel}
             />
           </div>
         )}
@@ -321,6 +322,8 @@ export function RoutesScreen() {
  */
 function CorridorFilter({ corridorId }: { corridorId: string | null }) {
   const t = useTranslations("Routes");
+  // Unique ids: Next can keep earlier pages in the document (see SearchField).
+  const uid = useId();
   const { setFilter } = useListParams();
   // The corridor just picked; the URL's other corridors (reload, shared link) come from the API.
   const [picked, setPicked] = useState<CorridorRef | null>(null);
@@ -332,7 +335,7 @@ function CorridorFilter({ corridorId }: { corridorId: string | null }) {
   return (
     <div className="grid gap-1">
       <CorridorField
-        id="filter-corridor"
+        id={`${uid}-corridor`}
         legend={t("corridorFilter")}
         value={value}
         onChange={(next) => {
@@ -345,10 +348,10 @@ function CorridorFilter({ corridorId }: { corridorId: string | null }) {
           }
         }}
         placeholder={t(loading ? "loadingName" : "anyArea")}
-        aria-describedby={unknown ? "filter-corridor-unknown" : undefined}
+        aria-describedby={unknown ? `${uid}-corridor-unknown` : undefined}
       />
       {unknown && (
-        <p id="filter-corridor-unknown" className="text-table text-muted">
+        <p id={`${uid}-corridor-unknown`} className="text-table text-muted">
           {t(
             isNotFound(corridor.error)
               ? "unknownCorridor"
@@ -363,6 +366,7 @@ function CorridorFilter({ corridorId }: { corridorId: string | null }) {
 /** The company filter (inactive companies too: their routes still exist), kept in the URL. */
 function CompanyFilter({ companyId }: { companyId: string | null }) {
   const t = useTranslations("Routes");
+  const uid = useId();
   const { setFilter } = useListParams();
   const [picked, setPicked] = useState<CompanyRef | null>(null);
   const known = picked !== null && picked.id === companyId ? picked : null;
@@ -383,9 +387,9 @@ function CompanyFilter({ companyId }: { companyId: string | null }) {
 
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor="filter-company">{t("companyFilter")}</Label>
+      <Label htmlFor={`${uid}-company`}>{t("companyFilter")}</Label>
       <CompanyPicker
-        id="filter-company"
+        id={`${uid}-company`}
         includeInactive
         value={value}
         placeholder={t(loading ? "loadingName" : "anyCompany")}

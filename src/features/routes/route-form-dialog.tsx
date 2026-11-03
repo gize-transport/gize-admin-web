@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { FormField } from "@/components/form-field";
@@ -88,6 +88,9 @@ export function RouteFormDialog({
   // while the form is open can't turn someone else's change into one of ours.
   const [route] = useState(routeProp);
   const t = useTranslations("Routes");
+  // Ids unique to this instance: Next can keep earlier pages (with their own copy of this) in the
+  // document, and a duplicate id would label the wrong field.
+  const uid = useId();
   const tCommon = useTranslations("Common");
   const { message, fieldMessages } = useApiErrorMessages();
   const queryClient = useQueryClient();
@@ -385,7 +388,7 @@ export function RouteFormDialog({
             />
           )}
           <FormField
-            id="route-code"
+            id={`${uid}-route-code`}
             label={t("codeLabel")}
             hint={t("codeHint")}
             error={errors.code}
@@ -407,7 +410,7 @@ export function RouteFormDialog({
               name="corridor"
               render={({ field }) => (
                 <CorridorField
-                  id="route-corridor"
+                  id={`${uid}-route-corridor`}
                   legend={t("corridorLegend")}
                   ref={field.ref}
                   onBlur={field.onBlur}
@@ -415,13 +418,16 @@ export function RouteFormDialog({
                   onChange={field.onChange}
                   invalid={Boolean(errors.corridor)}
                   aria-describedby={
-                    errors.corridor ? "route-corridor-error" : undefined
+                    errors.corridor ? `${uid}-route-corridor-error` : undefined
                   }
                 />
               )}
             />
             {errors.corridor && (
-              <p id="route-corridor-error" className="text-table text-danger">
+              <p
+                id={`${uid}-route-corridor-error`}
+                className="text-table text-danger"
+              >
                 {errors.corridor.message}
               </p>
             )}
@@ -458,7 +464,7 @@ export function RouteFormDialog({
 
           {routeType === "student" && (
             <FormField
-              id="route-school"
+              id={`${uid}-route-school`}
               label={t("schoolLabel")}
               error={errors.school_name}
             >
@@ -474,26 +480,31 @@ export function RouteFormDialog({
           )}
           {routeType === "corporate" && (
             <div className="grid gap-1.5">
-              <Label htmlFor="route-company">{t("companyLabel")}</Label>
+              <Label htmlFor={`${uid}-route-company`}>
+                {t("companyLabel")}
+              </Label>
               <Controller
                 control={control}
                 name="company"
                 render={({ field }) => (
                   <CompanyPicker
-                    id="route-company"
+                    id={`${uid}-route-company`}
                     ref={field.ref}
                     onBlur={field.onBlur}
                     value={field.value ?? null}
                     onChange={field.onChange}
                     invalid={Boolean(errors.company)}
                     aria-describedby={
-                      errors.company ? "route-company-error" : undefined
+                      errors.company ? `${uid}-route-company-error` : undefined
                     }
                   />
                 )}
               />
               {errors.company && (
-                <p id="route-company-error" className="text-table text-danger">
+                <p
+                  id={`${uid}-route-company-error`}
+                  className="text-table text-danger"
+                >
                   {errors.company.message}
                 </p>
               )}
@@ -508,7 +519,7 @@ export function RouteFormDialog({
               {TIMES.map((field) => (
                 <FormField
                   key={field}
-                  id={`route-${field}`}
+                  id={`${uid}-${field}`}
                   label={timeLabels[field]}
                   hint={t("timesHint")}
                   hintHidden
@@ -524,7 +535,7 @@ export function RouteFormDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
-              id="route-seats"
+              id={`${uid}-route-seats`}
               label={t("seatsLabel")}
               hint={t("seatsHint")}
               error={errors.seats}
@@ -542,7 +553,7 @@ export function RouteFormDialog({
             </FormField>
             {routeType !== "corporate" && (
               <FormField
-                id="route-launch-minimum"
+                id={`${uid}-route-launch-minimum`}
                 label={t("launchMinimumLabel")}
                 hint={t("launchMinimumHint")}
                 error={errors.launch_minimum}

@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowDownIcon, ArrowUpIcon, XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AreaPicker } from "@/components/pickers/area-picker";
 import { ProblemAlert } from "@/components/problem-alert";
 import { showSuccessToast } from "@/components/toast";
@@ -51,6 +51,9 @@ export function RouteAreasDialog({
   route: routeProp,
 }: RouteAreasDialogProps) {
   const t = useTranslations("Routes");
+  // Ids unique to this instance: Next can keep earlier pages (with their own copy of this) in the
+  // document, and a duplicate id would label the wrong field.
+  const uid = useId();
   const tCommon = useTranslations("Common");
   const { message } = useApiErrorMessages();
   const queryClient = useQueryClient();
@@ -257,7 +260,9 @@ export function RouteAreasDialog({
             ref={listRef}
             tabIndex={-1}
             aria-label={t("areasListLabel", ends)}
-            aria-describedby={listError ? "route-areas-error" : undefined}
+            aria-describedby={
+              listError ? `${uid}-route-areas-error` : undefined
+            }
             className="grid gap-1 rounded-lg outline-none empty:hidden focus-visible:ring-2 focus-visible:ring-royal"
           >
             {list.map((area, index) => (
@@ -317,7 +322,7 @@ export function RouteAreasDialog({
             {destination.name}
           </p>
           {listError && (
-            <div id="route-areas-error" className="grid gap-0.5">
+            <div id={`${uid}-route-areas-error`} className="grid gap-0.5">
               <p className="text-table text-danger">{listError}</p>
               {problem instanceof ApiError && problem.requestId && (
                 <p className="text-meta text-muted">
@@ -329,9 +334,9 @@ export function RouteAreasDialog({
         </div>
 
         <div className="grid gap-1.5">
-          <Label htmlFor="route-add-area">{t("addAreaLabel")}</Label>
+          <Label htmlFor={`${uid}-route-add-area`}>{t("addAreaLabel")}</Label>
           <AreaPicker
-            id="route-add-area"
+            id={`${uid}-route-add-area`}
             ref={pickerRef}
             value={null}
             onChange={add}
@@ -340,19 +345,25 @@ export function RouteAreasDialog({
             invalid={refusal !== null}
             aria-describedby={
               full
-                ? "route-add-area-full"
+                ? `${uid}-route-add-area-full`
                 : refusal
-                  ? "route-add-area-refusal"
+                  ? `${uid}-route-add-area-refusal`
                   : undefined
             }
           />
           {full && (
-            <p id="route-add-area-full" className="text-table text-muted">
+            <p
+              id={`${uid}-route-add-area-full`}
+              className="text-table text-muted"
+            >
               {t("areasFull")}
             </p>
           )}
           {refusal && !full && (
-            <p id="route-add-area-refusal" className="text-table text-danger">
+            <p
+              id={`${uid}-route-add-area-refusal`}
+              className="text-table text-danger"
+            >
               {refusal}
             </p>
           )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { SearchIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useListParams } from "@/components/data-table";
@@ -28,6 +28,9 @@ export function SearchField({
   maxLength = 100,
 }: SearchFieldProps) {
   const { get, setFilter } = useListParams();
+  // Ids unique to this instance: Next can keep earlier pages (with their own copy of this) in the
+  // document, and a duplicate id would label the wrong field.
+  const uid = useId();
   const fromUrl = get(param) ?? "";
   const [text, setText] = useState(fromUrl);
   const [lastUrl, setLastUrl] = useState(fromUrl);
@@ -60,14 +63,14 @@ export function SearchField({
 
   return (
     <div className="grid w-full max-w-sm gap-1.5">
-      <Label htmlFor={`search-${param}`}>{label}</Label>
+      <Label htmlFor={`${uid}-search`}>{label}</Label>
       <div className="relative">
         <SearchIcon
           aria-hidden
           className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
         />
         <Input
-          id={`search-${param}`}
+          id={`${uid}-search`}
           type="search"
           value={text}
           onChange={(event) => setText(event.target.value)}

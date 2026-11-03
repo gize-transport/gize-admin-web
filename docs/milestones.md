@@ -102,7 +102,7 @@ Status: done · Needs backend: GZ-011 (in `api-v1.2.0`)
 - Readiness is a snapshot: a 409 (`ROUTE_NOT_READY`, `NOT_ENOUGH_RIDERS`, `ROUTE_HAS_RIDERS`, `INVALID_STATUS_CHANGE`) shows the message in the dialog and reloads the route. Each change's response is the updated route.
 - Admin delete with confirmation (`ROUTE_HAS_RIDERS`, `ROUTE_HAS_REQUESTS` explained).
 
-### GZW-028 · Add a van · Needs backend: GZ-028 (in `api-v2.3.0`) · Status: todo
+### GZW-028 · Add a van · Needs backend: GZ-028 (in `api-v2.3.0`) · Status: done
 - From route detail: `routes_copy` (`Idempotency-Key`) with new code, seats and launch minimum (individual routes); it copies corridor, type, school or company, times, areas served and prices (unchanged). The result says whether the copy starts `forming` or `draft` and opens it. Errors: `ROUTE_CODE_TAKEN`, `ROUTE_NOT_READY` (a corporate route's company is inactive).
 
 ---
