@@ -40,6 +40,27 @@ export const screens: readonly Screen[] = [
     readyText: "ሳሪስ",
   },
   {
+    name: "companies",
+    path: "/companies",
+    signInAs: "admin",
+    // A sample company no e2e test changes (they add their own).
+    readyText: "Abyssinia Textiles",
+  },
+  {
+    name: "company",
+    // Addis Brewery: notes, a route, and the admin's actions.
+    path: "/companies/00000000-0000-4000-c000-000000000001",
+    signInAs: "admin",
+    readyText: "Invoices to the finance office, 2nd floor.",
+  },
+  {
+    name: "company-panel",
+    // From 1280 px the details open beside the list; narrower, this opens the company's page.
+    path: "/companies?company=00000000-0000-4000-c000-000000000001",
+    signInAs: "admin",
+    readyText: "Invoices to the finance office, 2nd floor.",
+  },
+  {
     name: "not-found",
     path: "/this-page-does-not-exist",
     signInAs: "staff",

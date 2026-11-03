@@ -80,7 +80,7 @@ Status: done · Needs backend: GZ-011 (in `api-v1.2.0`)
 - `corridors_list` shows "origin → destination" with area names from the response; filters by origin and/or destination area (two area pickers, kept in the URL). Create (`Idempotency-Key`) and edit with two area pickers; an unknown area is a field error; `CORRIDOR_EXISTS` explained. Corridors have a direction: the way back (B → A) is a separate corridor, so the UI always shows the arrow.
 - Changing a corridor's areas or deleting it is refused while a live route uses it (`CORRIDOR_IN_USE`, explained). Admin delete with confirmation. No threshold.
 
-### GZW-029 · Companies · Needs backend: GZ-029 (in `api-v1.5.0`) · Status: todo
+### GZW-029 · Companies · Needs backend: GZ-029 (in `api-v1.5.0`) · Status: done
 - `companies_list` (search `q`: names starting with the text, ignoring case; active filter `is_active`), `companies_get` with the company's routes (`routes_list?company_id=`), `companies_create` (`Idempotency-Key`; name, contact name, phone and email required; notes optional; billing `postpaid` shown read-only), `companies_update` (fields, and `is_active` to deactivate or reactivate). Errors: `COMPANY_NAME_TAKEN` on the name field, `COMPANY_IN_USE` (deactivating while one of its routes is active or paused; deleting while it has a route). Admin delete.
 - Shared `CompanyPicker` (`is_active=true`) for corporate routes. Contact name, phone and email are personal data: never in URLs, logs or Sentry. Phones may be typed any usual way; the API stores `+2519…`/`+2517…`.
 

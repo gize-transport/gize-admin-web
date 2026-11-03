@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { PickerResult } from "@/components/pickers/search-picker";
 import { corridorKeys } from "@/features/corridors/queries";
 import { api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/problem";
@@ -7,7 +8,7 @@ import type { components } from "@/lib/api/schema";
 type AreaRef = components["schemas"]["AreaRef"];
 
 /** What a picker search returns: the first matches, and whether more areas match. */
-export type AreaSearchResult = { items: AreaRef[]; hasMore: boolean };
+export type AreaSearchResult = PickerResult<AreaRef>;
 
 const PICKER_LIMIT = 20;
 

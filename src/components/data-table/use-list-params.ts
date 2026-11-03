@@ -45,6 +45,22 @@ export function useListParams() {
     [router, hrefWith],
   );
 
+  /**
+   * Sets or clears params that aren't filters (e.g. the record whose details are open), on the
+   * same page of the list. Adds a history entry, so Back undoes it, unless `replace`.
+   */
+  const setParams = useCallback(
+    (
+      changes: Record<string, string | null>,
+      options?: { replace?: boolean },
+    ) => {
+      const href = hrefWith(changes);
+      if (options?.replace) router.replace(href, { scroll: false });
+      else router.push(href, { scroll: false });
+    },
+    [router, hrefWith],
+  );
+
   /** Sets or clears one filter (see setFilters). */
   const setFilter = useCallback(
     (key: string, value: string | null, options?: { replace?: boolean }) =>
@@ -60,5 +76,6 @@ export function useListParams() {
     firstPageHref: () => hrefWith({ [CURSOR_PARAM]: null }),
     setFilter,
     setFilters,
+    setParams,
   };
 }

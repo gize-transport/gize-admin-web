@@ -160,3 +160,21 @@ export async function searchSampleAreas(q: string) {
     hasMore: false,
   };
 }
+
+/** Active companies for the picker demo (made up). */
+export const sampleCompanies = [
+  "Abyssinia Textiles",
+  "Addis Brewery",
+  "Bole Logistics",
+  "Ethio Ceramics",
+].map((name, index) => ({ id: `sample-company-${index}`, name }));
+
+/** Like `companies_list` with `q` and `is_active=true`. */
+export async function searchSampleCompanies(q: string) {
+  return {
+    items: sampleCompanies.filter((company) =>
+      company.name.toLowerCase().startsWith(q.toLowerCase()),
+    ),
+    hasMore: false,
+  };
+}
