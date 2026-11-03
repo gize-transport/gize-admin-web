@@ -108,18 +108,21 @@ test.describe("routes", () => {
     const table = page.getByRole("table", { name: t.tableLabel });
     const row = (code: string) =>
       table.getByRole("link", { name: code, exact: true });
-    await expect(row("S-03")).toBeVisible();
+    // Other tests add routes (newest first, 25 a page): the sample ones are found by searching.
+    const search = page.getByLabel(t.searchLabel);
 
-    await page.getByLabel(t.searchLabel).fill("b-");
+    await search.fill("b-");
     await expect(row("B-01")).toBeVisible();
     await expect(row("B-02")).toBeVisible();
     await expect(row("S-03")).toBeHidden();
-    await page.getByLabel(t.searchLabel).fill("");
 
+    await search.fill("s-");
     await page.getByRole("button", { name: t.typeStudent }).click();
     await expect(page).toHaveURL(/[?&]route_type=student/);
     await expect(row("S-03")).toBeVisible();
-    await expect(row("B-01")).toBeHidden();
+    await search.fill("b-");
+    await expect(table).toBeHidden(); // no student route's code starts with B-
+    await search.fill("");
     await page
       .getByRole("group", { name: t.typeFilter })
       .getByRole("button", { name: messages.DataTable.all })
@@ -210,6 +213,7 @@ test.describe("routes", () => {
     page,
   }) => {
     await signIn(page, "staff", "/sign-in?next=%2Froutes");
+    await page.getByLabel(t.searchLabel).fill("B-01");
     const details = await openRoute(page, "B-01");
 
     await expect(details.getByText("Megenagna")).toBeVisible();
