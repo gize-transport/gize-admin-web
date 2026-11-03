@@ -11,6 +11,11 @@ type Option = { id: string; name: string };
 type RoutePickerProps = Omit<PickerFieldProps<Option>, "value" | "onChange"> & {
   value: RouteRef | null;
   onChange: (route: RouteRef | null) => void;
+  /**
+   * Names a `search` other than the default (e.g. "running-public"): results are cached by the
+   * search text under it, so two pickers with different searches never share them.
+   */
+  scope?: string;
 };
 
 /** Chooses a route from `routes_list` by the start of its code (SearchPicker), e.g. for requests. */
@@ -18,6 +23,7 @@ export function RoutePicker({
   value,
   onChange,
   search = searchRoutes,
+  scope = "all",
   ...props
 }: RoutePickerProps) {
   const t = useTranslations("RoutePicker");
@@ -29,7 +35,7 @@ export function RoutePicker({
         onChange(option ? { id: option.id, code: option.name } : null)
       }
       search={search}
-      queryKey={["routes", "picker"]}
+      queryKey={["routes", "picker", scope]}
       labels={{
         placeholder: t("placeholder"),
         searchLabel: t("searchLabel"),

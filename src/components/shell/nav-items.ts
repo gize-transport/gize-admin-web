@@ -28,7 +28,7 @@ export type NavItem = {
 export const navItems: readonly NavItem[] = [
   { key: "overview", href: "/", available: true },
   { key: "routes", href: "/routes", available: true },
-  { key: "routeRequests", href: "/route-requests", available: false },
+  { key: "routeRequests", href: "/route-requests", available: true },
   { key: "demand", href: "/demand", available: false },
   { key: "companies", href: "/companies", available: true },
   { key: "riders", href: "/riders", available: false },

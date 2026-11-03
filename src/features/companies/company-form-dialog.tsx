@@ -24,6 +24,7 @@ import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
 import { useRetryWait } from "@/lib/api/use-retry-wait";
 import { returnFocus } from "@/lib/focus";
+import { mobileE164, PHONE_TYPED_MAX } from "@/lib/phone";
 import { refetchCompany, useCreateCompany, useUpdateCompany } from "./queries";
 
 type CompanyRead = components["schemas"]["CompanyRead"];
@@ -32,23 +33,11 @@ type CompanyUpdate = components["schemas"]["CompanyUpdate"];
 
 // The contract's limits (CompanyCreate / CompanyUpdate).
 const NAME_MAX = 100;
-const PHONE_TYPED_MAX = 20;
 const EMAIL_MAX = 320;
 const NOTES_MAX = 1000;
 // The contract's `contact_email` pattern (the HTML form rule, ASCII, a dot in the domain).
 const EMAIL =
   /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
-// The API's Ethiopian mobile rule: separators people type, an optional +251 / 00251 / 251
-// (maybe with the trunk 0) or 0, then 9 or 7 and eight digits.
-const PHONE_SEPARATORS = /[  \t().-]/g;
-const MOBILE = /^(?:(?:\+|00)?2510?|0)?([79][0-9]{8})$/;
-
-/** The number as the API stores it (`+2519…`/`+2517…`), or null if it isn't a mobile. */
-export function mobileE164(typed: string): string | null {
-  const match = MOBILE.exec(typed.trim().replace(PHONE_SEPARATORS, ""));
-  return match ? `+251${match[1]}` : null;
-}
-
 const fields = [
   "name",
   "contact_name",

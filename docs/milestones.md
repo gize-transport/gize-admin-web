@@ -51,9 +51,9 @@ Screens are built in the order their backend tickets are tagged (`npm run contra
 
 Answered in `api-v2.5.0` (GZ-067): what a route still needs and when it can launch (`status_changes`, `GET /v1/routes/{route_id}/launch-months`), picker search (`/v1/routes?q=` code prefix, `/v1/companies?q=&is_active=true` name prefix), every status move through `PUT /v1/routes/{route_id}/status`, and the demand summary's shape. The tickets below use them.
 
-Still open (not blocking; ask before the ticket starts):
+Decided:
 
-6. **Route request moves** (GZW-040): requests have no `status_changes`. Is offering match / fulfil / decline from the documented flow (`new` → `matched` → `fulfilled`, `new` → `fulfilled`, `new`/`matched` → `declined`) and explaining `INVALID_STATUS_CHANGE` enough, or should requests list their allowed moves like routes?
+6. **Route request moves** (GZW-040): requests have no `status_changes`. Owner decision (2026-11-03): the portal offers match / fulfil / decline from the documented flow (`new` → `matched` (again) → `fulfilled`, `new` → `fulfilled`, `new`/`matched` → `declined`; fulfilled and declined are final) and explains `INVALID_STATUS_CHANGE`, reloading the request. No backend change.
 
 ---
 
@@ -119,7 +119,7 @@ Status: done · Needs backend: GZ-011 (in `api-v1.2.0`)
 
 ## W4 – Route requests and demand
 
-### GZW-040 · Route requests · Needs backend: GZ-027 (in `api-v2.2.0`) · Status: todo
+### GZW-040 · Route requests · Needs backend: GZ-027 (in `api-v2.2.0`) · Status: done
 - `route_requests_list` (oldest first) with filters status, kind, open, route (route picker); no search by phone or name (phones never go in URLs). Detail with the request's areas or route, matched route, decline reason, source (`staff`, set by the API).
 - Record a request from a phone call (`route_requests_create`, `Idempotency-Key`): kind *new areas* (each end an area picker, or a name for an area not listed yet; ends different) or *a specific route* (route picker over running routes); rider type (adult/student), rider name, school (students), preferred morning and return times (optional), contact name and phone (a student's parent or guardian), notes. `ROUTE_REQUEST_EXISTS` points to the open request. Edit who and when only (`route_requests_update`); what is asked for doesn't change.
 - Actions (`route_requests_set_status`): match to a route (route picker), mark fulfilled, decline with a reason (1–100 characters); `INVALID_STATUS_CHANGE` explained (see question 6). Admin delete. Contact and rider names and phones are personal data: never in URLs, logs or Sentry.
