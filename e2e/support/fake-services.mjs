@@ -703,6 +703,29 @@ const routes = [
     reserved: 6,
     hasRiders: true,
   })),
+  // Running and full: route requests ask for a seat on it (GZ-027).
+  {
+    code: "B-07",
+    corridorId: corridorId("Bole", "Piassa"),
+    route_type: /** @type {const} */ ("public"),
+    launch_minimum: 10,
+    status: /** @type {const} */ ("active"),
+    prices: { round_trip: 2400, one_way: 1400, saturday: 300 },
+    taken: 14,
+    hasRiders: true,
+  },
+  // A running student route of Lycée Guebre-Mariam.
+  {
+    code: "S-06",
+    corridorId: corridorId("Megenagna", "Mexico"),
+    route_type: /** @type {const} */ ("student"),
+    school_name: "Lycée Guebre-Mariam",
+    launch_minimum: 8,
+    status: /** @type {const} */ ("active"),
+    prices: { round_trip: 3000, one_way: 1700, saturday: null },
+    taken: 12,
+    hasRiders: true,
+  },
 ].map((seed, index) => {
   const at = new Date(Date.UTC(2026, 9, 4, 6, index)).toISOString();
   return {
@@ -1332,6 +1355,440 @@ function listRoutes(url, response) {
   send(response, 200, page);
 }
 
+// Route requests, like GZ-027: oldest first; one open request per phone, kind, route or area
+// pair and rider; `new` → `matched` (again) → `fulfilled`, `new` → `fulfilled`, open →
+// `declined` with a reason. Personal data is invented.
+/**
+ * @typedef {{
+ *   id: string; kind: Schemas["RequestKind"];
+ *   fromAreaId: string | null; from_area_name: string | null;
+ *   toAreaId: string | null; to_area_name: string | null;
+ *   routeId: string | null; rider_type: Schemas["RiderType"]; rider_name: string;
+ *   school_name: string | null; preferred_morning_time: string | null;
+ *   preferred_return_time: string | null; contact_name: string; contact_phone: string;
+ *   notes: string | null; source: Schemas["RequestSource"]; status: Schemas["RequestStatus"];
+ *   matchedRouteId: string | null; decline_reason: string | null; deleted: boolean;
+ *   created_at: string; updated_at: string;
+ * }} FakeRequest
+ */
+/** @param {string} code */
+function routeIdOf(code) {
+  const route = routes.find((candidate) => candidate.code === code);
+  if (!route) throw new Error(`no seeded route ${code}`);
+  return route.id;
+}
+
+/** @type {FakeRequest[]} */
+const requests = [
+  // From Ayat to an area not listed yet.
+  {
+    kind: "new_areas",
+    fromAreaId: areaId("Ayat"),
+    to_area_name: "Lebu",
+    rider_name: "Selam Bekele",
+    contact_name: "Selam Bekele",
+    contact_phone: "+251911000101",
+    preferred_morning_time: "07:00",
+    preferred_return_time: "17:30",
+  },
+  // B-07 is full: a seat on it.
+  {
+    kind: "route",
+    routeId: routeIdOf("B-07"),
+    rider_name: "Dawit Alemu",
+    contact_name: "Dawit Alemu",
+    contact_phone: "+251911000102",
+    notes: "Works near Piassa, any seat from next month.",
+  },
+  // A student, matched to S-03 (a route of their school still being set up).
+  {
+    kind: "new_areas",
+    fromAreaId: areaId("Megenagna"),
+    toAreaId: areaId("Mexico"),
+    rider_type: "student",
+    rider_name: "Liya Girma",
+    school_name: "Lycée Guebre-Mariam",
+    contact_name: "Meron Girma",
+    contact_phone: "+251711000103",
+    status: "matched",
+    matchedRouteId: routeIdOf("S-03"),
+  },
+  {
+    kind: "new_areas",
+    from_area_name: "Summit",
+    toAreaId: areaId("Piassa"),
+    rider_name: "Kidus Tadesse",
+    contact_name: "Kidus Tadesse",
+    contact_phone: "+251911000104",
+    status: "declined",
+    decline_reason: "Too far from our corridors for now.",
+  },
+  {
+    kind: "route",
+    routeId: routeIdOf("B-07"),
+    rider_name: "Hirut Mengistu",
+    contact_name: "Hirut Mengistu",
+    contact_phone: "+251911000105",
+    status: "fulfilled",
+  },
+].map((seed, index) => {
+  const at = new Date(Date.UTC(2026, 9, 10, 7, index)).toISOString();
+  return {
+    id: `00000000-0000-4000-e000-${String(index + 1).padStart(12, "0")}`,
+    fromAreaId: null,
+    from_area_name: null,
+    toAreaId: null,
+    to_area_name: null,
+    routeId: null,
+    rider_type: /** @type {Schemas["RiderType"]} */ ("adult"),
+    school_name: null,
+    preferred_morning_time: null,
+    preferred_return_time: null,
+    notes: null,
+    source: /** @type {Schemas["RequestSource"]} */ ("staff"),
+    status: /** @type {Schemas["RequestStatus"]} */ ("new"),
+    matchedRouteId: null,
+    decline_reason: null,
+    deleted: false,
+    created_at: at,
+    updated_at: at,
+    ...seed,
+  };
+});
+
+/** @type {Map<string, { request: FakeRequest; fingerprint: string }>} */
+const requestKeys = new Map();
+
+const REQUEST_STATUSES = ["new", "matched", "fulfilled", "declined"];
+const REQUEST_MOVES = [
+  ["new", "matched"],
+  ["matched", "matched"],
+  ["new", "fulfilled"],
+  ["matched", "fulfilled"],
+  ["new", "declined"],
+  ["matched", "declined"],
+];
+
+/** @param {FakeRequest} request */
+function isOpen(request) {
+  return request.status === "new" || request.status === "matched";
+}
+
+/** @param {string | null} id */
+function routeRef(id) {
+  const route = id === null ? undefined : routes.find((r) => r.id === id);
+  return route ? { id: route.id, code: route.code } : null;
+}
+
+/**
+ * @param {FakeRequest} request
+ * @returns {Schemas["RouteRequestRead"]}
+ */
+function requestRead(request) {
+  return {
+    id: request.id,
+    kind: request.kind,
+    from_area: request.fromAreaId === null ? null : areaRef(request.fromAreaId),
+    from_area_name: request.from_area_name,
+    to_area: request.toAreaId === null ? null : areaRef(request.toAreaId),
+    to_area_name: request.to_area_name,
+    route: routeRef(request.routeId),
+    rider_type: request.rider_type,
+    rider_name: request.rider_name,
+    school_name: request.school_name,
+    preferred_morning_time: request.preferred_morning_time,
+    preferred_return_time: request.preferred_return_time,
+    contact_name: request.contact_name,
+    contact_phone: request.contact_phone,
+    notes: request.notes,
+    source: request.source,
+    status: request.status,
+    matched_route: routeRef(request.matchedRouteId),
+    decline_reason: request.decline_reason,
+    created_at: request.created_at,
+    updated_at: request.updated_at,
+  };
+}
+
+/** A live, open request names the route (asks for it or is matched to it). */
+function routeNamedByRequest(/** @type {FakeRoute} */ route) {
+  return (
+    route.hasRequests ||
+    requests.some(
+      (request) =>
+        !request.deleted &&
+        isOpen(request) &&
+        (request.routeId === route.id || request.matchedRouteId === route.id),
+    )
+  );
+}
+
+/** A route for this rider: public for adults; student, of their school (any case), for students. */
+function routeFits(
+  /** @type {FakeRoute} */ route,
+  /** @type {string} */ riderType,
+  /** @type {string | null} */ school,
+) {
+  if (riderType === "adult") return route.route_type === "public";
+  return (
+    route.route_type === "student" &&
+    route.school_name !== null &&
+    school !== null &&
+    route.school_name.toLowerCase() === school.toLowerCase()
+  );
+}
+
+/** Another live, open request asks for the same (the API's unique rule). */
+function sameRequestOpen(
+  /** @type {Omit<FakeRequest, "id">} */ asked,
+  /** @type {string | null} */ exceptId,
+) {
+  const end = (
+    /** @type {string | null} */ id,
+    /** @type {string | null} */ name,
+  ) => id ?? name?.toLowerCase() ?? null;
+  return requests.some(
+    (other) =>
+      other.id !== exceptId &&
+      !other.deleted &&
+      isOpen(other) &&
+      other.contact_phone === asked.contact_phone &&
+      other.kind === asked.kind &&
+      other.routeId === asked.routeId &&
+      end(other.fromAreaId, other.from_area_name) ===
+        end(asked.fromAreaId, asked.from_area_name) &&
+      end(other.toAreaId, other.to_area_name) ===
+        end(asked.toAreaId, asked.to_area_name) &&
+      other.rider_name.toLowerCase() === asked.rider_name.toLowerCase(),
+  );
+}
+
+/**
+ * The request fields in a body, checked and normalised like the API's models (create, or the
+ * partial update: who and when).
+ * @param {ServerResponse} response
+ * @param {Record<string, unknown>} body
+ * @param {{ partial: boolean }} options
+ * @returns {Record<string, unknown> | undefined} undefined after a 422
+ */
+function requestFields(response, body, { partial }) {
+  const who = [
+    "rider_name",
+    "school_name",
+    "preferred_morning_time",
+    "preferred_return_time",
+    "contact_name",
+    "contact_phone",
+    "notes",
+  ];
+  const allowed = partial
+    ? who
+    : [
+        "kind",
+        "from_area_id",
+        "from_area_name",
+        "to_area_id",
+        "to_area_name",
+        "route_id",
+        "rider_type",
+        ...who,
+      ];
+  const unknown = Object.keys(body).find((key) => !allowed.includes(key));
+  if (unknown) {
+    validationProblem(response, `/${unknown}`, "unknown_field");
+    return undefined;
+  }
+  if (partial) {
+    const sent = Object.keys(body);
+    if (sent.length === 0 || sent.some((key) => body[key] === null)) {
+      validationProblem(response, "", "invalid");
+      return undefined;
+    }
+  }
+  /** @type {Record<string, unknown>} */
+  const fields = {};
+  if (!partial) {
+    if (!["new_areas", "route"].includes(String(body.kind))) {
+      validationProblem(
+        response,
+        "/kind",
+        body.kind === undefined ? "missing" : "not_allowed",
+      );
+      return undefined;
+    }
+    fields.kind = body.kind;
+    for (const field of ["from_area_id", "to_area_id", "route_id"]) {
+      const value = body[field] ?? null;
+      if (value !== null && (typeof value !== "string" || !UUID.test(value))) {
+        validationProblem(response, `/${field}`, "invalid_format");
+        return undefined;
+      }
+      fields[field] = value;
+    }
+    for (const field of ["from_area_name", "to_area_name"]) {
+      if (body[field] === undefined || body[field] === null) {
+        fields[field] = null;
+        continue;
+      }
+      const text = shortText(response, body[field], field);
+      if (text === undefined) return undefined;
+      fields[field] = text;
+    }
+    if (!["adult", "student"].includes(String(body.rider_type))) {
+      validationProblem(
+        response,
+        "/rider_type",
+        body.rider_type === undefined ? "missing" : "not_allowed",
+      );
+      return undefined;
+    }
+    fields.rider_type = body.rider_type;
+  }
+  for (const field of ["rider_name", "school_name", "contact_name"]) {
+    const optional = partial || field === "school_name";
+    if (optional && (body[field] === undefined || body[field] === null)) {
+      if (!partial) fields[field] = null;
+      continue;
+    }
+    const text = shortText(response, body[field], field);
+    if (text === undefined) return undefined;
+    fields[field] = text;
+  }
+  for (const field of ["preferred_morning_time", "preferred_return_time"]) {
+    const value = body[field];
+    if (value === undefined || value === null) {
+      if (!partial) fields[field] = null;
+      continue;
+    }
+    if (typeof value !== "string" || !LOCAL_TIME.test(value)) {
+      validationProblem(response, `/${field}`, "invalid_format");
+      return undefined;
+    }
+    fields[field] = value;
+  }
+  if (!partial || body.contact_phone !== undefined) {
+    const phone = body.contact_phone;
+    if (typeof phone !== "string") {
+      validationProblem(
+        response,
+        "/contact_phone",
+        phone === undefined ? "missing" : "invalid_type",
+      );
+      return undefined;
+    }
+    if (phone.trim().length > 20) {
+      validationProblem(response, "/contact_phone", "too_long");
+      return undefined;
+    }
+    const match = MOBILE.exec(phone.trim().replace(/[  \t().-]/g, ""));
+    if (!match) {
+      validationProblem(response, "/contact_phone", "invalid");
+      return undefined;
+    }
+    fields.contact_phone = `+251${match[1]}`;
+  }
+  if (body.notes !== undefined && body.notes !== null) {
+    if (typeof body.notes !== "string") {
+      validationProblem(response, "/notes", "invalid_type");
+      return undefined;
+    }
+    const notes = body.notes.trim();
+    if (notes.length > 1000) {
+      validationProblem(response, "/notes", "too_long");
+      return undefined;
+    }
+    fields.notes = notes;
+  } else if (!partial) {
+    fields.notes = null;
+  }
+  if (partial) return fields;
+  // The model's own checks (a 422 on the whole body): one thing asked for, a school for
+  // students only, the times in order.
+  const ends = [
+    [fields.from_area_id, fields.from_area_name],
+    [fields.to_area_id, fields.to_area_name],
+  ];
+  const wellFormed =
+    fields.kind === "route"
+      ? fields.route_id !== null && ends.every(([id, name]) => !id && !name)
+      : fields.route_id === null &&
+        ends.every(([id, name]) => (id === null) !== (name === null)) &&
+        (fields.from_area_id === null ||
+          fields.from_area_id !== fields.to_area_id) &&
+        (fields.from_area_name === null ||
+          fields.to_area_name === null ||
+          String(fields.from_area_name).toLowerCase() !==
+            String(fields.to_area_name).toLowerCase());
+  const schoolFits =
+    (fields.school_name !== null) === (fields.rider_type === "student");
+  const morning = fields.preferred_morning_time;
+  const back = fields.preferred_return_time;
+  const inOrder =
+    morning === null || back === null || String(back) > String(morning);
+  if (!wellFormed || !schoolFits || !inOrder) {
+    validationProblem(response, "", "invalid");
+    return undefined;
+  }
+  return fields;
+}
+
+/**
+ * @param {URL} url
+ * @param {ServerResponse} response
+ */
+function listRequests(url, response) {
+  const status = url.searchParams.get("status");
+  if (status !== null && !REQUEST_STATUSES.includes(status)) {
+    return validationProblem(response, "/status", "not_allowed", "query");
+  }
+  const kind = url.searchParams.get("kind");
+  if (kind !== null && !["new_areas", "route"].includes(kind)) {
+    return validationProblem(response, "/kind", "not_allowed", "query");
+  }
+  const open = url.searchParams.get("open");
+  if (open !== null && !["true", "false"].includes(open)) {
+    return validationProblem(response, "/open", "invalid_type", "query");
+  }
+  const routeId = url.searchParams.get("route_id");
+  if (routeId !== null && !UUID.test(routeId)) {
+    return validationProblem(response, "/route_id", "invalid_format", "query");
+  }
+  const limit = Number(url.searchParams.get("limit") ?? 25);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return validationProblem(response, "/limit", "out_of_range", "query");
+  }
+  const cursor = url.searchParams.get("cursor");
+  const offset =
+    cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
+  if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
+    return problem(response, 422, "INVALID_CURSOR");
+  }
+  const matching = requests
+    .filter(
+      (request) =>
+        !request.deleted &&
+        (status === null || request.status === status) &&
+        (kind === null || request.kind === kind) &&
+        (open === null || isOpen(request) === (open === "true")) &&
+        (routeId === null ||
+          request.routeId === routeId ||
+          request.matchedRouteId === routeId),
+    )
+    .sort(
+      (a, b) =>
+        a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
+    );
+  /** @type {Schemas["RouteRequestPage"]} */
+  const page = {
+    items: matching.slice(offset, offset + limit).map(requestRead),
+    next_cursor:
+      offset + limit < matching.length
+        ? Buffer.from(String(offset + limit)).toString("base64url")
+        : null,
+  };
+  send(response, 200, page);
+}
+
 /** @type {Map<string, { route: FakeRoute; fingerprint: string }>} */
 const routeKeys = new Map();
 
@@ -1912,7 +2369,7 @@ const api = createServer(async (request, response) => {
     if (request.method === "GET") return send(response, 200, routeRead(route));
     if (request.method === "DELETE") {
       if (route.hasRiders) return problem(response, 409, "ROUTE_HAS_RIDERS");
-      if (route.hasRequests)
+      if (routeNamedByRequest(route))
         return problem(response, 409, "ROUTE_HAS_REQUESTS");
       routes.splice(routes.indexOf(route), 1);
       return send(response, 204);
@@ -1984,7 +2441,7 @@ const api = createServer(async (request, response) => {
       if ((relocates || newCompany) && route.hasRiders) {
         return problem(response, 409, "ROUTE_HAS_RIDERS");
       }
-      if (relocates && route.hasRequests) {
+      if (relocates && routeNamedByRequest(route)) {
         return problem(response, 409, "ROUTE_HAS_REQUESTS");
       }
       const priced =
@@ -2096,6 +2553,237 @@ const api = createServer(async (request, response) => {
       }
       companies.splice(companies.indexOf(company), 1);
       return send(response, 204);
+    }
+  }
+
+  // Route requests (GZ-027): any staff member; delete is admin-only.
+  if (url.pathname === "/v1/route-requests") {
+    if (request.method === "GET") return listRequests(url, response);
+    if (request.method === "POST") {
+      const key = idempotencyKey(request, response);
+      if (key === undefined) return;
+      const body = (await readJson(request)) ?? {};
+      const fingerprint = JSON.stringify(body);
+      const fields = requestFields(response, body, { partial: false });
+      if (!fields) return;
+      const replay = requestKeys.get(`${user.email}|${key}`);
+      if (replay) {
+        if (replay.fingerprint !== fingerprint) {
+          return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+        }
+        return send(response, 201, requestRead(replay.request), {
+          "Idempotent-Replayed": "true",
+        });
+      }
+      // What it names first: one that doesn't exist or fit is a 422 on its field.
+      for (const field of ["from_area_id", "to_area_id"]) {
+        const id = fields[field];
+        if (id !== null && !areas.some((area) => area.id === id)) {
+          return validationProblem(response, `/${field}`, "invalid");
+        }
+      }
+      if (fields.route_id !== null) {
+        const route = routes.find((r) => r.id === fields.route_id);
+        if (
+          !route ||
+          !["active", "paused"].includes(route.status) ||
+          !routeFits(
+            route,
+            String(fields.rider_type),
+            /** @type {string | null} */ (fields.school_name),
+          )
+        ) {
+          return validationProblem(response, "/route_id", "invalid");
+        }
+      }
+      const now = new Date().toISOString();
+      /** @type {FakeRequest} */
+      const added = {
+        id: randomUUID(),
+        kind: /** @type {Schemas["RequestKind"]} */ (fields.kind),
+        fromAreaId: /** @type {string | null} */ (fields.from_area_id),
+        from_area_name: /** @type {string | null} */ (fields.from_area_name),
+        toAreaId: /** @type {string | null} */ (fields.to_area_id),
+        to_area_name: /** @type {string | null} */ (fields.to_area_name),
+        routeId: /** @type {string | null} */ (fields.route_id),
+        rider_type: /** @type {Schemas["RiderType"]} */ (fields.rider_type),
+        rider_name: String(fields.rider_name),
+        school_name: /** @type {string | null} */ (fields.school_name),
+        preferred_morning_time: /** @type {string | null} */ (
+          fields.preferred_morning_time
+        ),
+        preferred_return_time: /** @type {string | null} */ (
+          fields.preferred_return_time
+        ),
+        contact_name: String(fields.contact_name),
+        contact_phone: String(fields.contact_phone),
+        notes: fields.notes ? String(fields.notes) : null,
+        source: "staff",
+        status: "new",
+        matchedRouteId: null,
+        decline_reason: null,
+        deleted: false,
+        created_at: now,
+        updated_at: now,
+      };
+      if (sameRequestOpen(added, null)) {
+        return problem(response, 409, "ROUTE_REQUEST_EXISTS");
+      }
+      requests.push(added);
+      requestKeys.set(`${user.email}|${key}`, { request: added, fingerprint });
+      return send(response, 201, requestRead(added), {
+        Location: `/v1/route-requests/${added.id}`,
+      });
+    }
+  }
+
+  const requestStatusMatch = /^\/v1\/route-requests\/([^/]+)\/status$/.exec(
+    url.pathname,
+  );
+  if (requestStatusMatch && request.method === "PUT") {
+    if (!UUID.test(requestStatusMatch[1] ?? "")) {
+      return validationProblem(
+        response,
+        "/request_id",
+        "invalid_format",
+        "path",
+      );
+    }
+    const body = (await readJson(request)) ?? {};
+    const unknown = Object.keys(body).find(
+      (field) =>
+        !["status", "matched_route_id", "decline_reason"].includes(field),
+    );
+    if (unknown)
+      return validationProblem(response, `/${unknown}`, "unknown_field");
+    if (!REQUEST_STATUSES.includes(String(body.status))) {
+      return validationProblem(
+        response,
+        "/status",
+        body.status === undefined ? "missing" : "not_allowed",
+      );
+    }
+    const to = /** @type {Schemas["RequestStatus"]} */ (body.status);
+    const matchedRouteId = body.matched_route_id ?? null;
+    if (
+      matchedRouteId !== null &&
+      (typeof matchedRouteId !== "string" || !UUID.test(matchedRouteId))
+    ) {
+      return validationProblem(response, "/matched_route_id", "invalid_format");
+    }
+    let reason = null;
+    if (body.decline_reason !== undefined && body.decline_reason !== null) {
+      reason = shortText(response, body.decline_reason, "decline_reason");
+      if (reason === undefined) return;
+    }
+    // Each goes with its own status, and only with it.
+    if ((matchedRouteId !== null) !== (to === "matched")) {
+      return validationProblem(response, "/matched_route_id", "invalid");
+    }
+    if ((reason !== null) !== (to === "declined")) {
+      return validationProblem(response, "/decline_reason", "invalid");
+    }
+    const found = requests.find(
+      (candidate) =>
+        candidate.id === requestStatusMatch[1] && !candidate.deleted,
+    );
+    if (!found) return problem(response, 404, "NOT_FOUND");
+    if (matchedRouteId !== null) {
+      const route = routes.find((r) => r.id === matchedRouteId);
+      if (!route || !routeFits(route, found.rider_type, found.school_name)) {
+        return validationProblem(response, "/matched_route_id", "invalid");
+      }
+    }
+    const sameRoute =
+      matchedRouteId === null || matchedRouteId === found.matchedRouteId;
+    if (to === found.status && sameRoute) {
+      return send(response, 200, requestRead(found));
+    }
+    if (
+      !REQUEST_MOVES.some(
+        ([from, next]) => from === found.status && next === to,
+      )
+    ) {
+      return problem(response, 409, "INVALID_STATUS_CHANGE");
+    }
+    if (matchedRouteId !== null) found.matchedRouteId = matchedRouteId;
+    found.status = to;
+    found.decline_reason = reason;
+    found.updated_at = new Date().toISOString();
+    return send(response, 200, requestRead(found));
+  }
+
+  const requestMatch = /^\/v1\/route-requests\/([^/]+)$/.exec(url.pathname);
+  if (requestMatch && requestMatch[1] !== "summary") {
+    // Delete is admin-only (a dependency, before anything else).
+    if (request.method === "DELETE" && !isAdmin) {
+      return problem(response, 403, "FORBIDDEN");
+    }
+    if (!UUID.test(requestMatch[1] ?? "")) {
+      return validationProblem(
+        response,
+        "/request_id",
+        "invalid_format",
+        "path",
+      );
+    }
+    // The body is validated before the request is looked up, as FastAPI does.
+    const body = request.method === "PATCH" ? await readJson(request) : {};
+    const fields =
+      request.method === "PATCH"
+        ? requestFields(response, body ?? {}, { partial: true })
+        : {};
+    if (!fields) return;
+    const found = requests.find(
+      (candidate) => candidate.id === requestMatch[1] && !candidate.deleted,
+    );
+    if (!found) return problem(response, 404, "NOT_FOUND");
+    if (request.method === "GET")
+      return send(response, 200, requestRead(found));
+    if (request.method === "DELETE") {
+      found.deleted = true;
+      return send(response, 204);
+    }
+    if (request.method === "PATCH") {
+      if (fields.school_name !== undefined) {
+        const school = /** @type {string} */ (fields.school_name);
+        const named = [
+          found.routeId,
+          isOpen(found) ? found.matchedRouteId : null,
+        ]
+          .map((id) => routes.find((r) => r.id === id))
+          .filter((route) => route !== undefined);
+        if (
+          found.rider_type !== "student" ||
+          named.some((route) => !routeFits(route, "student", school))
+        ) {
+          return validationProblem(response, "/school_name", "invalid");
+        }
+      }
+      const morning =
+        fields.preferred_morning_time ?? found.preferred_morning_time;
+      const back = fields.preferred_return_time ?? found.preferred_return_time;
+      if (
+        morning !== null &&
+        back !== null &&
+        String(back) <= String(morning)
+      ) {
+        const field =
+          fields.preferred_return_time !== undefined
+            ? "preferred_return_time"
+            : "preferred_morning_time";
+        return validationProblem(response, `/${field}`, "invalid");
+      }
+      const changed = /** @type {FakeRequest} */ ({
+        ...found,
+        ...fields,
+        notes: fields.notes === undefined ? found.notes : fields.notes || null,
+      });
+      if (isOpen(found) && sameRequestOpen(changed, found.id)) {
+        return problem(response, 409, "ROUTE_REQUEST_EXISTS");
+      }
+      Object.assign(found, changed, { updated_at: new Date().toISOString() });
+      return send(response, 200, requestRead(found));
     }
   }
 

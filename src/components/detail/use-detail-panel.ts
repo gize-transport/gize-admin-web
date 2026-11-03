@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, type MouseEvent } from "react";
 import { useListParams } from "@/components/data-table";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { focusDetailWhenOpened } from "./detail-frame";
 
 /** From this width a record's details open beside the list (design-system.md, "DataTable"). */
 const PANEL_QUERY = "(min-width: 1280px)";
@@ -86,9 +87,17 @@ export function useDetailPanel({
         focusAfterClose.current = selectedId ? { row: selectedId } : null;
         setParams({ [param]: null });
       },
-      /** Shows another record in the panel (e.g. one just made from this one). */
+      /**
+       * Shows another record (e.g. one just made): in the panel, or below the panel's width its
+       * page, whose heading then takes focus.
+       */
       openPanel(id: string) {
-        setParams({ [param]: id });
+        if (wide === true) {
+          setParams({ [param]: id });
+          return;
+        }
+        focusDetailWhenOpened(id);
+        router.push(`${basePath}/${encodeURIComponent(id)}`);
       },
       /** After the record is deleted: replaced, so Back doesn't reopen it. */
       closeAfterDelete() {
@@ -96,6 +105,6 @@ export function useDetailPanel({
         setParams({ [param]: null }, { replace: true });
       },
     }),
-    [panelOpen, selectedId, wide, setParams, param, basePath],
+    [panelOpen, selectedId, wide, setParams, param, basePath, router],
   );
 }

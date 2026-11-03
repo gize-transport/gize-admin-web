@@ -41,7 +41,9 @@ export const screens: readonly Screen[] = [
   },
   {
     name: "routes",
-    path: "/routes",
+    // The sample student routes (S-03, S-06), searched for: e2e tests add routes, newest first,
+    // which would push them off the first page.
+    path: "/routes?q=S-0",
     signInAs: "admin",
     // A sample route no e2e test changes (they add their own).
     readyText: "S-03",
@@ -59,6 +61,27 @@ export const screens: readonly Screen[] = [
     path: "/routes?route=00000000-0000-4000-d000-000000000003",
     signInAs: "admin",
     readyText: messages.Routes.prices,
+  },
+  {
+    name: "route-requests",
+    path: "/route-requests",
+    signInAs: "staff",
+    // A sample request no e2e test changes (they record their own).
+    readyText: "Dawit Alemu",
+  },
+  {
+    name: "route-request",
+    // Selam Bekele: from Ayat to an area not listed yet, new.
+    path: "/route-requests/00000000-0000-4000-e000-000000000001",
+    signInAs: "admin",
+    readyText: "+251911000101",
+  },
+  {
+    name: "route-request-panel",
+    // From 1280 px the details open beside the list; narrower, this opens the request's page.
+    path: "/route-requests?request=00000000-0000-4000-e000-000000000002",
+    signInAs: "staff",
+    readyText: "Works near Piassa, any seat from next month.",
   },
   {
     name: "companies",
