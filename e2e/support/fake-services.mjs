@@ -2075,6 +2075,164 @@ function listStaff(url, response) {
   send(response, 200, page);
 }
 
+// The audit log, like GZ-012 (admins only): newest first; filtered by an entity (type and ID
+// together) or an actor. Personal values read "[redacted]". Fixed sample entries: the stand-in
+// doesn't record its own changes.
+const ADMIN_ID = testUsers.admin.staff.id;
+const STAFF_ID = testUsers.staff.staff.id;
+/** @type {Schemas["AuditEntryRead"][]} */
+const auditEntries = [
+  {
+    action: "staff.first_admin_created",
+    actor_staff_id: null,
+    entity_type: "staff",
+    entity_id: ADMIN_ID,
+    before: null,
+    after: {
+      full_name: "[redacted]",
+      email: "[redacted]",
+      role: "admin",
+      is_active: true,
+    },
+  },
+  {
+    action: "staff.role_changed",
+    actor_staff_id: ADMIN_ID,
+    entity_type: "staff",
+    entity_id: "00000000-0000-4000-8000-000000000003",
+    before: { role: "staff" },
+    after: { role: "admin" },
+  },
+  {
+    action: "company.updated",
+    actor_staff_id: STAFF_ID,
+    entity_type: "company",
+    entity_id: "00000000-0000-4000-c000-000000000001",
+    before: { contact_phone: "[redacted]", notes: null },
+    after: { contact_phone: "[redacted]", notes: "[redacted]" },
+  },
+  {
+    action: "area.renamed",
+    actor_staff_id: ADMIN_ID,
+    entity_type: "area",
+    entity_id: "00000000-0000-4000-a000-000000000003",
+    before: { name: "Mexiko" },
+    after: { name: "Mexico" },
+  },
+  {
+    action: "route.prices_changed",
+    actor_staff_id: ADMIN_ID,
+    entity_type: "route",
+    entity_id: "00000000-0000-4000-d000-000000000003",
+    before: { price_round_trip: null, price_one_way: null },
+    after: { price_round_trip: 2400, price_one_way: 1400 },
+  },
+  {
+    action: "route.status_changed",
+    actor_staff_id: STAFF_ID,
+    entity_type: "route",
+    entity_id: "00000000-0000-4000-d000-000000000003",
+    before: { status: "draft" },
+    after: { status: "forming" },
+  },
+  {
+    action: "route_request.created",
+    actor_staff_id: STAFF_ID,
+    entity_type: "route_request",
+    entity_id: "00000000-0000-4000-e000-000000000002",
+    before: null,
+    after: {
+      kind: "route",
+      rider_type: "adult",
+      rider_name: "[redacted]",
+      contact_name: "[redacted]",
+      contact_phone: "[redacted]",
+      status: "new",
+    },
+  },
+].map((seed, index) => ({
+  id: `00000000-0000-4000-f000-${String(index + 1).padStart(12, "0")}`,
+  created_at: new Date(Date.UTC(2026, 9, 2, 9, index * 7)).toISOString(),
+  request_id: `req-sample-${index + 1}`,
+  ...seed,
+}));
+
+/**
+ * @param {URL} url
+ * @param {ServerResponse} response
+ */
+function listAudit(url, response) {
+  const unknown = [...url.searchParams.keys()].find(
+    (key) =>
+      ![
+        "entity_type",
+        "entity_id",
+        "actor_staff_id",
+        "limit",
+        "cursor",
+      ].includes(key),
+  );
+  if (unknown) {
+    return validationProblem(response, `/${unknown}`, "unknown_field", "query");
+  }
+  const type = url.searchParams.get("entity_type");
+  if (type !== null && type.length > 50) {
+    return validationProblem(response, "/entity_type", "too_long", "query");
+  }
+  if (type !== null && !/^[a-z][a-z_]*$/.test(type)) {
+    return validationProblem(
+      response,
+      "/entity_type",
+      "invalid_format",
+      "query",
+    );
+  }
+  /** @type {Record<string, string | null>} */
+  const ids = {};
+  for (const name of ["entity_id", "actor_staff_id"]) {
+    const value = url.searchParams.get(name);
+    if (value !== null && !UUID.test(value)) {
+      return validationProblem(response, `/${name}`, "invalid_format", "query");
+    }
+    ids[name] = value;
+  }
+  // An entity is its type and ID together.
+  if ((type === null) !== (ids.entity_id === null)) {
+    return validationProblem(response, "", "invalid", "query");
+  }
+  const limit = Number(url.searchParams.get("limit") ?? 25);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return validationProblem(response, "/limit", "out_of_range", "query");
+  }
+  const cursor = url.searchParams.get("cursor");
+  const offset =
+    cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
+  if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
+    return problem(response, 422, "INVALID_CURSOR");
+  }
+  const matching = auditEntries
+    .filter(
+      (entry) =>
+        (type === null ||
+          (entry.entity_type === type && entry.entity_id === ids.entity_id)) &&
+        (ids.actor_staff_id === null ||
+          entry.actor_staff_id === ids.actor_staff_id),
+    )
+    .sort(
+      (a, b) =>
+        b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
+    );
+  /** @type {Schemas["AuditEntryPage"]} */
+  const page = {
+    items: matching.slice(offset, offset + limit),
+    next_cursor:
+      offset + limit < matching.length
+        ? Buffer.from(String(offset + limit)).toString("base64url")
+        : null,
+  };
+  send(response, 200, page);
+}
+
 /** @type {Map<string, { route: FakeRoute; fingerprint: string }>} */
 const routeKeys = new Map();
 
@@ -2095,6 +2253,11 @@ const api = createServer(async (request, response) => {
   }
   if (user.staff === "forbidden") return problem(response, 403, "FORBIDDEN");
   const isAdmin = user.staff.role === "admin";
+
+  if (url.pathname === "/v1/audit-log" && request.method === "GET") {
+    if (!isAdmin) return problem(response, 403, "FORBIDDEN");
+    return listAudit(url, response);
+  }
 
   // Staff management (GZ-013): admins only, before anything else.
   const staffMatch = /^\/v1\/staff(?:\/([^/]+))?$/.exec(url.pathname);

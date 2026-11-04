@@ -133,6 +133,13 @@ export const screens: readonly Screen[] = [
     readyText: messages.Staff.statusPendingNote,
   },
   {
+    name: "audit-log",
+    path: "/audit-log",
+    signInAs: "admin",
+    // A sample entry (the stand-in's entries are fixed).
+    readyText: messages.AuditLog.actions.area.renamed,
+  },
+  {
     name: "not-found",
     path: "/this-page-does-not-exist",
     signInAs: "staff",
