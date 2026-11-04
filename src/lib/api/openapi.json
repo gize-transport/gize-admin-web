@@ -2180,9 +2180,15 @@
       },
       "StaffUpdate": {
         "additionalProperties": false,
-        "description": "What to change: leave a field out to keep it, and send at least one. Deactivating\nsomeone locks them out on their next request; `is_active: true` reactivates them.",
+        "description": "What to change: leave a field out to keep it, and send at least one. Deactivating\nsomeone locks them out on their next request; `is_active: true` reactivates them. A\nname is trimmed, as in an invite. The email can't change: it is their sign-in.",
         "minProperties": 1,
         "properties": {
+          "full_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Full Name",
+            "type": "string"
+          },
           "is_active": {
             "title": "Is Active",
             "type": "boolean"
@@ -8179,7 +8185,7 @@
         ]
       },
       "patch": {
-        "description": "Promote, demote, deactivate or reactivate. No Idempotency-Key: setting a value that\nis already there changes nothing.\n\n- 409 LAST_ACTIVE_ADMIN: the change would leave no active admin.",
+        "description": "Correct a name, promote, demote, deactivate or reactivate. The email can't change\n(it is the person's sign-in). No Idempotency-Key: setting a value that is already there\nchanges nothing.\n\n- 409 LAST_ACTIVE_ADMIN: the change would leave no active admin.",
         "operationId": "staff_update",
         "parameters": [
           {
@@ -8337,7 +8343,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Change a staff member's role or status (admins only)",
+        "summary": "Change a staff member's name, role or status (admins only)",
         "tags": [
           "staff"
         ]

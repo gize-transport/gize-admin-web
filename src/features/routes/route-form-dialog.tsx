@@ -72,6 +72,8 @@ type RouteFormDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** The route to edit; omitted to add one (a draft). */
   route?: RouteRead;
+  /** Adding: the corridor to start from (e.g. one route requests ask for). */
+  initialCorridor?: CorridorRef;
 };
 
 /**
@@ -83,6 +85,7 @@ export function RouteFormDialog({
   open,
   onOpenChange,
   route: routeProp,
+  initialCorridor,
 }: RouteFormDialogProps) {
   // The route as the form opened with it: changes are worked out against this, so a refetch
   // while the form is open can't turn someone else's change into one of ours.
@@ -192,7 +195,7 @@ export function RouteFormDialog({
     resolver: zodResolver(schema),
     defaultValues: {
       code: route?.code ?? "",
-      corridor: route?.corridor ?? null,
+      corridor: route?.corridor ?? initialCorridor ?? null,
       route_type: route?.route_type ?? "public",
       school_name: route?.school_name ?? "",
       company: route?.company ?? null,

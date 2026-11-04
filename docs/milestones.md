@@ -45,7 +45,7 @@ Status: done · Needs backend: GZ-025
 
 ## Build order
 
-Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.5.0`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`). So after W0 come W1, all of W2, GZW-040 and GZW-041, and W6. GZW-042 and GZW-043 wait for GZ-040 and GZ-042, W3 for M3, W5 for M5.
+Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.6.0`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`), staff name corrections (`api-v2.6.0`). So after W0 come W1, all of W2, GZW-040 and GZW-041, and W6. GZW-042 and GZW-043 wait for GZ-040 and GZ-042, W3 for M3, W5 for M5.
 
 ### Questions for the backend
 
@@ -54,6 +54,11 @@ Answered in `api-v2.5.0` (GZ-067): what a route still needs and when it can laun
 Decided:
 
 6. **Route request moves** (GZW-040): requests have no `status_changes`. Owner decision (2026-11-03): the portal offers match / fulfil / decline from the documented flow (`new` → `matched` (again) → `fulfilled`, `new` → `fulfilled`, `new`/`matched` → `declined`; fulfilled and declined are final) and explains `INVALID_STATUS_CHANGE`, reloading the request. No backend change.
+
+Open (not blocking):
+
+7. **Requests per area pair** (GZW-041): the demand summary counts open new-areas requests per area pair, but `route_requests_list` can't list them (it filters by `status`, `kind`, `open` and `route_id` only). Could it also filter by each end – `from_area_id` / `from_area_name` and `to_area_id` / `to_area_name`, a name compared as the summary groups it (ignoring case)? Until then (owner decision 2026-11-04) an area pair's card links to all new new-areas requests (`?kind=new_areas&status=new`); the link narrows to the pair once the filter is tagged.
+8. **Requests naming an area not listed yet** (GZW-041): when staff add that area, the requests keep the typed name (`from_area_name` / `to_area_name`), so the demand summary still shows the pair as "not listed" and its corridor or route can't be started from it. Could adding an area (or a separate call) link open requests whose name matches it, ignoring case, so they count under the listed area? Until then (owner decision 2026-11-04) Demand offers no "Add area"; staff add areas from Areas, and such a card only links to the requests.
 
 ---
 
@@ -124,9 +129,9 @@ Status: done · Needs backend: GZ-011 (in `api-v1.2.0`)
 - Record a request from a phone call (`route_requests_create`, `Idempotency-Key`): kind *new areas* (each end an area picker, or a name for an area not listed yet; ends different) or *a specific route* (route picker over running routes); rider type (adult/student), rider name, school (students), preferred morning and return times (optional), contact name and phone (a student's parent or guardian), notes. `ROUTE_REQUEST_EXISTS` points to the open request. Edit who and when only (`route_requests_update`); what is asked for doesn't change.
 - Actions (`route_requests_set_status`): match to a route (route picker), mark fulfilled, decline with a reason (1–100 characters); `INVALID_STATUS_CHANGE` explained (see question 6). Admin delete. Contact and rider names and phones are personal data: never in URLs, logs or Sentry.
 
-### GZW-041 · Demand · Needs backend: GZ-027 (in `api-v2.2.0`) · Status: todo
+### GZW-041 · Demand · Needs backend: GZ-027 (in `api-v2.2.0`) · Status: done
 - `route_requests_summary`, two lists, busiest first, at most 100 each: **area pairs** (open new-areas requests not matched yet, between areas no route serves yet: listed area or a name not listed yet at each end, and the count) and **routes** (open requests waiting for a route, its status and `seats_free_next_month`). When a list is cut (`*_truncated`), say "Showing the 100 busiest".
-- From an area pair: open its requests; when both ends are listed areas, offer "Add corridor" or "Add route" prefilled; a name not listed yet offers "Add area" first. From a route: open it, or add a van (GZW-028). Card layout from `AdminWaitlists.png`, brand colours.
+- From an area pair: open its requests; when both ends are listed areas, offer "Add corridor" or "Add route" prefilled; a name not listed yet offers "Add area" first (not yet: question 8). From a route: open it, or add a van (GZW-028). Card layout from `AdminWaitlists.png`, brand colours.
 
 ### GZW-042 · Seat offers and skips · Needs backend: GZ-040 · Status: todo
 - Free seats offered to the oldest open request, offer status and expiry; skipping a request needs a reason (audited). Scope confirmed when GZ-040's contract is tagged.
