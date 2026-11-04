@@ -187,6 +187,42 @@ describe("RouteStatusActions", () => {
     expect(toast).not.toHaveBeenCalled();
   });
 
+  it("puts focus on the moves after a move, and after a refusal that removed the button", async () => {
+    serveStatus(() =>
+      HttpResponse.json<Schemas["RouteRead"]>({ ...active, status: "paused" }),
+    );
+    const user = userEvent.setup();
+    const { rerender } = renderWithProviders(
+      <RouteStatusActions route={active} />,
+    );
+    const moves = screen.getByRole("group", { name: t.statusActionsLabel });
+
+    await user.click(screen.getByRole("button", { name: t.movePause }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: t.movePause }));
+    await waitFor(() => expect(moves).toHaveFocus());
+
+    // Refused: the route was paused meanwhile, and reloads without its Pause button.
+    serveStatus(() => problemResponse(409, "INVALID_STATUS_CHANGE"));
+    await user.click(screen.getByRole("button", { name: t.movePause }));
+    const again = await screen.findByRole("alertdialog");
+    await user.click(within(again).getByRole("button", { name: t.movePause }));
+    await within(again).findByText(t.refuseInvalid);
+    rerender(
+      <RouteStatusActions
+        route={{
+          ...active,
+          status: "paused",
+          status_changes: [change("active")],
+        }}
+      />,
+    );
+    await user.click(
+      within(again).getByRole("button", { name: messages.Common.cancel }),
+    );
+    await waitFor(() => expect(moves).toHaveFocus());
+  });
+
   it("launches for a chosen month, defaulting to the route's own launch day", async () => {
     serveMonths([
       { launch_date: "2026-12-01", reserved: 6, ready: true },

@@ -460,6 +460,9 @@ test.describe("routes", () => {
         }),
       ),
     ).toBeVisible();
+    // The pressed button is gone (Back to draft replaces it): focus goes to the moves.
+    const moves = details.getByRole("group", { name: t.statusActionsLabel });
+    await expect(moves).toBeFocused();
 
     await details.getByRole("button", { name: t.moveBackToDraft }).click();
     await page
@@ -477,6 +480,7 @@ test.describe("routes", () => {
       ),
     ).toBeVisible();
     await expect(startForming).toBeVisible();
+    await expect(moves).toBeFocused();
   });
 
   test("staff launch a ready route for a chosen month, then pause and resume it", async ({
