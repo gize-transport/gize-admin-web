@@ -37,7 +37,7 @@ describe("navItems", () => {
     ).toEqual(["staff", "auditLog"]);
   });
 
-  it("shows only screens that exist (Overview, Routes, Route requests, Demand, Companies, Areas, Corridors and Staff so far)", () => {
+  it("shows only screens that exist (Overview, Routes, Route requests, Demand, Companies, Areas, Corridors, Staff and Audit log so far)", () => {
     expect(visibleNavItems(navItems, "admin").map((item) => item.key)).toEqual([
       "overview",
       "routes",
@@ -47,6 +47,7 @@ describe("navItems", () => {
       "areas",
       "corridors",
       "staff",
+      "auditLog",
     ]);
   });
 });

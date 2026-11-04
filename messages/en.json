@@ -838,6 +838,192 @@
     "authAccountExists": "This email already has a sign-in account that isn't on the staff list, so no invitation can be sent. Ask the operator to remove that account first (backend README), then try again.",
     "inviteUnavailable": "The invitation email couldn't be sent. Try again: it's safe, nobody gets two accounts."
   },
+  "AuditLog": {
+    "metaTitle": "Audit log",
+    "title": "Audit log",
+    "description": "Every recorded change, newest first: what changed, on which record, and who did it. Personal details are never shown, only that they changed.",
+    "actorFilter": "Done by",
+    "anyone": "Anyone",
+    "actorsUnavailable": "The staff list couldn't be loaded, so only the person already chosen can be shown.",
+    "recordFilter": "Showing the history of one {type}.",
+    "openRecord": "Open the {type}",
+    "showAll": "Show all changes",
+    "tableLabel": "Audit log",
+    "colWhen": "When",
+    "colChange": "Change",
+    "colBy": "Done by",
+    "colDetails": "Details",
+    "operator": "An operator (not a staff member)",
+    "unknownActor": "A staff member no longer found",
+    "loadingName": "Loading…",
+    "recordLink": "{type}",
+    "recordLinkSpoken": "changed {when}",
+    "showChanges": "Show changes",
+    "changesLabel": "Changes",
+    "colField": "Field",
+    "colBefore": "Before",
+    "colAfter": "After",
+    "notSet": "Not set",
+    "redacted": "Hidden (personal data)",
+    "yes": "Yes",
+    "no": "No",
+    "priceValue": "{amount, number} birr",
+    "areasCount": "{count, plural, =0 {No areas} one {# area} other {# areas}}",
+    "requestId": "Reference: {id}",
+    "recordHistory": "This record's history",
+    "emptyTitle": "No changes recorded yet",
+    "emptyDescription": "Changes appear here as staff make them.",
+    "noMatchesTitle": "No changes match",
+    "noMatchesDescription": "Try another person, or show all changes.",
+    "clearFilters": "Clear filters",
+    "entity": {
+      "area": "area",
+      "corridor": "corridor",
+      "company": "company",
+      "route": "route",
+      "route_request": "route request",
+      "staff": "staff member",
+      "other": "record"
+    },
+    "entityTitle": {
+      "area": "Area",
+      "corridor": "Corridor",
+      "company": "Company",
+      "route": "Route",
+      "route_request": "Route request",
+      "staff": "Staff member",
+      "other": "Record"
+    },
+    "actions": {
+      "area": {
+        "created": "Area added",
+        "renamed": "Area renamed",
+        "deleted": "Area deleted"
+      },
+      "corridor": {
+        "created": "Corridor added",
+        "updated": "Corridor changed",
+        "deleted": "Corridor deleted"
+      },
+      "company": {
+        "created": "Company added",
+        "updated": "Company changed",
+        "deactivated": "Company deactivated",
+        "reactivated": "Company reactivated",
+        "deleted": "Company deleted"
+      },
+      "route": {
+        "created": "Route added",
+        "updated": "Route changed",
+        "copied": "Van added",
+        "prices_changed": "Route prices changed",
+        "areas_changed": "Areas served changed",
+        "status_changed": "Route status changed",
+        "launched": "Route launched",
+        "deleted": "Route deleted"
+      },
+      "route_request": {
+        "created": "Route request recorded",
+        "updated": "Route request corrected",
+        "status_changed": "Route request moved",
+        "deleted": "Route request deleted"
+      },
+      "staff": {
+        "first_admin_created": "First admin created",
+        "invited": "Staff member invited",
+        "renamed": "Staff name corrected",
+        "role_changed": "Staff role changed",
+        "deactivated": "Staff member deactivated",
+        "reactivated": "Staff member reactivated"
+      }
+    },
+    "fields": {
+      "name": "Name",
+      "deleted_at": "Deleted",
+      "origin_area_id": "Origin area",
+      "destination_area_id": "Destination area",
+      "contact_name": "Contact person",
+      "contact_phone": "Contact phone",
+      "contact_email": "Contact email",
+      "billing": "Billing",
+      "notes": "Notes",
+      "is_active": "Active",
+      "code": "Code",
+      "corridor_id": "Corridor",
+      "route_type": "Type",
+      "school_name": "School",
+      "company_id": "Company",
+      "morning_time": "Leaves A",
+      "morning_arrival_time": "Arrives B",
+      "return_time": "Leaves B",
+      "return_arrival_time": "Arrives A",
+      "seats": "Seats",
+      "launch_minimum": "Launch minimum",
+      "price_round_trip": "Round trip price",
+      "price_one_way": "One way price",
+      "price_saturday": "Saturday price",
+      "status": "Status",
+      "copied_from_route_id": "Copied from",
+      "launch_date": "Launch day",
+      "riders_started": "Riders started",
+      "lapsed": "Lapsed",
+      "served_area_ids": "Areas served",
+      "kind": "Kind",
+      "from_area_id": "From area",
+      "from_area_name": "From (not listed)",
+      "to_area_id": "To area",
+      "to_area_name": "To (not listed)",
+      "route_id": "Route asked for",
+      "rider_type": "Rider type",
+      "rider_name": "Rider's name",
+      "preferred_morning_time": "Preferred morning",
+      "preferred_return_time": "Preferred return",
+      "source": "Source",
+      "matched_route_id": "Matched to",
+      "decline_reason": "Decline reason",
+      "full_name": "Name",
+      "email": "Email",
+      "role": "Role"
+    },
+    "nameUnavailable": "Name unavailable",
+    "noValue": "No value",
+    "values": {
+      "status": {
+        "draft": "Draft",
+        "forming": "Forming",
+        "active": "Active",
+        "paused": "Paused",
+        "new": "New",
+        "matched": "Matched",
+        "fulfilled": "Fulfilled",
+        "declined": "Declined"
+      },
+      "role": {
+        "admin": "Admin",
+        "staff": "Staff"
+      },
+      "kind": {
+        "new_areas": "New areas",
+        "route": "A specific route"
+      },
+      "rider_type": {
+        "adult": "Adult",
+        "student": "Student"
+      },
+      "source": {
+        "staff": "Staff",
+        "app": "Rider app"
+      },
+      "billing": {
+        "postpaid": "Postpaid"
+      },
+      "route_type": {
+        "public": "Public",
+        "student": "Student",
+        "corporate": "Corporate"
+      }
+    }
+  },
   "AreaPicker": {
     "placeholder": "Choose an area",
     "searchPlaceholder": "Type the start of a name",

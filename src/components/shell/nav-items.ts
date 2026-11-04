@@ -36,7 +36,7 @@ export const navItems: readonly NavItem[] = [
   { key: "areas", href: "/areas", group: "places", available: true },
   { key: "corridors", href: "/corridors", group: "places", available: true },
   { key: "staff", href: "/staff", adminOnly: true, available: true },
-  { key: "auditLog", href: "/audit-log", adminOnly: true, available: false },
+  { key: "auditLog", href: "/audit-log", adminOnly: true, available: true },
 ];
 
 /** What a role sees: built screens, admin tools only for admins (and not before the role is known). */
