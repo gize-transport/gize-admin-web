@@ -112,6 +112,27 @@ export const screens: readonly Screen[] = [
     readyText: "Invoices to the finance office, 2nd floor.",
   },
   {
+    name: "staff",
+    path: "/staff",
+    signInAs: "admin",
+    // A sample member no e2e test changes (they invite their own).
+    readyText: "hana@gize.test",
+  },
+  {
+    name: "staff-member",
+    // Hana Tesfaye: invited, never signed in (Pending).
+    path: "/staff/00000000-0000-4000-8000-000000000004",
+    signInAs: "admin",
+    readyText: messages.Staff.statusPendingNote,
+  },
+  {
+    name: "staff-panel",
+    // From 1280 px the details open beside the list; narrower, this opens the member's page.
+    path: "/staff?member=00000000-0000-4000-8000-000000000004",
+    signInAs: "admin",
+    readyText: messages.Staff.statusPendingNote,
+  },
+  {
     name: "not-found",
     path: "/this-page-does-not-exist",
     signInAs: "staff",
