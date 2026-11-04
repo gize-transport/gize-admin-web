@@ -214,6 +214,9 @@ test.describe("routes", () => {
   }) => {
     await signIn(page, "staff", "/sign-in?next=%2Froutes");
     await page.getByLabel(t.searchLabel).fill("B-01");
+    // The search is written to the address after a pause in typing: wait for it, so the
+    // address checked below doesn't depend on how fast the route was opened.
+    await expect(page).toHaveURL(/[?&]q=B-01(&|$)/);
     const details = await openRoute(page, "B-01");
 
     await expect(details.getByText("Megenagna")).toBeVisible();
@@ -226,7 +229,10 @@ test.describe("routes", () => {
       }),
     ).toBeVisible();
     if (isWide(page)) {
-      await expect(page).toHaveURL(new RegExp(`/routes\\?route=${B01}$`));
+      // The panel joins the search in the address (Back closes it, keeping the search).
+      await expect(page).toHaveURL(
+        new RegExp(`/routes\\?q=B-01&route=${B01}$`),
+      );
     } else {
       await expect(page).toHaveURL(new RegExp(`/routes/${B01}$`));
     }
