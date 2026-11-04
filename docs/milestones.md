@@ -159,7 +159,7 @@ From route detail; only eligible drivers offered; API errors explained.
 
 ## W6 – Admin tools
 
-### GZW-060 · Staff accounts · Needs backend: GZ-013 (in `api-v1.2.0`) · Status: todo
+### GZW-060 · Staff accounts · Needs backend: GZ-013 (in `api-v1.2.0`), GZ-069 (in `api-v2.6.0`) · Status: done
 - List, detail, invite (`email`, `full_name`, `role`; `Idempotency-Key` per action, reused on retry), change role, deactivate and reactivate (`PATCH` with `role` and/or `is_active`). "Pending" while `first_signed_in_at` is null. Errors: `LAST_ACTIVE_ADMIN`, `STAFF_EMAIL_TAKEN` (offer to reactivate the existing person), `AUTH_ACCOUNT_EXISTS`; field errors mapped from `errors[].field` (`/email`).
 
 ### GZW-061 · Audit log · Needs backend: GZ-012 (in `api-v1.2.0`) · Status: todo

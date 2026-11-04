@@ -1880,6 +1880,201 @@ function listRequests(url, response) {
   send(response, 200, page);
 }
 
+// Staff, like GZ-013/GZ-069 (admins only): newest first; an invite adds an active member who is
+// "pending" until their first sign-in; no change may leave no active admin who has signed in.
+// The test users are members too (their own /v1/staff/me answer and access stay as
+// test-users.mjs says): e2e tests must not demote or deactivate them, or the sample members.
+/** @typedef {Schemas["StaffRead"]} FakeStaff */
+/** @type {FakeStaff[]} */
+const staffMembers = [
+  { ...testUsers.admin.staff, signedIn: true },
+  { ...testUsers.staff.staff, signedIn: true },
+  {
+    id: "00000000-0000-4000-8000-000000000003",
+    full_name: "Meron Admin",
+    email: "meron@gize.test",
+    role: /** @type {const} */ ("admin"),
+    signedIn: true,
+  },
+  // Invited, never signed in.
+  {
+    id: "00000000-0000-4000-8000-000000000004",
+    full_name: "Hana Tesfaye",
+    email: "hana@gize.test",
+    role: /** @type {const} */ ("staff"),
+    signedIn: false,
+  },
+  // Deactivated: an invite to this email is refused (reactivate them).
+  {
+    id: "00000000-0000-4000-8000-000000000005",
+    full_name: "Dawit Former",
+    email: "dawit@gize.test",
+    role: /** @type {const} */ ("staff"),
+    signedIn: true,
+    is_active: false,
+  },
+].map(({ signedIn, ...seed }, index) => {
+  const at = new Date(Date.UTC(2026, 9, 1, 8, index)).toISOString();
+  return {
+    is_active: true,
+    first_signed_in_at: signedIn ? at : null,
+    created_at: at,
+    updated_at: at,
+    ...seed,
+  };
+});
+
+/** Emails with a sign-in account but no staff member (Supabase refuses to invite them). */
+const signInOnly = new Set([testUsers.outsider.email]);
+
+/** @type {Map<string, { member: FakeStaff; fingerprint: string }>} */
+const staffKeys = new Map();
+
+const STAFF_EMAIL = EMAIL;
+
+/**
+ * The staff fields in a body, checked and normalised like the API's models.
+ * @param {ServerResponse} response
+ * @param {Record<string, unknown>} body
+ * @param {{ partial: boolean }} options
+ * @returns {Partial<FakeStaff> | undefined} undefined after a 422
+ */
+function staffFields(response, body, { partial }) {
+  const allowed = partial
+    ? ["full_name", "role", "is_active"]
+    : ["email", "full_name", "role"];
+  const unknown = Object.keys(body).find((key) => !allowed.includes(key));
+  if (unknown) {
+    validationProblem(response, `/${unknown}`, "unknown_field");
+    return undefined;
+  }
+  if (partial) {
+    const sent = Object.keys(body);
+    if (sent.length === 0 || sent.some((key) => body[key] === null)) {
+      validationProblem(response, "", "invalid");
+      return undefined;
+    }
+  }
+  /** @type {Partial<FakeStaff>} */
+  const fields = {};
+  if (!partial) {
+    const email = body.email;
+    if (typeof email !== "string") {
+      validationProblem(
+        response,
+        "/email",
+        email === undefined ? "missing" : "invalid_type",
+      );
+      return undefined;
+    }
+    const trimmed = email.trim().toLowerCase();
+    if (trimmed.length > 320) {
+      validationProblem(response, "/email", "too_long");
+      return undefined;
+    }
+    if (!STAFF_EMAIL.test(trimmed)) {
+      validationProblem(response, "/email", "invalid_format");
+      return undefined;
+    }
+    fields.email = trimmed;
+  }
+  if (!partial || body.full_name !== undefined) {
+    const name = body.full_name;
+    if (typeof name !== "string") {
+      validationProblem(
+        response,
+        "/full_name",
+        name === undefined ? "missing" : "invalid_type",
+      );
+      return undefined;
+    }
+    const trimmed = name.trim();
+    if (trimmed === "") {
+      validationProblem(response, "/full_name", "too_short");
+      return undefined;
+    }
+    // The API refuses control characters in a name.
+    if (/[\u0000-\u001f\u007f]/.test(trimmed)) {
+      validationProblem(response, "/full_name", "invalid");
+      return undefined;
+    }
+    if (trimmed.length > 200) {
+      validationProblem(response, "/full_name", "too_long");
+      return undefined;
+    }
+    fields.full_name = trimmed;
+  }
+  if (!partial || body.role !== undefined) {
+    if (!["admin", "staff"].includes(String(body.role))) {
+      validationProblem(
+        response,
+        "/role",
+        body.role === undefined ? "missing" : "not_allowed",
+      );
+      return undefined;
+    }
+    fields.role = /** @type {Schemas["StaffRole"]} */ (body.role);
+  }
+  if (partial && body.is_active !== undefined) {
+    if (typeof body.is_active !== "boolean") {
+      validationProblem(response, "/is_active", "invalid_type");
+      return undefined;
+    }
+    fields.is_active = body.is_active;
+  }
+  return fields;
+}
+
+/**
+ * @param {URL} url
+ * @param {ServerResponse} response
+ */
+function listStaff(url, response) {
+  const unknown = [...url.searchParams.keys()].find(
+    (key) => !["role", "is_active", "limit", "cursor"].includes(key),
+  );
+  if (unknown) {
+    return validationProblem(response, `/${unknown}`, "unknown_field", "query");
+  }
+  const role = url.searchParams.get("role");
+  if (role !== null && !["admin", "staff"].includes(role)) {
+    return validationProblem(response, "/role", "not_allowed", "query");
+  }
+  const active = url.searchParams.get("is_active");
+  if (active !== null && !["true", "false"].includes(active)) {
+    return validationProblem(response, "/is_active", "invalid_type", "query");
+  }
+  const limit = Number(url.searchParams.get("limit") ?? 25);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return validationProblem(response, "/limit", "out_of_range", "query");
+  }
+  const cursor = url.searchParams.get("cursor");
+  const offset =
+    cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
+  if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
+    return problem(response, 422, "INVALID_CURSOR");
+  }
+  const matching = staffMembers
+    .filter(
+      (member) =>
+        (role === null || member.role === role) &&
+        (active === null || member.is_active === (active === "true")),
+    )
+    .sort(
+      (a, b) =>
+        b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
+    );
+  /** @type {Schemas["StaffPage"]} */
+  const page = {
+    items: matching.slice(offset, offset + limit),
+    next_cursor:
+      offset + limit < matching.length
+        ? Buffer.from(String(offset + limit)).toString("base64url")
+        : null,
+  };
+  send(response, 200, page);
+}
+
 /** @type {Map<string, { route: FakeRoute; fingerprint: string }>} */
 const routeKeys = new Map();
 
@@ -1900,6 +2095,94 @@ const api = createServer(async (request, response) => {
   }
   if (user.staff === "forbidden") return problem(response, 403, "FORBIDDEN");
   const isAdmin = user.staff.role === "admin";
+
+  // Staff management (GZ-013): admins only, before anything else.
+  const staffMatch = /^\/v1\/staff(?:\/([^/]+))?$/.exec(url.pathname);
+  if (staffMatch && staffMatch[1] !== "me") {
+    if (!isAdmin) return problem(response, 403, "FORBIDDEN");
+    const id = staffMatch[1];
+    if (id === undefined && request.method === "GET") {
+      return listStaff(url, response);
+    }
+    if (id === undefined && request.method === "POST") {
+      const key = idempotencyKey(request, response);
+      if (key === undefined) return;
+      const body = (await readJson(request)) ?? {};
+      const fingerprint = JSON.stringify(body);
+      const fields = staffFields(response, body, { partial: false });
+      if (!fields) return;
+      const replay = staffKeys.get(`${user.email}|${key}`);
+      if (replay) {
+        if (replay.fingerprint !== fingerprint) {
+          return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+        }
+        return send(response, 201, replay.member, {
+          "Idempotent-Replayed": "true",
+        });
+      }
+      if (staffMembers.some((member) => member.email === fields.email)) {
+        return problem(response, 409, "STAFF_EMAIL_TAKEN");
+      }
+      if (signInOnly.has(String(fields.email))) {
+        return problem(response, 409, "AUTH_ACCOUNT_EXISTS");
+      }
+      const now = new Date().toISOString();
+      /** @type {FakeStaff} */
+      const member = {
+        id: randomUUID(),
+        full_name: String(fields.full_name),
+        email: String(fields.email),
+        role: /** @type {Schemas["StaffRole"]} */ (fields.role),
+        is_active: true,
+        first_signed_in_at: null,
+        created_at: now,
+        updated_at: now,
+      };
+      staffMembers.push(member);
+      staffKeys.set(`${user.email}|${key}`, { member, fingerprint });
+      return send(response, 201, member, {
+        Location: `/v1/staff/${member.id}`,
+      });
+    }
+    if (id !== undefined) {
+      if (!UUID.test(id)) {
+        return validationProblem(
+          response,
+          "/staff_id",
+          "invalid_format",
+          "path",
+        );
+      }
+      // The body is validated before the member is looked up, as FastAPI does.
+      const body = request.method === "PATCH" ? await readJson(request) : {};
+      const fields =
+        request.method === "PATCH"
+          ? staffFields(response, body ?? {}, { partial: true })
+          : {};
+      if (!fields) return;
+      const member = staffMembers.find((candidate) => candidate.id === id);
+      if (!member) return problem(response, 404, "NOT_FOUND");
+      if (request.method === "GET") return send(response, 200, member);
+      if (request.method === "PATCH") {
+        const role = fields.role ?? member.role;
+        const isActive = fields.is_active ?? member.is_active;
+        const wasAdmin = member.role === "admin" && member.is_active;
+        const staysAdmin = role === "admin" && isActive;
+        const otherAdmin = staffMembers.some(
+          (other) =>
+            other.id !== member.id &&
+            other.role === "admin" &&
+            other.is_active &&
+            other.first_signed_in_at !== null,
+        );
+        if (wasAdmin && !staysAdmin && !otherAdmin) {
+          return problem(response, 409, "LAST_ACTIVE_ADMIN");
+        }
+        Object.assign(member, fields, { updated_at: new Date().toISOString() });
+        return send(response, 200, member);
+      }
+    }
+  }
 
   if (url.pathname === "/v1/areas") {
     if (request.method === "GET") return listAreas(url, response);
