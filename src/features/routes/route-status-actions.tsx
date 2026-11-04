@@ -82,12 +82,22 @@ export function RouteStatusActions({ route }: { route: RouteRead }) {
   } | null>(null);
   const baseId = useId();
   const groupRef = useRef<HTMLDivElement>(null);
-  // After a move the buttons change (the one pressed may be gone): focus goes to the moves.
-  const focusAfterMove = useRef(false);
+  // After a move the buttons change (the one pressed may be gone): focus goes to the moves. So it
+  // does after a refusal that reloaded the route without its button, rather than falling to the
+  // page. After the closing dialog's own focus return, which Radix runs in a timeout as it
+  // unmounts (focusing now would be undone by it).
+  const focusAfterClose = useRef<"moved" | "refused" | null>(null);
   useEffect(() => {
-    if (open !== null || !focusAfterMove.current) return;
-    focusAfterMove.current = false;
-    groupRef.current?.focus();
+    const after = focusAfterClose.current;
+    if (open !== null || after === null) return;
+    focusAfterClose.current = null;
+    const timer = setTimeout(() => {
+      const lost =
+        document.activeElement === document.body ||
+        document.activeElement?.id === "content";
+      if (after === "moved" || lost) groupRef.current?.focus();
+    });
+    return () => clearTimeout(timer);
   }, [open]);
 
   if (route.status_changes.length === 0) {
@@ -165,7 +175,7 @@ export function RouteStatusActions({ route }: { route: RouteRead }) {
             route={open.route}
             change={open.change}
             onClose={(moved) => {
-              focusAfterMove.current = moved;
+              focusAfterClose.current = moved ? "moved" : "refused";
               setOpen(null);
             }}
           />
@@ -176,7 +186,7 @@ export function RouteStatusActions({ route }: { route: RouteRead }) {
             change={open.change}
             move={open.move}
             onClose={(moved) => {
-              focusAfterMove.current = moved;
+              focusAfterClose.current = moved ? "moved" : "refused";
               setOpen(null);
             }}
           />
