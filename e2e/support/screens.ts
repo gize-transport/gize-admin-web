@@ -84,6 +84,13 @@ export const screens: readonly Screen[] = [
     readyText: "Works near Piassa, any seat from next month.",
   },
   {
+    name: "demand",
+    path: "/demand",
+    signInAs: "staff",
+    // Shown once the summary has loaded (the cards' contents change as e2e tests add requests).
+    readyText: messages.Demand.pairsDescription,
+  },
+  {
     name: "companies",
     path: "/companies",
     signInAs: "admin",

@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import type { PickerResult } from "@/components/pickers/search-picker";
 import { companyKeys } from "@/features/companies/queries";
 import { api, unwrap } from "@/lib/api/client";
@@ -67,6 +72,19 @@ export function useRoute(id: string | null) {
         }),
       ),
     enabled: id !== null,
+  });
+}
+
+/** One route, from the cache when fresh, else `routes_get` (e.g. before adding a van to it). */
+export function fetchRoute(queryClient: QueryClient, id: string) {
+  return queryClient.fetchQuery({
+    queryKey: routeKeys.detail(id),
+    queryFn: () =>
+      unwrap(
+        api.GET("/v1/routes/{route_id}", {
+          params: { path: { route_id: id } },
+        }),
+      ),
   });
 }
 

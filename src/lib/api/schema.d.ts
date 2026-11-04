@@ -541,9 +541,10 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Change a staff member's role or status (admins only)
-         * @description Promote, demote, deactivate or reactivate. No Idempotency-Key: setting a value that
-         *     is already there changes nothing.
+         * Change a staff member's name, role or status (admins only)
+         * @description Correct a name, promote, demote, deactivate or reactivate. The email can't change
+         *     (it is the person's sign-in). No Idempotency-Key: setting a value that is already there
+         *     changes nothing.
          *
          *     - 409 LAST_ACTIVE_ADMIN: the change would leave no active admin.
          */
@@ -1473,9 +1474,12 @@ export interface components {
         /**
          * StaffUpdate
          * @description What to change: leave a field out to keep it, and send at least one. Deactivating
-         *     someone locks them out on their next request; `is_active: true` reactivates them.
+         *     someone locks them out on their next request; `is_active: true` reactivates them. A
+         *     name is trimmed, as in an invite. The email can't change: it is their sign-in.
          */
         StaffUpdate: {
+            /** Full Name */
+            full_name?: string;
             /** Is Active */
             is_active?: boolean;
             role?: components["schemas"]["StaffRole"];

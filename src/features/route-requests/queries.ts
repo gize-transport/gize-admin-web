@@ -29,7 +29,18 @@ export const requestKeys = {
   list: (filters: RequestFilters) =>
     ["route-requests", "list", filters] as const,
   detail: (id: string) => ["route-requests", "detail", id] as const,
+  summary: ["route-requests", "summary"] as const,
 };
+
+/** Open demand per area pair and per route (`route_requests_summary`), busiest first. */
+export function useDemandSummary() {
+  return useQuery({
+    queryKey: requestKeys.summary,
+    queryFn: () => unwrap(api.GET("/v1/route-requests/summary")),
+    // Routes and areas change elsewhere (status, seats, names): fresh each time it's opened.
+    staleTime: 0,
+  });
+}
 
 /** One page of route requests (`route_requests_list`), oldest first; the filters combine (AND). */
 export function useRouteRequests(filters: RequestFilters) {

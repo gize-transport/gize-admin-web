@@ -85,7 +85,7 @@ describe("PortalShell", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "content");
   });
 
-  it("shows only built screens: Overview, Routes, Route requests, Companies, Areas and Corridors so far", () => {
+  it("shows only built screens: Overview, Routes, Route requests, Demand, Companies, Areas and Corridors so far", () => {
     serveStaff("admin");
     renderWithProviders(<PortalShell>{null}</PortalShell>);
 
@@ -96,6 +96,7 @@ describe("PortalShell", () => {
       t.nav.overview,
       t.nav.routes,
       t.nav.routeRequests,
+      t.nav.demand,
       t.nav.companies,
       t.nav.areas,
       t.nav.corridors,

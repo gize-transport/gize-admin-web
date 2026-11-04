@@ -43,6 +43,8 @@ type CorridorFormDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** The corridor to change; omitted to add one. */
   corridor?: CorridorRead;
+  /** Adding: the two areas to start from (e.g. an area pair route requests ask for). */
+  initialAreas?: { origin: AreaRef; destination: AreaRef };
 };
 
 /**
@@ -54,6 +56,7 @@ export function CorridorFormDialog({
   open,
   onOpenChange,
   corridor,
+  initialAreas,
 }: CorridorFormDialogProps) {
   const t = useTranslations("Corridors");
   // Ids unique to this instance: Next can keep earlier pages (with their own copy of this) in the
@@ -114,8 +117,9 @@ export function CorridorFormDialog({
   } = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
-      origin: corridor?.origin_area ?? null,
-      destination: corridor?.destination_area ?? null,
+      origin: corridor?.origin_area ?? initialAreas?.origin ?? null,
+      destination:
+        corridor?.destination_area ?? initialAreas?.destination ?? null,
     },
   });
 

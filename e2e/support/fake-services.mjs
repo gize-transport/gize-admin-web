@@ -1431,6 +1431,32 @@ const requests = [
     contact_phone: "+251911000105",
     status: "fulfilled",
   },
+  // Someone else for the same pair (the name typed in other case): the pair counts 2.
+  {
+    kind: "new_areas",
+    fromAreaId: areaId("Ayat"),
+    to_area_name: "lebu",
+    rider_name: "Tsion Haile",
+    contact_name: "Tsion Haile",
+    contact_phone: "+251911000106",
+  },
+  // Both ends listed: no corridor CMC → Mexico yet; Ayat → CMC has one (no route).
+  {
+    kind: "new_areas",
+    fromAreaId: areaId("CMC"),
+    toAreaId: areaId("Mexico"),
+    rider_name: "Yonas Bekele",
+    contact_name: "Yonas Bekele",
+    contact_phone: "+251911000107",
+  },
+  {
+    kind: "new_areas",
+    fromAreaId: areaId("Ayat"),
+    toAreaId: areaId("CMC"),
+    rider_name: "Mahlet Tesfaye",
+    contact_name: "Mahlet Tesfaye",
+    contact_phone: "+251911000108",
+  },
 ].map((seed, index) => {
   const at = new Date(Date.UTC(2026, 9, 10, 7, index)).toISOString();
   return {
@@ -1455,6 +1481,71 @@ const requests = [
     ...seed,
   };
 });
+
+/**
+ * The demand summary, like GZ-027: open new-areas requests not matched yet per area pair (a name
+ * not listed yet compared ignoring case, shown as first recorded), and open requests per route
+ * (the one matched to, else the one asked for) next to its free seats next month; busiest first
+ * (then the oldest), at most 100 of each.
+ * @returns {Schemas["RouteRequestSummary"]}
+ */
+function demandSummary() {
+  const LIMIT = 100;
+  const live = requests
+    .filter((request) => !request.deleted)
+    .sort(
+      (a, b) =>
+        a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
+    );
+  /** @type {Map<string, { first: FakeRequest; open: number }>} */
+  const pairs = new Map();
+  for (const request of live) {
+    if (request.kind !== "new_areas" || request.status !== "new") continue;
+    const key = [
+      request.fromAreaId ?? request.from_area_name?.toLowerCase(),
+      request.toAreaId ?? request.to_area_name?.toLowerCase(),
+    ].join("|");
+    const pair = pairs.get(key);
+    if (pair) pair.open += 1;
+    else pairs.set(key, { first: request, open: 1 });
+  }
+  /** @type {Map<string, { first: FakeRequest; open: number }>} */
+  const targets = new Map();
+  for (const request of live) {
+    const target = request.matchedRouteId ?? request.routeId;
+    if (!isOpen(request) || target === null) continue;
+    const counted = targets.get(target);
+    if (counted) counted.open += 1;
+    else targets.set(target, { first: request, open: 1 });
+  }
+  // Insertion order is the oldest first, so a stable sort by count keeps it as the tie-break.
+  const busiest = (/** @type {Map<string, { open: number }>} */ counts) =>
+    [...counts.entries()].sort((a, b) => b[1].open - a[1].open);
+  const pairList = busiest(pairs);
+  const routeList = busiest(targets).filter(([id]) =>
+    routes.some((route) => route.id === id),
+  );
+  return {
+    area_pairs: pairList.slice(0, LIMIT).map(([, { first, open }]) => ({
+      from_area: first.fromAreaId === null ? null : areaRef(first.fromAreaId),
+      from_area_name: first.from_area_name,
+      to_area: first.toAreaId === null ? null : areaRef(first.toAreaId),
+      to_area_name: first.to_area_name,
+      open,
+    })),
+    area_pairs_truncated: pairList.length > LIMIT,
+    routes: routeList.slice(0, LIMIT).map(([id, { open }]) => {
+      const route = /** @type {FakeRoute} */ (routes.find((r) => r.id === id));
+      return {
+        route: { id: route.id, code: route.code },
+        status: route.status,
+        open,
+        seats_free_next_month: Math.max(route.seats - route.taken, 0),
+      };
+    }),
+    routes_truncated: routeList.length > LIMIT,
+  };
+}
 
 /** @type {Map<string, { request: FakeRequest; fingerprint: string }>} */
 const requestKeys = new Map();
@@ -2635,6 +2726,13 @@ const api = createServer(async (request, response) => {
         Location: `/v1/route-requests/${added.id}`,
       });
     }
+  }
+
+  if (
+    url.pathname === "/v1/route-requests/summary" &&
+    request.method === "GET"
+  ) {
+    return send(response, 200, demandSummary());
   }
 
   const requestStatusMatch = /^\/v1\/route-requests\/([^/]+)\/status$/.exec(
