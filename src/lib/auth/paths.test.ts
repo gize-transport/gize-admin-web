@@ -63,6 +63,14 @@ describe("isSignInPath and isPublicPath", () => {
     expect(isPublicPath("/routes")).toBe(false);
     expect(isPublicPath("/developer")).toBe(false);
   });
+
+  it("lets signed-out people ask for a reset link and open an email link, not set a password", () => {
+    expect(isPublicPath("/forgot-password")).toBe(true);
+    expect(isPublicPath("/auth/confirm")).toBe(true);
+    expect(isPublicPath("/auth/verify")).toBe(true);
+    expect(isPublicPath("/set-password")).toBe(false);
+    expect(isPublicPath("/auth/confirm-other")).toBe(false);
+  });
 });
 
 describe("sessionRedirect", () => {

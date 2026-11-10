@@ -178,6 +178,25 @@ function authError(response, status, code, msg) {
 
 let refreshCount = 0;
 
+// Email links (GZW-012), like Supabase Auth: an invite or recovery link carries a token hash that
+// works once. The stand-in sends no email; tests ask for the link a real email would hold.
+/** @type {Map<string, { user: TestUser, type: "invite" | "recovery", used: boolean }>} */
+const emailLinks = new Map();
+/** The recovery link last "emailed" to each address. @type {Map<string, string>} */
+const lastRecovery = new Map();
+/** When each address was last emailed: like Supabase, a real account gets one a minute. */
+const lastRecoveryAt = new Map();
+const RECOVERY_GAP_MS = 60_000;
+/** Supabase's minimum password length, as set for the project (owner decision: 12). */
+const MIN_PASSWORD_LENGTH = 12;
+
+/** @param {TestUser} user @param {"invite" | "recovery"} type @returns {string} the token hash */
+function emailLink(user, type) {
+  const tokenHash = `${type}-${randomUUID()}`;
+  emailLinks.set(tokenHash, { user, type, used: false });
+  return tokenHash;
+}
+
 const supabase = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://localhost");
   if (request.method === "OPTIONS") return send(response, 204);
@@ -219,6 +238,85 @@ const supabase = createServer(async (request, response) => {
     }
   }
 
+  // Opening an email link: the token hash works once, for its own type, and signs the person in.
+  if (request.method === "POST" && url.pathname === "/auth/v1/verify") {
+    const body = await readJson(request);
+    const link = emailLinks.get(String(body.token_hash ?? ""));
+    if (!link || link.used || link.type !== body.type) {
+      return authError(
+        response,
+        403,
+        "otp_expired",
+        "Email link is invalid or has expired",
+      );
+    }
+    link.used = true;
+    return send(response, 200, issueTokens(link.user));
+  }
+
+  // "Forgot your password?": always 200, whether or not the email has an account.
+  if (request.method === "POST" && url.pathname === "/auth/v1/recover") {
+    const body = await readJson(request);
+    const email = String(body.email ?? "").toLowerCase();
+    const user = users.find((candidate) => candidate.email === email);
+    if (
+      user &&
+      Date.now() - (lastRecoveryAt.get(email) ?? 0) < RECOVERY_GAP_MS
+    ) {
+      // Only for a real account, as Supabase does: the portal must not let this show.
+      return authError(
+        response,
+        429,
+        "over_email_send_rate_limit",
+        "For security purposes, you can only request this after 60 seconds.",
+      );
+    }
+    if (user) {
+      lastRecovery.set(email, emailLink(user, "recovery"));
+      lastRecoveryAt.set(email, Date.now());
+    }
+    return send(response, 200, {});
+  }
+
+  // Setting a password: needs a session; the project's minimum length; not the current one.
+  if (request.method === "PUT" && url.pathname === "/auth/v1/user") {
+    const session = activeSession(request);
+    if (!session) return authError(response, 403, "bad_jwt", "invalid JWT");
+    const body = await readJson(request);
+    const password = String(body.password ?? "");
+    if (Buffer.byteLength(password) > 72) {
+      return authError(
+        response,
+        422,
+        "validation_failed",
+        "Password cannot be longer than 72 characters",
+      );
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return send(
+        response,
+        422,
+        {
+          code: "weak_password",
+          msg: `Password should be at least ${MIN_PASSWORD_LENGTH} characters.`,
+          weak_password: { reasons: ["length"] },
+        },
+        { "X-Supabase-Api-Version": "2024-01-01" },
+      );
+    }
+    if (password === session.user.password) {
+      return authError(
+        response,
+        422,
+        "same_password",
+        "New password should be different from the old password.",
+      );
+    }
+    // Test users are plain objects: the new password works for the next sign-in.
+    /** @type {{ password: string }} */ (session.user).password = password;
+    return send(response, 200, supabaseUser(session.user));
+  }
+
   if (request.method === "GET" && url.pathname === "/auth/v1/user") {
     const session = activeSession(request);
     if (!session) return authError(response, 403, "bad_jwt", "invalid JWT");
@@ -229,8 +327,32 @@ const supabase = createServer(async (request, response) => {
     // Ends the session and its refresh token; the access token itself stays valid until it
     // expires, as with the real API.
     const session = activeSession(request);
-    if (session) sessions.set(session.id, { ...session, active: false });
+    if (session && url.searchParams.get("scope") === "others") {
+      // The person's other sessions (other browsers); this one stays.
+      for (const [id, other] of sessions) {
+        if (id !== session.id && other.user === session.user) {
+          sessions.set(id, { ...other, active: false });
+        }
+      }
+    } else if (session) {
+      sessions.set(session.id, { ...session, active: false });
+    }
     return send(response, 204);
+  }
+
+  // e2e only: the link an invitation email would hold (the API sends invitations), and the one
+  // the last "Forgot your password?" sent to an address.
+  if (request.method === "GET" && url.pathname === "/__e2e/invite-link") {
+    const email = String(url.searchParams.get("email") ?? "").toLowerCase();
+    const user = users.find((candidate) => candidate.email === email);
+    if (!user) return authError(response, 404, "not_found", "No such user");
+    return send(response, 200, { token_hash: emailLink(user, "invite") });
+  }
+  if (request.method === "GET" && url.pathname === "/__e2e/recovery-link") {
+    const email = String(url.searchParams.get("email") ?? "").toLowerCase();
+    const tokenHash = lastRecovery.get(email);
+    if (!tokenHash) return authError(response, 404, "not_found", "No email");
+    return send(response, 200, { token_hash: tokenHash });
   }
 
   // e2e only: how many refreshes happened, so a test can prove one did.

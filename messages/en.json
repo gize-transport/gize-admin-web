@@ -159,12 +159,13 @@
     "email": "Email",
     "password": "Password",
     "submit": "Sign in",
+    "forgotPassword": "Forgot your password?",
     "emailRequired": "Enter your email address.",
     "emailInvalid": "Enter a valid email address, like name@gizetransport.com.",
     "passwordRequired": "Enter your password.",
     "failedTitle": "Couldn't sign you in",
     "signedOut": "You're signed out.",
-    "help": "No account yet, or forgot your password? Ask a Gize admin.",
+    "help": "No account yet? Ask a Gize admin for an invitation.",
     "reasons": {
       "invalid_credentials": "The email or password is wrong. Check both and try again.",
       "not_confirmed": "This account isn't confirmed yet. Open the link in your invitation email first.",
@@ -174,6 +175,67 @@
       "unknown": "Signing in didn't work. Try again; if it keeps happening, contact support.",
       "not_staff": "This account isn't on the Gize staff list, or it has been deactivated. Ask an admin for access."
     }
+  },
+  "EmailLink": {
+    "metaTitle": "Your email link",
+    "inviteTitle": "Set your password",
+    "recoveryTitle": "Set a new password",
+    "description": "Continue to choose your password for Gize Admin. The link works once.",
+    "continue": "Continue",
+    "expiredTitle": "This link doesn't work",
+    "expired": "It has expired or was already used. Ask for a new one: an admin can send a new invitation, or use “Forgot your password?”.",
+    "askNewLink": "Forgot your password? Ask for a new link",
+    "signIn": "Sign in"
+  },
+  "ForgotPassword": {
+    "metaTitle": "Forgot your password",
+    "title": "Forgot your password?",
+    "description": "Enter your email. If it has a Gize Admin account, we'll send a link to set a new password.",
+    "email": "Email",
+    "emailRequired": "Enter your email address.",
+    "emailInvalid": "Enter a valid email address, like name@gizetransport.com.",
+    "submit": "Send the link",
+    "sentTitle": "Check your email",
+    "sent": "If {email} has a Gize Admin account, a link to set a new password is on its way. It works once and expires within an hour. Nothing there? Check your spam folder, or ask a Gize admin.",
+    "failedTitle": "Couldn't send the link",
+    "backToSignIn": "Back to sign in",
+    "reasons": {
+      "weak_password": "This password isn't allowed (it may be too common, or known from a data leak). Choose another.",
+      "same_password": "That's your current password. Choose a new one.",
+      "link_expired": "Your link has expired or was already used. Ask for a new one.",
+      "rate_limited": "Too many attempts or emails just now. Wait a while and try again.",
+      "network": "Can't reach the sign-in service. Check your connection and try again.",
+      "unavailable": "The sign-in service is briefly unavailable. Try again in a moment.",
+      "unknown": "That didn't work. Try again; if it keeps happening, ask a Gize admin.",
+      "reauthentication_needed": "For your safety, sign in again before changing your password, or use “Forgot your password?”."
+    }
+  },
+  "SetPassword": {
+    "metaTitle": "Set your password",
+    "title": "Set your password",
+    "description": "Choose the password you'll sign in to Gize Admin with.",
+    "rules": "At least {min} characters (a few words you'll remember, like a short phrase, work well), and at most about {max} letters.",
+    "password": "New password",
+    "confirm": "New password again",
+    "passwordRequired": "Enter a new password.",
+    "tooShort": "Use at least {min} characters.",
+    "tooLong": "That's too long: use fewer characters.",
+    "mismatch": "The two passwords don't match.",
+    "submit": "Set password",
+    "failedTitle": "Couldn't set your password",
+    "done": "Your password is set.",
+    "askNewLink": "Ask for a new link",
+    "reasons": {
+      "weak_password": "This password isn't allowed (it may be too common, or known from a data leak). Choose another.",
+      "same_password": "That's your current password. Choose a new one.",
+      "link_expired": "Your link has expired or was already used. Ask for a new one.",
+      "rate_limited": "Too many attempts or emails just now. Wait a while and try again.",
+      "network": "Can't reach the sign-in service. Check your connection and try again.",
+      "unavailable": "The sign-in service is briefly unavailable. Try again in a moment.",
+      "unknown": "That didn't work. Try again; if it keeps happening, ask a Gize admin.",
+      "reauthentication_needed": "For your safety, sign in again before changing your password, or use “Forgot your password?”."
+    },
+    "doneOthersFailed": "Your password is set. Signing out your other devices didn't work: sign out on them yourself."
   },
   "Shell": {
     "brand": "Gize",
