@@ -283,7 +283,10 @@ describe("DemandScreen", () => {
         { timeout: 2500 },
       ),
     );
-    expect(await within(card).findByText(t.noCorridor)).toBeVisible();
+    // The retried lookup answers after the 1 s wait: give a busy CI runner time to show it.
+    expect(
+      await within(card).findByText(t.noCorridor, {}, { timeout: 3000 }),
+    ).toBeVisible();
   });
 
   it("clears the no-corridor note when the corridor is added from the card", async () => {

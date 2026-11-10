@@ -43,6 +43,27 @@ describe("SearchField", () => {
     expect(navigation().push).not.toHaveBeenCalled();
   });
 
+  it("writes at once when the box loses focus (before a click elsewhere navigates), and only once", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        {field()}
+        <button type="button">Elsewhere</button>
+      </>,
+    );
+
+    await user.type(screen.getByLabelText("Search areas"), "Bole");
+    await user.click(screen.getByRole("button", { name: "Elsewhere" }));
+
+    // Right away, without waiting for the pause.
+    expect(navigation().replace).toHaveBeenCalledWith("/areas?q=Bole", {
+      scroll: false,
+    });
+    // The pause then finds nothing new to write.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(navigation().replace).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps what was typed while a slow navigation finishes", async () => {
     const user = userEvent.setup();
     const { rerender } = renderWithProviders(field());
