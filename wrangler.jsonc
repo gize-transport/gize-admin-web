@@ -1,0 +1,33 @@
+// The portal as a Cloudflare Worker (GZW-006), built by OpenNext (`npm run cf:build`).
+// Production: admin.gizetransport.com, deployed from main by CI (.github/workflows/ci.yml).
+// Each PR uploads a version (not deployed) with its own preview address on workers.dev.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gize-admin",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": [
+    // Next.js on Workers needs Node.js APIs.
+    "nodejs_compat",
+    // The Worker may only fetch public addresses.
+    "global_fetch_strictly_public",
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "services": [
+    {
+      // OpenNext calls the Worker itself (e.g. for middleware); must match "name".
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "gize-admin",
+    },
+  ],
+  // The real address; Cloudflare creates its DNS record and certificate on deploy.
+  "routes": [{ "pattern": "admin.gizetransport.com", "custom_domain": true }],
+  // No second public address for production…
+  "workers_dev": false,
+  // …but uploaded versions (PR previews) get their own on workers.dev.
+  "preview_urls": true,
+  "observability": { "enabled": true },
+}

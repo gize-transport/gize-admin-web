@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
+import { connection } from "next/server";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { fontVariables } from "./fonts";
@@ -15,6 +16,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Every page is rendered for its request: the Content Security Policy's nonce is new each time
+  // (middleware.ts), and a page built ahead couldn't carry it.
+  await connection();
   const locale = await getLocale();
   const t = await getTranslations("Common");
 

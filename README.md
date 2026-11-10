@@ -51,9 +51,18 @@ A daily workflow (`.github/workflows/contract-update.yml`) opens an issue "Contr
 
 `/dev/components` shows every shared component (tokens, type, buttons, DataTable, dialogs…). It exists under `npm run dev` and in production builds made with the server-only build flag `GIZE_DEV_PAGES=1`, which only the e2e builds set (Playwright locally, the Build job in CI). Deployed builds don't set it, so the page is a 404 there.
 
+## Deployment
+
+The portal runs on Cloudflare Workers through OpenNext (architecture.md, "Deployment"):
+
+- `npm run cf:build` builds the Worker into `.open-next/`; `npm run cf:preview` runs it locally on port 8787 in the Workers runtime (with the values in `.env.local`).
+- CI deploys `main` to `https://admin.gizetransport.com` after every other check passes, and posts each PR's preview address on the PR. Never deploy by hand.
+- GitHub settings: repository variables `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (and `NEXT_PUBLIC_SENTRY_DSN` to turn on error reporting); repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The token expires on 2027-11-10: make a new one with the same permissions before then.
+- The API must list the portal's address in its `CORS_ALLOWED_ORIGINS`, or signed-in screens can't load data.
+
 ## CI
 
-Every PR runs these checks (`.github/workflows/ci.yml`): **Lint**, **Typecheck** (with the contract check), **Unit tests**, **Build**, **E2E (Playwright + axe)**, **npm audit**, **Secret scan (gitleaks)**. The e2e job uploads the Playwright report and the screenshots as artifacts.
+Every PR runs these checks (`.github/workflows/ci.yml`): **Lint**, **Typecheck** (with the contract check), **Unit tests**, **Build**, **E2E (Playwright + axe)**, **npm audit**, **Secret scan (gitleaks)**, then **Deploy (Cloudflare)** once all of those pass (a PR preview, or production on `main`). The e2e job uploads the Playwright report and the screenshots as artifacts.
 
 ## Working rules
 
