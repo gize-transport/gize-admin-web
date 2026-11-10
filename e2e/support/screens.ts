@@ -20,6 +20,26 @@ export type Screen = {
 export const screens: readonly Screen[] = [
   { name: "sign-in", path: "/sign-in" },
   {
+    name: "forgot-password",
+    path: "/forgot-password",
+    readyText: messages.ForgotPassword.description,
+  },
+  {
+    name: "email-link",
+    // An invitation link's page (any token: opening it checks nothing).
+    path: "/auth/confirm?token_hash=sample&type=invite",
+    readyText: messages.EmailLink.description,
+  },
+  {
+    name: "set-password",
+    // Signed in (as after an email link): the page needs a session.
+    path: "/set-password",
+    signInAs: "staff",
+    readyText: messages.SetPassword.rules
+      .replace("{min}", "12")
+      .replace("{max}", "72"),
+  },
+  {
     name: "overview",
     path: "/",
     signInAs: "staff",

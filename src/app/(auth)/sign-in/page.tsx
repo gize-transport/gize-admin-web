@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { AuthCard } from "@/components/auth-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FORGOT_PASSWORD_PATH } from "@/lib/auth/paths";
 import { SignInForm } from "./sign-in-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,32 +18,21 @@ export default function SignInPage() {
   const t = useTranslations("SignIn");
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-12">
-      <div className="grid w-full max-w-sm gap-6 rounded-xl border border-line bg-surface p-6 sm:p-8">
-        <div className="grid justify-items-start gap-4">
-          {/* 128 px file shown at 48 px, served as is: too small to need an image service. */}
-          <Image
-            src="/brand/logo-mark.png"
-            alt={t("logoAlt")}
-            width={48}
-            height={48}
-            unoptimized
-            priority
-          />
-          <div className="grid gap-1">
-            <h1 className="font-display text-title font-semibold text-navy">
-              {t("title")}
-            </h1>
-            <p className="text-table text-muted">{t("description")}</p>
-          </div>
-        </div>
-        {/* The form reads ?next and ?reason from the URL, so it renders on the client. */}
-        <Suspense fallback={<FormPlaceholder />}>
-          <SignInForm />
-        </Suspense>
+    <AuthCard title={t("title")} description={t("description")}>
+      {/* The form reads ?next and ?reason from the URL, so it renders on the client. */}
+      <Suspense fallback={<FormPlaceholder />}>
+        <SignInForm />
+      </Suspense>
+      <div className="grid gap-2">
+        <Link
+          href={FORGOT_PASSWORD_PATH}
+          className="w-fit text-table font-semibold text-royal underline-offset-4 hover:underline"
+        >
+          {t("forgotPassword")}
+        </Link>
         <p className="text-meta text-muted">{t("help")}</p>
       </div>
-    </main>
+    </AuthCard>
   );
 }
 

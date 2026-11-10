@@ -60,6 +60,21 @@ The portal runs on Cloudflare Workers through OpenNext (architecture.md, "Deploy
 - GitHub settings: repository variables `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (and `NEXT_PUBLIC_SENTRY_DSN` to turn on error reporting); repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The token expires on 2027-11-10: make a new one with the same permissions before then.
 - The API must list the portal's address in its `CORS_ALLOWED_ORIGINS`, or signed-in screens can't load data.
 
+## Supabase Auth settings
+
+Invitations (sent by the API) and password resets are Supabase emails whose link lands on the portal (GZW-012): `/auth/confirm` shows a **Continue** button, and only pressing it uses the link (mail scanners that open every link don't use it up). In the Supabase dashboard, for each project:
+
+1. **Authentication → URL Configuration:** Site URL = the address of the portal that uses this project (now `https://admin.gizetransport.com` with the staging project; the production project's own portal address later). Redirect URLs: that address followed by `/**`, and `http://localhost:3000/**`.
+2. **Authentication → Emails → Templates:** in **Invite user** and **Reset password**, the link goes to the portal's link page, not Supabase's default:
+   - Invite user: `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite">Set your password</a>`
+   - Reset password: `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery">Set a new password</a>`
+3. **Authentication → Providers → Email:**
+   - minimum password length **12** (the portal checks the same; owner decision);
+   - turn on **Secure password change**, so a session older than a day must sign in again before changing the password (fresh sessions from an email link are fine);
+   - **Email OTP expiration** at most 3600 seconds (the pages say links expire within an hour);
+   - turn on leaked-password protection if your plan has it.
+4. **Authentication → Emails → SMTP Settings:** Supabase's built-in sender allows only a few emails an hour and is meant for testing. For real invitations, set up your own SMTP (for example the Zoho mailbox of gizetransport.com).
+
 ## CI
 
 Every PR runs these checks (`.github/workflows/ci.yml`): **Lint**, **Typecheck** (with the contract check), **Unit tests**, **Build**, **E2E (Playwright + axe)**, **npm audit**, **Secret scan (gitleaks)**, then **Deploy (Cloudflare)** once all of those pass (a PR preview, or production on `main`). The e2e job uploads the Playwright report and the screenshots as artifacts.

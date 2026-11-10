@@ -35,6 +35,30 @@ export const testUsers =
         role: "staff",
       },
     },
+    /**
+     * Staff who set their password from an email link (GZW-012): one per Playwright project,
+     * since the tests change these passwords.
+     */
+    resetDesktop: {
+      email: "reset.desktop@gize.test",
+      password: TEST_PASSWORD,
+      staff: {
+        id: "00000000-0000-4000-8000-000000000021",
+        full_name: "Rahel Reset",
+        email: "reset.desktop@gize.test",
+        role: "staff",
+      },
+    },
+    resetMobile: {
+      email: "reset.mobile@gize.test",
+      password: TEST_PASSWORD,
+      staff: {
+        id: "00000000-0000-4000-8000-000000000022",
+        full_name: "Robel Reset",
+        email: "reset.mobile@gize.test",
+        role: "staff",
+      },
+    },
     /** Signs in to Supabase, but the API answers 403 (deactivated or never invited). */
     outsider: {
       email: "outsider@gize.test",

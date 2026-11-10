@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { sessionRedirect } from "@/lib/auth/paths";
+import { EMAIL_VERIFY_PATH, sessionRedirect } from "@/lib/auth/paths";
 import { contentSecurityPolicy, createNonce } from "@/lib/csp";
 import { env } from "@/lib/env";
 
@@ -29,6 +29,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request: { headers } });
   };
   let response = next();
+
+  // Checking an email link signs someone in (auth/verify): no other session's refreshed
+  // cookies may go out on the same response, or the two could mix.
+  if (request.nextUrl.pathname === EMAIL_VERIFY_PATH) {
+    response.headers.set("Content-Security-Policy", csp);
+    return response;
+  }
 
   const supabase = createServerClient(
     env.supabaseUrl,

@@ -7,9 +7,29 @@ export function isSignInPath(pathname: string) {
   return pathname === SIGN_IN_PATH || pathname.startsWith(`${SIGN_IN_PATH}/`);
 }
 
-/** Pages that work without a session: sign-in, and the dev gallery (a 404 in deployed builds). */
+export const FORGOT_PASSWORD_PATH = "/forgot-password";
+export const SET_PASSWORD_PATH = "/set-password";
+/**
+ * Where an invitation or reset email's link lands (GZW-012): a page with a Continue button,
+ * so a mail scanner that opens the link doesn't use it up.
+ */
+export const EMAIL_LINK_PATH = "/auth/confirm";
+/** Where that button posts: checks the link with Supabase, which signs the person in. */
+export const EMAIL_VERIFY_PATH = "/auth/verify";
+
+/**
+ * Pages that work without a session: sign-in, asking for a reset link, an email link's page and
+ * its check (which signs the person in), and the dev gallery (a 404 in deployed builds).
+ * Setting a password needs the session the email link started.
+ */
 export function isPublicPath(pathname: string) {
-  return isSignInPath(pathname) || pathname.startsWith("/dev/");
+  return (
+    isSignInPath(pathname) ||
+    pathname === FORGOT_PASSWORD_PATH ||
+    pathname === EMAIL_LINK_PATH ||
+    pathname === EMAIL_VERIFY_PATH ||
+    pathname.startsWith("/dev/")
+  );
 }
 
 /** `/sign-in?next=<path and query>` (just `/sign-in` from home), or null when already there. */
