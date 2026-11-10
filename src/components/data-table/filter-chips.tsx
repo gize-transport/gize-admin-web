@@ -14,7 +14,7 @@ type FilterChipsProps = {
 
 /**
  * Single-choice filter (plus "All") synced to the URL, as in the list mockups. Reads the URL
- * (useSearchParams), so under `cacheComponents` it must sit inside a <Suspense>.
+ * (useSearchParams), so it must sit inside a <Suspense>.
  */
 export function FilterChips({ param, label, options }: FilterChipsProps) {
   const t = useTranslations("DataTable");

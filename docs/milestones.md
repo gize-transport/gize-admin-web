@@ -33,8 +33,9 @@ Status: done · Needs backend: –
 - Tokens and fonts from `design-system.md`; shadcn/ui themed; `PageHeader`, `DataTable` (cursor pagination, URL filters, skeletons), `StatusPill`, `ConfirmDialog`, `ProblemAlert`, `EmptyState`, toast. Storybook not required; a `/dev/components` page (dev only) shows them.
 
 ### GZW-006 · Deployment pipeline
-Status: todo · Needs backend: –
-- Cloudflare Workers via OpenNext; preview deploy per PR, production on `main`; security headers and CSP (`connect-src` allows the API origin from `NEXT_PUBLIC_API_BASE_URL`, e.g. `http://localhost:8000` locally, and the Supabase project).
+Status: done · Needs backend: – (the API's `CORS_ALLOWED_ORIGINS` must list `https://admin.gizetransport.com`)
+- Cloudflare Workers via OpenNext; preview deploy per PR, production on `main` at `https://admin.gizetransport.com`; security headers and a nonce-based CSP (`connect-src` allows the API origin from `NEXT_PUBLIC_API_BASE_URL`, e.g. `http://localhost:8000` locally, and the Supabase project). See architecture.md, "Deployment".
+- Owner decisions (2026-11-10): strict nonce CSP, so pages render per request (no cacheComponents/PPR); PR previews deploy now and load data once the API allows preview addresses.
 
 ### GZW-007 · Docs and tickets for the two customer types
 Status: done · Needs backend: GZ-025
@@ -72,6 +73,12 @@ Status: done · Needs backend: GZ-010, GZ-011 (in `api-v1.2.0`)
 ### GZW-011 · Portal shell and role-aware navigation
 Status: done · Needs backend: GZ-011 (in `api-v1.2.0`)
 - Sidebar (MVP items only: Overview, Routes, Route requests, Demand, Companies, Riders, Drivers; Areas and Corridors under a "Places" group; Staff and Audit log for Admin only), signed-in name, role and Sign out at the foot of the sidebar (as in `Admin.png`), drawer under 1024 px; `NoPermission` for a 403 and a 404 page.
+
+### GZW-012 · Set a password: invitation and reset
+Status: todo · Needs backend: – (Supabase Auth settings; the API's invite sends no `redirect_to`)
+- Found in GZW-006: an invited staff member's email link (and a password reset) lands on the portal, which has no page to set a password, so an invitation can't be finished on the deployed portal.
+- An `/auth/confirm` route verifies the email link (`verifyOtp` with the `token_hash` and `type`, `@supabase/ssr`), then a "Set your password" page (rules shown, errors explained, focus and labels as everywhere). Both must be reachable while signed out (`sessionRedirect` in `src/lib/auth/paths.ts`). "Forgot your password?" on sign-in sends a reset email; the reset link uses the same page.
+- Supabase settings (dashboard, staging and production): Site URL `https://admin.gizetransport.com`, that URL and `http://localhost:3000` under Redirect URLs, and the Invite and Reset Password email templates linking to `/auth/confirm?token_hash={{ .TokenHash }}&type=…`. With no `redirect_to` from the API, the Site URL decides where the link goes.
 
 ---
 

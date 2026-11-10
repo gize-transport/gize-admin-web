@@ -73,7 +73,7 @@ scripts/contract-sync.mjs
 | Env | API base URL | Supabase project |
 | --- | --- | --- |
 | Local | `http://localhost:8000` (backend running locally) or MSW mocks | The project the local API uses (`SUPABASE_URL` in its `.env`) |
-| Staging | staging API URL | Staging project |
+| Staging | `https://gize-api-staging.onrender.com` (the deployed portal, `admin.gizetransport.com`, uses it for now) | Staging project (the same one the local API uses) |
 | Production | production API URL | Production project |
 
 ### Running against the local API
@@ -87,4 +87,13 @@ Public env vars only (`NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `N
 
 ## Deployment
 
-Cloudflare Workers via `@opennextjs/cloudflare`; preview deployment per PR, production from `main`. Security headers (CSP, frame-ancestors none, referrer policy, nosniff) set in Next.js config. Check Cloudflare's current Next.js guide when setting this up.
+Cloudflare Workers via `@opennextjs/cloudflare` (GZW-006): `wrangler.jsonc` names the Worker (`gize-admin`) and its address, `open-next.config.ts` the adapter's settings, `npm run cf:build` builds it and `npm run cf:preview` runs it locally in the Workers runtime.
+
+- **Production:** `https://admin.gizetransport.com` (a Workers custom domain on the `gizetransport.com` zone: Cloudflare creates its DNS record and certificate). CI's `Deploy (Cloudflare)` job deploys `main` after every other check passes, one deploy at a time.
+- **PR previews:** the same job uploads each PR as a Worker version (not live) with a stable preview address, `pr-<number>-gize-admin.<account>.workers.dev`, posted on the PR. The API only answers origins on its `CORS_ALLOWED_ORIGINS`, so a preview loads data only if the API allows preview addresses (owner decision 2026-11-10: previews now, data once the backend allows them).
+- **Settings:** the `NEXT_PUBLIC_*` values are GitHub repository **variables** (public: they are in the browser bundle), baked in at build; `CLOUDFLARE_API_TOKEN` (Workers scripts, Workers Routes, DNS edit and Zone read on `gizetransport.com` only) and `CLOUDFLARE_ACCOUNT_ID` are repository **secrets**, given only to the upload steps. A PR's own code builds and uploads in those steps, so anyone who can push a branch can reach the token: give write access only to people trusted with production. The token expires on 2027-11-10.
+- **The first deploy** creates the `admin` record on the zone (replacing any record of that name without asking) and turns preview addresses on; PR previews start after it (until then the job says so and passes). Each production deploy first checks it is still `main`'s newest commit, so a slower older run never replaces a newer one.
+- **No server secrets, no server cache:** the Worker renders pages and holds no data. Every page renders per request (below), so there is no Next.js incremental cache, queue or image service (both images are served as is).
+- **Security headers:** `middleware.ts` gives each response a fresh nonce and the Content Security Policy built by `src/lib/csp.ts` (scripts only with the nonce and `'strict-dynamic'`, connections only to the site, the API, Supabase and Sentry, `frame-ancestors 'none'`, `upgrade-insecure-requests` when all of those are https). `next.config.ts` adds `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, a `Permissions-Policy`, HSTS (a year) and drops `X-Powered-By`.
+- **Why no prerendering:** a nonce must be new for every response, and a page built ahead (cacheComponents' static shell, PPR) can't carry one (Next.js "Content Security Policy" guide). So `cacheComponents` is off and the root layout waits for the request (`connection()`): owner decision 2026-11-10, strict CSP over the prerendered shell. The portal's screens are drawn in the browser (`ClientOnly` in `(portal)/layout.tsx`, the sidebar still from the server): their data is fetched there, and a screen rendered on the server could hydrate after its data arrived and differ from its HTML (React #418, seen in CI). Zod runs `jitless` (`src/instrumentation-client.ts`), so its `new Function` probe never trips the policy.
+- **Sentry** is browser-only (`src/instrumentation-client.ts`); the Worker reports nothing (it holds no data).

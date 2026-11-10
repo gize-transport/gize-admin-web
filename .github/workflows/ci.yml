@@ -192,3 +192,131 @@ jobs:
 
       - name: Scan full git history
         run: gitleaks git --redact --no-banner --verbose .
+
+  # GZW-006: after every other check passes, main goes live at admin.gizetransport.com, and each
+  # PR uploads a version (not live) with its own preview address, checked and posted on the PR.
+  # Anyone who can push a branch here can reach the Cloudflare token (a PR's code builds and
+  # uploads with it): only give write access to people trusted with production.
+  deploy:
+    name: Deploy (Cloudflare)
+    needs: [lint, typecheck, unit, build, e2e, audit, gitleaks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write # the preview address comment
+    concurrency:
+      # One production deploy at a time (each also checks it is still main's newest commit);
+      # previews per PR, the newest wins.
+      group: deploy-${{ github.event_name == 'pull_request' && github.ref || 'production' }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    env:
+      # Dependabot runs get no secrets: the check passes with nothing to deploy (a skipped check
+      # would block merging).
+      DEPLOYS: ${{ github.actor != 'dependabot[bot]' }}
+      # Public values, baked into the build (repository variables, not secrets).
+      NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+    steps:
+      - name: Nothing to deploy for Dependabot
+        if: env.DEPLOYS != 'true'
+        run: echo "::notice::Dependabot run, nothing deployed."
+
+      # A slower run of an older commit must not replace a newer one already live.
+      - name: Still main's newest commit?
+        id: newest
+        if: env.DEPLOYS == 'true' && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tip=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::main has moved on to ${tip:0:7}: its own run deploys it."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.DEPLOYS == 'true' && steps.newest.outputs.deploy != 'false'
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        if: env.DEPLOYS == 'true' && steps.newest.outputs.deploy != 'false'
+
+      # A deploy build never sets GIZE_DEV_PAGES: the dev-only pages are a 404 there.
+      - name: Build the Worker
+        if: env.DEPLOYS == 'true' && steps.newest.outputs.deploy != 'false'
+        run: npm run cf:build
+
+      # The Cloudflare token is only given to the steps that upload.
+      - name: Deploy to admin.gizetransport.com
+        if: env.DEPLOYS == 'true' && github.event_name == 'push' && steps.newest.outputs.deploy == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx opennextjs-cloudflare deploy
+
+      # A version is added to the existing Worker, so previews start after main's first deploy;
+      # until then (and until that deploy has turned preview addresses on) this says so and passes.
+      - name: Upload the PR preview
+        if: env.DEPLOYS == 'true' && github.event_name == 'pull_request'
+        id: preview
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ALIAS: pr-${{ github.event.pull_request.number }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.jsonl
+        run: |
+          if ! npx wrangler deployments list --name gize-admin > /dev/null 2>&1; then
+            echo "::notice::No production deploy yet: previews start after the first merge to main."
+            exit 0
+          fi
+          npx opennextjs-cloudflare upload --preview-alias "$ALIAS"
+          url=$(node -e '
+            const lines = require("fs").readFileSync(process.argv[1], "utf8").split("\n");
+            const upload = lines.filter(Boolean).map(JSON.parse)
+              .find((entry) => entry.type === "version-upload");
+            process.stdout.write(upload?.preview_alias_url ?? "");
+          ' "$WRANGLER_OUTPUT_FILE_PATH")
+          if [ -z "$url" ]; then
+            echo "::notice::Uploaded, but preview addresses aren't on yet (main's next deploy turns them on)."
+            exit 0
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      # The preview really runs on Workers with the policy: the header has a nonce, and the
+      # page's scripts carry the same one.
+      - name: Check the preview
+        if: steps.preview.outputs.url != ''
+        shell: bash
+        env:
+          URL: ${{ steps.preview.outputs.url }}
+        run: |
+          headers=$(curl -sS -D - -o page.html --retry 5 --retry-all-errors "$URL/sign-in")
+          nonce=$(printf '%s' "$headers" | grep -i '^content-security-policy:' | grep -oE "'nonce-[^']+'" | head -1 | sed -E "s/'nonce-(.*)'/\1/")
+          test -n "$nonce"
+          grep -q "nonce=\"$nonce\"" page.html
+          printf '%s' "$headers" | grep -qi '^x-content-type-options: nosniff'
+
+      - name: Post the preview address on the PR
+        if: steps.preview.outputs.url != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          URL: ${{ steps.preview.outputs.url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          marker="<!-- gize-preview -->"
+          body="$marker"$'\n'"Preview of ${SHA:0:7}: $URL"$'\n\n'"Not live: admin.gizetransport.com changes only when this is merged. Data loads only if the API allows preview addresses."
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" > /dev/null
+          fi

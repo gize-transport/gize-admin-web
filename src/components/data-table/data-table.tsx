@@ -66,7 +66,7 @@ const NO_ROWS: never[] = [];
  * focusable region on narrow screens, skeleton loading, empty state, URL-synced cursor pagination.
  * Put a RowAction in the first column: clicking anywhere else on the row activates it.
  *
- * Reads the URL (useSearchParams), so under `cacheComponents` it must sit inside a <Suspense>.
+ * Reads the URL (useSearchParams), so it must sit inside a <Suspense>.
  */
 export function DataTable<TData extends RowData>({
   label,

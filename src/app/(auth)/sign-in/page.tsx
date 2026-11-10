@@ -19,7 +19,7 @@ export default function SignInPage() {
     <main className="flex flex-1 items-center justify-center px-4 py-12">
       <div className="grid w-full max-w-sm gap-6 rounded-xl border border-line bg-surface p-6 sm:p-8">
         <div className="grid justify-items-start gap-4">
-          {/* 128 px file shown at 48 px; served as is (image optimisation on Cloudflare: GZW-006). */}
+          {/* 128 px file shown at 48 px, served as is: too small to need an image service. */}
           <Image
             src="/brand/logo-mark.png"
             alt={t("logoAlt")}

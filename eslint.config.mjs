@@ -57,6 +57,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Cloudflare build output and Wrangler state (npm run cf:build)
+    ".open-next/**",
+    ".wrangler/**",
     // Test output
     "coverage/**",
     "playwright-report/**",
