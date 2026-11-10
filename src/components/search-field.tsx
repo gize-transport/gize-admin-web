@@ -19,7 +19,7 @@ type SearchFieldProps = {
 
 /**
  * A list's search box: its text lives in the URL (shareable, survives reload), written after a
- * short pause in typing. Clearing the box clears the search.
+ * short pause in typing, or at once when the box loses focus. Clearing the box clears the search.
  */
 export function SearchField({
   param,
@@ -51,6 +51,13 @@ export function SearchField({
   }
 
   const latest = pending.at(-1) ?? fromUrl;
+  /** Writes what's typed to the URL, unless it's there (or on its way) already. */
+  function write() {
+    const value = text.trim();
+    if (value === latest) return;
+    setPending((values) => [...values, value]);
+    setFilter(param, value || null, { replace: true });
+  }
   useEffect(() => {
     const value = text.trim();
     if (value === latest) return;
@@ -74,6 +81,9 @@ export function SearchField({
           type="search"
           value={text}
           onChange={(event) => setText(event.target.value)}
+          // Leaving the box (often to open a result) writes now: a write still waiting would
+          // land after that click's navigation had started, and undo it.
+          onBlur={write}
           placeholder={placeholder}
           maxLength={maxLength}
           autoComplete="off"
