@@ -57,7 +57,7 @@ scripts/contract-sync.mjs
 
 - Client components with TanStack Query for lists, details and mutations (interactive admin screens). Server components for layout and static shell.
 - Query keys per domain (`['routes', filters]`, `['route', id]`); mutations invalidate exactly the affected keys.
-- Lists use cursor pagination from the API; filters and cursor live in the URL search params.
+- Lists use cursor pagination from the API; filters and cursor live in the URL search params. A search for a person's name or phone (Riders) is the exception: it stays in the page's state, never in the URL or browser storage, and a phone is looked up with a POST.
 - Retries: queries retry network errors and 502/504 gateway errors up to 2 times with backoff, never on 4xx, 500 or 503. Mutations never auto-retry; a manual retry reuses the same `Idempotency-Key`.
 - 429 and 503: show "try again in N seconds" from `Retry-After` (ProblemAlert countdown). 401: go to sign-in. 403: no permission.
 - 409 on a change judged from data on screen (a route's `status_changes`, launch months): show the message, then invalidate and reload the route – the screen was a snapshot.

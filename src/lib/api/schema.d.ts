@@ -36,7 +36,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One area */
+        /**
+         * One area
+         * @description A live area by ID. 404 NOT_FOUND for one that never existed or was deleted.
+         */
         get: operations["areas_get"];
         put?: never;
         post?: never;
@@ -110,7 +113,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One company */
+        /**
+         * One company
+         * @description A live company by ID, active or not. 404 NOT_FOUND for one that never existed or was
+         *     deleted.
+         */
         get: operations["companies_get"];
         put?: never;
         post?: never;
@@ -162,7 +169,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One corridor */
+        /**
+         * One corridor
+         * @description A live corridor by ID, with its two areas. 404 NOT_FOUND for one that never existed or
+         *     was deleted.
+         */
         get: operations["corridors_get"];
         put?: never;
         post?: never;
@@ -180,6 +191,401 @@ export interface paths {
          *     CORRIDOR_IN_USE: a live route runs on it (move the routes first).
          */
         patch: operations["corridors_update"];
+        trace?: never;
+    };
+    "/v1/drivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Drivers, newest first
+         * @description `q` finds names, or plates (any case or spacing), starting with it; `is_active`
+         *     filters. Deleted drivers are not listed.
+         */
+        get: operations["drivers_list"];
+        put?: never;
+        /**
+         * Add a driver
+         * @description Requires `Idempotency-Key`. 409 DRIVER_EXISTS: a live driver has this phone; 409
+         *     PLATE_TAKEN: one has this plate.
+         */
+        post: operations["drivers_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/{driver_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One driver
+         * @description A live driver by ID, active or not; their phone in full. 404 NOT_FOUND for one that
+         *     never existed or was deleted.
+         */
+        get: operations["drivers_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a driver (admins only)
+         * @description Soft delete: hidden from lists, their phone and plate free again. 409
+         *     DRIVER_ASSIGNED while they drive a route.
+         */
+        delete: operations["drivers_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a driver, or deactivate them
+         * @description Leave out what stays. Setting what is there changes nothing. 409 DRIVER_ASSIGNED:
+         *     deactivating them while they drive a route (take them off it first).
+         */
+        patch: operations["drivers_update"];
+        trace?: never;
+    };
+    "/v1/offers/{offer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One offer
+         * @description `expired` once its 48 hours pass, whether or not anything ran since.
+         */
+        get: operations["offers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/offers/{offer_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept an offer for the person (by phone)
+         * @description Requires `Idempotency-Key`. The seat becomes theirs: a rider is made from the request
+         *     if they have none (A to B, round trip; edit it after), a place from the offer's 1st
+         *     (a reservation on a forming route); the request is fulfilled.
+         *
+         *     - 409 OFFER_CLOSED: accepted, withdrawn, or past its 48 hours.
+         *     - 409 RIDER_HAS_SEAT: they ride another route: move them instead (`PUT /v1/riders/{id}/seat`).
+         *     - 409 RIDER_EXISTS: another adult rider has the request's phone (staff sort out who is
+         *       who).
+         */
+        post: operations["offers_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/offers/{offer_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw an offer
+         * @description The person said no (or the offer was a mistake): the seat is free for the next
+         *     request. 409 OFFER_CLOSED when it isn't open.
+         */
+        post: operations["offers_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Counts for the home page
+         * @description Live records only: routes by status (forming ones ready to launch, active ones with
+         *     no driver), riders (riding today, reserved), open route requests and seat offers,
+         *     active drivers. A snapshot: counts can move a moment later. It takes no parameters:
+         *     422 VALIDATION_FAILED for any.
+         */
+        get: operations["overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Areas to choose from
+         * @description Oldest first. `q` finds names starting with it, ignoring case. 60 reads a minute
+         *     per caller, shared with `/v1/public/routes`.
+         */
+        get: operations["public_areas_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/offers/{offer_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept your offer (website)
+         * @description Public: the phone the request gave, verified (GZ-031; the token is spent). Requires
+         *     `Idempotency-Key`. 404 for an offer that isn't theirs, as for one that doesn't exist;
+         *     409 RIDER_EXISTS when another rider has their phone (call Gize). Limits: 5 an hour per
+         *     caller, 3 a day per phone.
+         */
+        post: operations["public_offers_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public routes for a trip
+         * @description Public routes taking a rider from `from_area_id` (A, or an area the route serves) to
+         *     `to_area_id` (B), oldest first: `forming` ones take reservations, `active` and `paused`
+         *     ones requests. Unknown areas list none. 60 reads a minute per caller, shared with
+         *     `/v1/public/areas`.
+         */
+        get: operations["public_routes_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/registrations/adult": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * An adult signs up
+         * @description Creates the rider (the phone is the token's) and, with a `route_id`: a reservation
+         *     on a `forming` route with a free seat, from the next 1st; a request for an `active` or
+         *     `paused` one (never a place directly: freed seats go to the oldest request). Without
+         *     one: a request for a route between the two areas, when no route takes them (forming
+         *     ones all full count as none). Requires `Idempotency-Key`; a retry with it replays the
+         *     answer, uncounted, even after the token has expired.
+         *
+         *     - 401 PHONE_NOT_VERIFIED: the token is missing, invalid, expired or already used:
+         *       verify the phone again.
+         *     - 409 RIDER_EXISTS: this phone already has a rider: call Gize to change it.
+         *     - 409 ROUTE_FULL: no seat left on the forming route; nothing was kept and the token
+         *       still works (pick another route, or ask without one).
+         *     - 409 ROUTE_REQUEST_EXISTS: the same request was recorded at the same moment. One
+         *       staff recorded earlier is linked to the rider instead (it keeps its place).
+         *     - 422 on `route_id`: not a route for these areas the app can sign up to, or none
+         *       chosen while one would take them; on `saturday`: the route has no Saturday add-on.
+         *     - 429 RATE_LIMITED: 5 an hour per caller, 3 a day per phone.
+         *     - 503 SERVICE_UNAVAILABLE: sign-up is switched off, or the limits can't be checked.
+         */
+        post: operations["registrations_adult"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/riders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Riders, newest first
+         * @description Each with the seat they hold (today or later) and their open requests; phones
+         *     masked. Deleted riders are not listed.
+         */
+        get: operations["riders_list"];
+        put?: never;
+        /**
+         * Record an adult rider
+         * @description Requires `Idempotency-Key`. 409 RIDER_EXISTS: a live adult has this phone. Areas
+         *     that don't exist (or are deleted) are a 422 on their field.
+         */
+        post: operations["riders_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/riders/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find riders by phone
+         * @description Reads only: a POST so the phone stays out of URLs and logs. Live riders with that
+         *     phone, newest first (none: an empty list).
+         */
+        post: operations["riders_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/riders/{rider_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One rider
+         * @description With the phone in full, the seat they hold and their open requests.
+         */
+        get: operations["riders_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a rider (admins only)
+         * @description Soft delete: hidden from lists, their phone free again; history keeps them. 409
+         *     RIDER_HAS_SEAT while they hold a seat today or later: end it first.
+         */
+        delete: operations["riders_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a rider
+         * @description Leave out what stays. Setting what is there changes nothing.
+         *
+         *     - 409 RIDER_EXISTS: another live adult has the new phone.
+         *     - 422 on an area or `saturday_addon`: the rider holds a seat and the change wouldn't
+         *       fit its route (boarding at A or an area it serves, going to B, Saturday where
+         *       offered), or the area doesn't exist.
+         */
+        patch: operations["riders_update"];
+        trace?: never;
+    };
+    "/v1/riders/{rider_id}/seat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give a rider a seat, or move them
+         * @description Requires `Idempotency-Key`. An adult rides a public route that takes their trip
+         *     (a reservation on a `forming` one, a place on an `active` one) from a 1st; a company
+         *     rider their company's route from any day. A move ends the seat they hold the day
+         *     before (a reservation just ends).
+         *
+         *     - 409 ROUTE_FULL: not a seat free on every day from the start (record a route request).
+         *     - 409 ROUTE_HAS_WAITING_REQUESTS: an adult on an active route ahead of other people's
+         *       open requests for it: send a `skip_reason` (kept and audited). Their own requests for
+         *       it are fulfilled.
+         *     - 409 ALREADY_ON_ROUTE: they hold a seat on it that isn't ending. On the route of a
+         *       seat they are leaving, the end is undone instead (and a move still to come ends).
+         *     - 409 RIDER_MOVING: a move is already planned: undo it first (place them back on
+         *       their current route).
+         *     - 409 ROUTE_NOT_READY: a company rider whose company isn't active.
+         *     - 422 on `route_id`: a route that doesn't take this rider, or a forming one for
+         *       someone riding now (it may launch late); on `start_date`: not a coming 1st for an
+         *       adult, past, or more than a year ahead.
+         */
+        put: operations["riders_place"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/riders/{rider_id}/seat/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A rider leaves their route
+         * @description Requires `Idempotency-Key`. An adult leaves at a month's end (this month's by
+         *     default; the seat stays empty until the next month), a company rider on any day (today
+         *     by default). A reservation, or a seat not started by then, ends at once.
+         *
+         *     - 409 RIDER_HAS_NO_SEAT: they hold none.
+         *     - 422 on `end_date`: not a month's last day for an adult, past, or more than a year
+         *       ahead.
+         */
+        post: operations["riders_end_seat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/route-requests": {
@@ -237,7 +643,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One route request */
+        /**
+         * One route request
+         * @description A live route request by ID, whatever its status. 404 NOT_FOUND for one that never
+         *     existed or was deleted.
+         */
         get: operations["route_requests_get"];
         put?: never;
         post?: never;
@@ -315,7 +725,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One route */
+        /**
+         * One route
+         * @description A live route by ID: seats taken and free (this month and next), launch progress, and
+         *     the status changes possible from here, each ready or blocked (`status_changes`). 404
+         *     NOT_FOUND for one that never existed or was deleted.
+         */
         get: operations["routes_get"];
         put?: never;
         post?: never;
@@ -356,6 +771,9 @@ export interface paths {
          * @description The areas the route passes between A and B, where riders board or get off, in order
          *     (no times: a route is A to B). The whole list at once; empty clears it. Not A or B
          *     themselves, each once, live areas, at most 20 (a 422 on `area_ids` otherwise).
+         *
+         *     - 409 ROUTE_HAS_RIDERS: the list drops an area where a rider holding a seat boards
+         *       (GZ-032).
          */
         put: operations["routes_set_areas"];
         post?: never;
@@ -393,6 +811,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/routes/{route_id}/driver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set who drives a route
+         * @description `driver_id`: an active driver, or null for none (GZ-053). A driver may drive several
+         *     routes whose runs don't overlap in time.
+         *
+         *     - 409 DRIVER_BUSY: one of their other routes runs at the same time.
+         *     - 422 on `driver_id`: unknown, deleted or inactive.
+         */
+        put: operations["routes_set_driver"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/routes/{route_id}/launch-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The SMS a route's launch sent its riders
+         * @description Each rider the latest launch started, and their SMS: `sent` (the gateway took it),
+         *     `sending` (right now), `unconfirmed` (no answer from the gateway: it may have arrived),
+         *     `failed` or `pending` (not tried yet; both resent by `POST .../retry`). Check it after
+         *     a launch: a restart midway leaves the rest `pending`. A route never launched has none.
+         */
+        get: operations["routes_launch_messages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/routes/{route_id}/launch-messages/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend a launch's failed SMS
+         * @description Requires `Idempotency-Key` (a retried request replays, starting nothing more).
+         *     Sends, after this answer, each `failed` or `pending` message again: never one `sent`,
+         *     `sending`, or `unconfirmed` (it may have arrived: call the rider if unsure). 202 with
+         *     the messages as they were.
+         */
+        post: operations["routes_retry_launch_messages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/routes/{route_id}/launch-months": {
         parameters: {
             query?: never;
@@ -417,6 +905,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/routes/{route_id}/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A route's offers, newest first
+         * @description Every offer the route made, whatever its status (`expired` once its 48 hours pass),
+         *     newest first. 404 NOT_FOUND for a route that never existed or was deleted.
+         */
+        get: operations["offers_list"];
+        put?: never;
+        /**
+         * Offer a route's free seat
+         * @description Requires `Idempotency-Key`. Offers the seat for 48 hours (it holds it meanwhile) to
+         *     the oldest adult request waiting for the route (asked for it, or matched to it), or to
+         *     `request_id` (ahead of older ones: a `skip_reason`, audited). The person gets an SMS
+         *     after the answer (`sms_status` on the offer; a failure keeps it: call them).
+         *
+         *     - 409 ROUTE_NOT_READY: not a forming or active public route.
+         *     - 409 ROUTE_FULL: no seat free from the start (riders and open offers counted).
+         *     - 409 NO_WAITING_REQUESTS: nobody waits for the route.
+         *     - 409 ROUTE_HAS_WAITING_REQUESTS: `request_id` passes older requests: send a reason.
+         *     - 409 OFFER_OPEN: that request has an open offer.
+         *     - 422 on `request_id`: not waiting for this route; on `start_date`: not a coming 1st.
+         */
+        post: operations["offers_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/routes/{route_id}/prices": {
         parameters: {
             query?: never;
@@ -431,6 +954,8 @@ export interface paths {
          *     (left out or null: none). Staff can't change prices through any endpoint.
          *
          *     - 409 ROUTE_HAS_NO_PRICES: a corporate route (billed per company).
+         *     - 409 ROUTE_HAS_RIDERS: clearing the Saturday price while a rider holding a seat has
+         *       the add-on (GZ-032).
          *
          *     A malformed body is a 422 before the route is looked at (so before any 404 or 409).
          */
@@ -466,6 +991,9 @@ export interface paths {
          *       route starting while its company isn't active.
          *     - 409 NOT_ENOUGH_RIDERS: fewer riders reserved for the launch month than the minimum.
          *     - 409 ROUTE_HAS_RIDERS: back to draft while someone is reserved (today or later).
+         *
+         *     After a launch, each rider it started gets an SMS, sent after this answer (GZ-041;
+         *     see `GET /launch-messages`). A repeated launch sends nothing more.
          */
         put: operations["routes_set_status"];
         post?: never;
@@ -533,7 +1061,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One staff member (admins only) */
+        /**
+         * One staff member (admins only)
+         * @description Admins only (403 FORBIDDEN otherwise). A staff member by ID, active or not. 404
+         *     NOT_FOUND for an ID that isn't staff.
+         */
         get: operations["staff_get"];
         put?: never;
         post?: never;
@@ -551,10 +1083,131 @@ export interface paths {
         patch: operations["staff_update"];
         trace?: never;
     };
+    "/v1/verification/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a code to a phone
+         * @description Sends a six-digit code by SMS, valid 10 minutes, then answers with the verification
+         *     to check it against. Requires `Idempotency-Key`: a retry with it never sends a second
+         *     SMS, except after a 503 SMS_UNAVAILABLE (nothing went out; the retry tries again).
+         *
+         *     - 429 RATE_LIMITED: 3 codes an hour per phone, 10 per caller.
+         *     - 503 SMS_UNAVAILABLE: the SMS couldn't be sent (Retry-After).
+         *     - 503 SERVICE_UNAVAILABLE: verification is switched off, or the limits can't be checked.
+         */
+        post: operations["verification_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/verification/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a code; get a verified-phone token
+         * @description The right code answers a token proving the phone, valid 30 minutes and good for one
+         *     sign-up. Not idempotent: a retry after a lost answer finds the code used (410) and the
+         *     app asks for a new one.
+         *
+         *     - 422 VERIFICATION_CODE_INVALID: wrong code (five tries per code).
+         *     - 410 VERIFICATION_EXPIRED: expired, already used, out of tries, or unknown: ask for a
+         *       new code.
+         *     - 429 RATE_LIMITED: 30 checks an hour per caller.
+         */
+        post: operations["verification_verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActiveCount */
+        ActiveCount: {
+            /** Active */
+            active: number;
+        };
+        /** AdultRegistered */
+        AdultRegistered: {
+            /** @description `reserved`: a seat on a forming route, from `start_date` once it launches. `requested`: a request for the route (or the areas); Gize offers a seat when one frees up or a route starts. */
+            outcome: components["schemas"]["RegistrationOutcome"];
+            /**
+             * Rider Id
+             * Format: uuid
+             */
+            rider_id: string;
+            /**
+             * Route Id
+             * @description The route reserved on or asked for.
+             */
+            route_id: string | null;
+            /**
+             * Route Request Id
+             * @description Requested only.
+             */
+            route_request_id: string | null;
+            /**
+             * Start Date
+             * @description Reserved only: the 1st the seat is held from (riding starts when the route launches, on this day or a later 1st).
+             */
+            start_date: string | null;
+        };
+        /**
+         * AdultRegistration
+         * @description An adult signing themselves up. The phone is the one the token proves (GZ-031).
+         */
+        AdultRegistration: {
+            /**
+             * Destination Area Id
+             * Format: uuid
+             * @description Where they go: B.
+             */
+            destination_area_id: string;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Home Area Id
+             * Format: uuid
+             * @description Where they board: A, or an area served.
+             */
+            home_area_id: string;
+            /** @description `morning`: A to B only; `evening`: B to A only. */
+            plan: components["schemas"]["RiderPlan"];
+            /**
+             * Route Id
+             * @description A route from `GET /v1/public/routes` for these areas. None: ask for a route between them.
+             */
+            route_id?: string | null;
+            /**
+             * Saturday
+             * @description The Saturday add-on (a route offering it).
+             * @default false
+             */
+            saturday: boolean;
+            /**
+             * Verified Phone Token
+             * @description From `POST /v1/verification/verify`: valid 30 minutes, for one sign-up.
+             */
+            verified_phone_token: string;
+        };
         /**
          * AreaPage
          * @description A page of areas (a named schema: generated clients keep the name).
@@ -614,6 +1267,11 @@ export interface components {
             /** Name */
             name: string;
         };
+        /**
+         * AssignmentStatus
+         * @enum {string}
+         */
+        AssignmentStatus: "reserved" | "active" | "ended";
         /**
          * AuditEntryPage
          * @description A page of the audit log (a named schema: generated clients keep the name).
@@ -836,11 +1494,104 @@ export interface components {
             origin_area_id?: string;
         };
         /**
+         * DriverCreate
+         * @description A driver: the phone typed any usual way (stored `+2519…`), the plate any case or
+         *     spacing (stored in capitals, single spaces).
+         */
+        DriverCreate: {
+            /** Address */
+            address: string;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Phone
+             * @description An Ethiopian mobile, any usual spelling; stored as +2519… or +2517…
+             */
+            phone: string;
+            /**
+             * Plate
+             * @description The van they drive, e.g. AA 3-B12345.
+             */
+            plate: string;
+        };
+        /**
+         * DriverPage
+         * @description A page of drivers (a named schema: generated clients keep the name).
+         */
+        DriverPage: {
+            /** Items */
+            items: components["schemas"]["DriverRead"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** DriverRead */
+        DriverRead: {
+            /** Address */
+            address: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Phone
+             * @description E.164, +2519…/+2517…
+             */
+            phone: string;
+            /** Plate */
+            plate: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** DriverRef */
+        DriverRef: {
+            /** Full Name */
+            full_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Plate */
+            plate: string;
+        };
+        /**
+         * DriverUpdate
+         * @description Change any of these (leave out what stays). `is_active: false` deactivates them.
+         */
+        DriverUpdate: {
+            /** Address */
+            address?: string;
+            /** Full Name */
+            full_name?: string;
+            /** Is Active */
+            is_active?: boolean;
+            /**
+             * Phone
+             * @description An Ethiopian mobile, any usual spelling; stored as +2519… or +2517…
+             */
+            phone?: string;
+            /** Plate */
+            plate?: string;
+        };
+        /**
          * ErrorCode
          * @description Stable error codes: never rename or reuse one; only add.
          * @enum {string}
          */
-        ErrorCode: "BAD_REQUEST" | "CORS_PREFLIGHT_REJECTED" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "PAYLOAD_TOO_LARGE" | "VALIDATION_FAILED" | "INVALID_CURSOR" | "IDEMPOTENCY_KEY_REQUIRED" | "IDEMPOTENCY_KEY_MISMATCH" | "IDEMPOTENCY_IN_PROGRESS" | "RATE_LIMITED" | "STAFF_EMAIL_TAKEN" | "AUTH_ACCOUNT_EXISTS" | "LAST_ACTIVE_ADMIN" | "AREA_NAME_TAKEN" | "AREA_IN_USE" | "CORRIDOR_EXISTS" | "COMPANY_NAME_TAKEN" | "ROUTE_CODE_TAKEN" | "SEATS_BELOW_TAKEN" | "SEATS_BELOW_LAUNCH_MINIMUM" | "ROUTE_HAS_RIDERS" | "CORRIDOR_IN_USE" | "COMPANY_IN_USE" | "ROUTE_HAS_NO_PRICES" | "ROUTE_NOT_READY" | "NOT_ENOUGH_RIDERS" | "INVALID_STATUS_CHANGE" | "ROUTE_REQUEST_EXISTS" | "ROUTE_HAS_REQUESTS" | "ROUTE_HAS_PRICES" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE";
+        ErrorCode: "BAD_REQUEST" | "CORS_PREFLIGHT_REJECTED" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "PAYLOAD_TOO_LARGE" | "VALIDATION_FAILED" | "INVALID_CURSOR" | "IDEMPOTENCY_KEY_REQUIRED" | "IDEMPOTENCY_KEY_MISMATCH" | "IDEMPOTENCY_IN_PROGRESS" | "RATE_LIMITED" | "STAFF_EMAIL_TAKEN" | "AUTH_ACCOUNT_EXISTS" | "LAST_ACTIVE_ADMIN" | "AREA_NAME_TAKEN" | "AREA_IN_USE" | "CORRIDOR_EXISTS" | "COMPANY_NAME_TAKEN" | "ROUTE_CODE_TAKEN" | "SEATS_BELOW_TAKEN" | "SEATS_BELOW_LAUNCH_MINIMUM" | "ROUTE_HAS_RIDERS" | "CORRIDOR_IN_USE" | "COMPANY_IN_USE" | "ROUTE_HAS_NO_PRICES" | "ROUTE_NOT_READY" | "NOT_ENOUGH_RIDERS" | "INVALID_STATUS_CHANGE" | "ROUTE_REQUEST_EXISTS" | "ROUTE_HAS_REQUESTS" | "ROUTE_HAS_PRICES" | "SMS_UNAVAILABLE" | "VERIFICATION_CODE_INVALID" | "VERIFICATION_EXPIRED" | "PHONE_NOT_VERIFIED" | "RIDER_EXISTS" | "ROUTE_FULL" | "RIDER_HAS_SEAT" | "RIDER_HAS_NO_SEAT" | "ALREADY_ON_ROUTE" | "RIDER_MOVING" | "ROUTE_HAS_WAITING_REQUESTS" | "OFFER_OPEN" | "OFFER_CLOSED" | "NO_WAITING_REQUESTS" | "DRIVER_EXISTS" | "PLATE_TAKEN" | "DRIVER_BUSY" | "DRIVER_ASSIGNED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE";
         /** FieldError */
         FieldError: {
             /** Field */
@@ -851,6 +1602,59 @@ export interface components {
              */
             location: "body" | "query" | "path" | "header" | "cookie";
             reason: components["schemas"]["ValidationReason"];
+        };
+        /** LaunchMessage */
+        LaunchMessage: {
+            /**
+             * Attempts
+             * @description SMS sent or tried for this launch.
+             */
+            attempts: number;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Rider Id
+             * Format: uuid
+             */
+            rider_id: string;
+            /**
+             * Start Date
+             * Format: date
+             * @description Their first day, as the SMS says.
+             */
+            start_date: string;
+            status: components["schemas"]["LaunchMessageStatus"];
+        };
+        /**
+         * LaunchMessageStatus
+         * @enum {string}
+         */
+        LaunchMessageStatus: "sent" | "sending" | "unconfirmed" | "failed" | "pending";
+        /**
+         * LaunchMessages
+         * @description The SMS the route's latest launch sends its riders (one each; never a second once
+         *     one was sent). A route never launched has none.
+         */
+        LaunchMessages: {
+            /** Failed */
+            failed: number;
+            /** Launch Date */
+            launch_date: string | null;
+            /** Pending */
+            pending: number;
+            /** Riders */
+            riders: components["schemas"]["LaunchMessage"][];
+            /** Sending */
+            sending: number;
+            /** Sent */
+            sent: number;
+            /** Total */
+            total: number;
+            /**
+             * Unconfirmed
+             * @description May have arrived: not resent; call if unsure.
+             */
+            unconfirmed: number;
         };
         /** LaunchMonth */
         LaunchMonth: {
@@ -881,6 +1685,128 @@ export interface components {
             this_month: number;
         };
         /**
+         * OfferCreate
+         * @description Offer the route's free seat. Leave `request_id` out for the oldest request waiting
+         *     for the route; another one ahead of older ones needs `skip_reason` (audited).
+         *     `start_date`: on an active route, the 1st the seat is free from (the next by default);
+         *     a forming route's offer is a reservation from the next 1st.
+         */
+        OfferCreate: {
+            /** Request Id */
+            request_id?: string | null;
+            /** Skip Reason */
+            skip_reason?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /**
+         * OfferPage
+         * @description A page of offers (a named schema: generated clients keep the name).
+         */
+        OfferPage: {
+            /** Items */
+            items: components["schemas"]["OfferRead"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** OfferRead */
+        OfferRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /**
+             * Rider Id
+             * @description Accepted: the rider who took the seat.
+             */
+            rider_id: string | null;
+            /**
+             * Rider Name
+             * @description Who asked.
+             */
+            rider_name: string;
+            /** Route Code */
+            route_code: string;
+            /**
+             * Route Id
+             * Format: uuid
+             */
+            route_id: string;
+            /** Skip Reason */
+            skip_reason: string | null;
+            /** @description The offer's SMS: `sent`, `failed` (call them) or `sending`. */
+            sms_status: components["schemas"]["SmsStatus"] | null;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /** @description `open` (holds the seat until `expires_at`), `accepted`, `expired` or `withdrawn`. */
+            status: components["schemas"]["OfferStatus"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * OfferStatus
+         * @enum {string}
+         */
+        OfferStatus: "open" | "accepted" | "expired" | "withdrawn";
+        /** OpenCount */
+        OpenCount: {
+            /** Open */
+            open: number;
+        };
+        /**
+         * Overview
+         * @description Counts for the admin home page, live records only, as of `as_of` (Addis Ababa).
+         */
+        Overview: {
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            drivers: components["schemas"]["ActiveCount"];
+            riders: components["schemas"]["RiderCounts"];
+            /** @description New or matched. */
+            route_requests: components["schemas"]["OpenCount"];
+            routes: components["schemas"]["RouteCounts"];
+            /** @description Open, within their 48 hours, their request still waiting: the seats offers hold. */
+            seat_offers: components["schemas"]["OpenCount"];
+        };
+        /** PhoneVerified */
+        PhoneVerified: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Verified Phone Token
+             * @description Present it when signing up, within 30 minutes; it works once.
+             */
+            verified_phone_token: string;
+        };
+        /**
          * Prices
          * @description Whole birr a month; null until an admin sets them (GZ-022). Saturday: public only.
          */
@@ -908,6 +1834,119 @@ export interface components {
             type: string;
         };
         /**
+         * PublicAreaPage
+         * @description A page of areas (a named schema: generated clients keep the name).
+         */
+        PublicAreaPage: {
+            /** Items */
+            items: components["schemas"]["AreaRef"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * PublicOfferAccept
+         * @description The asker's phone, verified (GZ-031): it must be the request's.
+         */
+        PublicOfferAccept: {
+            /** Verified Phone Token */
+            verified_phone_token: string;
+        };
+        /**
+         * PublicOfferAccepted
+         * @description What the website shows: nothing about anyone else.
+         */
+        PublicOfferAccepted: {
+            /** Route Code */
+            route_code: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            status: components["schemas"]["OfferStatus"];
+        };
+        /**
+         * PublicPrices
+         * @description Whole birr a month. Saturday: an add-on, when the route offers one.
+         */
+        PublicPrices: {
+            /** One Way */
+            one_way: number;
+            /** Round Trip */
+            round_trip: number;
+            /** Saturday */
+            saturday: number | null;
+        };
+        /** PublicRoute */
+        PublicRoute: {
+            /** Code */
+            code: string;
+            /** @description B: where the morning run ends. */
+            destination_area: components["schemas"]["AreaRef"];
+            /**
+             * Full
+             * @description No free seat from the next 1st (today, on the 1st): the earliest a new rider could start. On a running route, a seat freed later goes to the oldest request.
+             */
+            full: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Morning Arrival Time
+             * @description Arrives at B (null only on routes made before arrival times existed).
+             */
+            morning_arrival_time: string | null;
+            /**
+             * Morning Time
+             * @description Leaves A.
+             */
+            morning_time: string;
+            /** @description A: where the morning run starts. */
+            origin_area: components["schemas"]["AreaRef"];
+            prices: components["schemas"]["PublicPrices"];
+            /**
+             * Return Arrival Time
+             * @description Arrives at A (null only on routes made before arrival times existed).
+             */
+            return_arrival_time: string | null;
+            /**
+             * Return Time
+             * @description Leaves B.
+             */
+            return_time: string;
+            /**
+             * Served Areas
+             * @description Areas passed between A and B, in order.
+             */
+            served_areas: components["schemas"]["AreaRef"][];
+            /** @description `forming`: a sign-up reserves a seat until it launches (unless full). `active` or `paused`: a sign-up becomes a request for a seat. */
+            status: components["schemas"]["RouteStatus"];
+        };
+        /**
+         * PublicRoutePage
+         * @description A page of public routes (a named schema: generated clients keep the name).
+         */
+        PublicRoutePage: {
+            /** Items */
+            items: components["schemas"]["PublicRoute"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * RecordedType
+         * @description The riders staff record: adults (who may also sign up themselves) and company
+         *     riders.
+         * @enum {string}
+         */
+        RecordedType: "adult" | "corporate";
+        /**
+         * RegistrationOutcome
+         * @enum {string}
+         */
+        RegistrationOutcome: "reserved" | "requested";
+        /**
          * RequestKind
          * @enum {string}
          */
@@ -922,12 +1961,222 @@ export interface components {
          * @enum {string}
          */
         RequestStatus: "new" | "matched" | "fulfilled" | "declined";
+        /** RiderCounts */
+        RiderCounts: {
+            /**
+             * Reserved
+             * @description Holding a reservation on a forming route.
+             */
+            reserved: number;
+            /**
+             * Riding
+             * @description Holding an active seat today.
+             */
+            riding: number;
+            /** Total */
+            total: number;
+        };
         /**
-         * RiderType
-         * @description Individual riders only: company riders come through their company.
+         * RiderCreate
+         * @description A rider recorded by staff. The phone may be typed any usual way (`0911 23 45 67`);
+         *     it is stored `+251911234567`.
+         *
+         *     - `adult` (from a phone call): home and destination areas, plan, Saturday add-on.
+         *     - `corporate` (GZ-035): their `company_id` and where they board (`home_area_id`); no
+         *       destination (they ride to the route's B), plan or Saturday (the company is billed).
+         */
+        RiderCreate: {
+            /**
+             * Company Id
+             * Format: uuid
+             * @description Company riders only.
+             */
+            company_id?: string;
+            /**
+             * Destination Area Id
+             * Format: uuid
+             * @description Where they go (adults only).
+             */
+            destination_area_id?: string;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Home Area Id
+             * Format: uuid
+             * @description Where they board.
+             */
+            home_area_id: string;
+            /**
+             * Phone
+             * @description An Ethiopian mobile, any usual spelling; stored as +2519… or +2517…
+             */
+            phone: string;
+            /** @description Adults only. `morning`: A to B only; `evening`: B to A. */
+            plan?: components["schemas"]["RiderPlan"];
+            /** @default adult */
+            rider_type: components["schemas"]["RecordedType"];
+            /**
+             * Saturday Addon
+             * @default false
+             */
+            saturday_addon: boolean;
+        };
+        /** RiderListItem */
+        RiderListItem: {
+            /** @description Company riders only. */
+            company: components["schemas"]["CompanyRef"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            destination_area: components["schemas"]["AreaRef"] | null;
+            /** Full Name */
+            full_name: string;
+            home_area: components["schemas"]["AreaRef"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** @description While moving: the seat that starts after `seat` ends (GZ-035). */
+            next_seat: components["schemas"]["SeatRef"] | null;
+            /**
+             * Open Requests
+             * @description Their open route requests (new or matched).
+             */
+            open_requests: number;
+            /**
+             * Phone Masked
+             * @description `+2519****4567`: enough to tell callers apart.
+             */
+            phone_masked: string | null;
+            plan: components["schemas"]["RiderPlan"] | null;
+            rider_type: components["schemas"]["gize_api__riders__models__RiderType"];
+            /** Saturday Addon */
+            saturday_addon: boolean;
+            /** @description The seat held now, or the next to start. */
+            seat: components["schemas"]["SeatRef"] | null;
+            /** @description `app`: signed up themselves; `staff`: recorded. */
+            source: components["schemas"]["RiderSource"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * RiderLookup
+         * @description A phone, typed any usual way: in the body, so it never reaches a URL or a log.
+         */
+        RiderLookup: {
+            /**
+             * Phone
+             * @description An Ethiopian mobile, any usual spelling; stored as +2519… or +2517…
+             */
+            phone: string;
+        };
+        /**
+         * RiderMatches
+         * @description Live riders with this phone (at most one adult; company riders may share later).
+         */
+        RiderMatches: {
+            /** Items */
+            items: components["schemas"]["RiderListItem"][];
+        };
+        /**
+         * RiderPage
+         * @description A page of riders (a named schema: generated clients keep the name).
+         */
+        RiderPage: {
+            /** Items */
+            items: components["schemas"]["RiderListItem"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * RiderPlan
          * @enum {string}
          */
-        RiderType: "adult" | "student";
+        RiderPlan: "round_trip" | "morning" | "evening";
+        /** RiderRead */
+        RiderRead: {
+            /** @description Company riders only. */
+            company: components["schemas"]["CompanyRef"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            destination_area: components["schemas"]["AreaRef"] | null;
+            /** Full Name */
+            full_name: string;
+            home_area: components["schemas"]["AreaRef"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** @description While moving: the seat that starts after `seat` ends (GZ-035). */
+            next_seat: components["schemas"]["SeatRef"] | null;
+            /**
+             * Open Requests
+             * @description Their open route requests (new or matched).
+             */
+            open_requests: number;
+            /**
+             * Phone
+             * @description E.164, in full.
+             */
+            phone: string | null;
+            plan: components["schemas"]["RiderPlan"] | null;
+            rider_type: components["schemas"]["gize_api__riders__models__RiderType"];
+            /** Saturday Addon */
+            saturday_addon: boolean;
+            /** @description The seat held now, or the next to start. */
+            seat: components["schemas"]["SeatRef"] | null;
+            /** @description `app`: signed up themselves; `staff`: recorded. */
+            source: components["schemas"]["RiderSource"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * RiderSource
+         * @enum {string}
+         */
+        RiderSource: "app" | "staff";
+        /**
+         * RiderUpdate
+         * @description Change any of these (leave out what stays). A rider holding a seat must still fit
+         *     its route: boarding at A or an area it serves, going to B, Saturday only where offered
+         *     (a 422 on the field otherwise). Company riders change only their name, phone and where
+         *     they board; their company doesn't change (record them again).
+         */
+        RiderUpdate: {
+            /**
+             * Destination Area Id
+             * Format: uuid
+             */
+            destination_area_id?: string;
+            /** Full Name */
+            full_name?: string;
+            /**
+             * Home Area Id
+             * Format: uuid
+             */
+            home_area_id?: string;
+            /**
+             * Phone
+             * @description An Ethiopian mobile, any usual spelling; stored as +2519… or +2517…
+             */
+            phone?: string;
+            plan?: components["schemas"]["RiderPlan"];
+            /** Saturday Addon */
+            saturday_addon?: boolean;
+        };
         /**
          * RouteAreasSet
          * @description The areas the route passes between A and B, in order: the whole list (empty: none).
@@ -959,6 +2208,24 @@ export interface components {
             launch_minimum?: number | null;
             /** Seats */
             seats: number;
+        };
+        /** RouteCounts */
+        RouteCounts: {
+            /** Active */
+            active: number;
+            /** Active Without Driver */
+            active_without_driver: number;
+            /** Draft */
+            draft: number;
+            /** Forming */
+            forming: number;
+            /** Paused */
+            paused: number;
+            /**
+             * Ready To Launch
+             * @description Forming routes whose riders reserved for the next launch day reach their launch minimum.
+             */
+            ready_to_launch: number;
         };
         /**
          * RouteCreate
@@ -1013,6 +2280,14 @@ export interface components {
             /** Seats Free Next Month */
             seats_free_next_month: number;
             status: components["schemas"]["RouteStatus"];
+        };
+        /**
+         * RouteDriverSet
+         * @description The route's driver: an active driver, or null for none.
+         */
+        RouteDriverSet: {
+            /** Driver Id */
+            driver_id: string | null;
         };
         /**
          * RouteLaunchMonths
@@ -1071,6 +2346,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** @description Who drives it (GZ-053). */
+            driver: components["schemas"]["DriverRef"] | null;
             /**
              * Id
              * Format: uuid
@@ -1184,7 +2461,7 @@ export interface components {
              * @description Who will ride: a student's own name.
              */
             rider_name: string;
-            rider_type: components["schemas"]["RiderType"];
+            rider_type: components["schemas"]["gize_api__route_requests__models__RiderType"];
             /** Route Id */
             route_id?: string | null;
             /** School Name */
@@ -1241,7 +2518,7 @@ export interface components {
             preferred_return_time: string | null;
             /** Rider Name */
             rider_name: string;
-            rider_type: components["schemas"]["RiderType"];
+            rider_type: components["schemas"]["gize_api__route_requests__models__RiderType"];
             /** @description The route asked for (kind `route`). */
             route: components["schemas"]["RouteRef"] | null;
             /** School Name */
@@ -1392,6 +2669,74 @@ export interface components {
             seats?: number;
         };
         /**
+         * SeatEnd
+         * @description When the rider leaves: an adult at a month's end (this month's by default); a
+         *     company rider on any day (today by default). A reservation, or a seat that hasn't
+         *     started by then, ends at once (it never rode).
+         */
+        SeatEnd: {
+            /**
+             * End Date
+             * @description The last day they ride.
+             */
+            end_date?: string | null;
+        };
+        /**
+         * SeatPlacement
+         * @description The route to place the rider on (or move them to).
+         *
+         *     - `start_date`: an adult starts on a 1st (the next by default, at most a year ahead);
+         *       a company rider on any day (today by default, at most a year ahead).
+         *     - `skip_reason`: needed to place an adult on an active route ahead of other people's
+         *       open requests for it (kept with the seat and audited).
+         */
+        SeatPlacement: {
+            /**
+             * Route Id
+             * Format: uuid
+             */
+            route_id: string;
+            /** Skip Reason */
+            skip_reason?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /**
+         * SeatRef
+         * @description A seat the rider holds today or later.
+         */
+        SeatRef: {
+            /**
+             * End Date
+             * @description The last day held; null: ongoing.
+             */
+            end_date: string | null;
+            /** Route Code */
+            route_code: string;
+            /**
+             * Route Id
+             * Format: uuid
+             */
+            route_id: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /** @description `reserved` (forming route) or `active`. */
+            status: components["schemas"]["AssignmentStatus"];
+        };
+        /**
+         * SeatState
+         * @enum {string}
+         */
+        SeatState: "reserved" | "active" | "none";
+        /**
+         * SmsStatus
+         * @enum {string}
+         */
+        SmsStatus: "sending" | "sent" | "failed";
+        /**
          * StaffInvite
          * @description Who to invite. Supabase emails them a link to set a password; they are active staff
          *     from the start, and can sign in once they have accepted.
@@ -1529,6 +2874,55 @@ export interface components {
          * @enum {string}
          */
         ValidationReason: "missing" | "unknown_field" | "too_long" | "too_short" | "out_of_range" | "invalid_type" | "invalid_format" | "not_allowed" | "invalid_json" | "invalid";
+        /** VerificationCheck */
+        VerificationCheck: {
+            /**
+             * Code
+             * @description The six digits from the SMS (ASCII digits only).
+             */
+            code: string;
+            /**
+             * Verification Id
+             * Format: uuid
+             */
+            verification_id: string;
+        };
+        /**
+         * VerificationRequest
+         * @description The phone to verify, typed any usual way (`0911 23 45 67`); an Ethiopian mobile.
+         */
+        VerificationRequest: {
+            /**
+             * Phone
+             * @description An Ethiopian mobile, any usual spelling; stored as +2519… or +2517…
+             */
+            phone: string;
+        };
+        /** VerificationSent */
+        VerificationSent: {
+            /**
+             * Expires At
+             * Format: date-time
+             * @description The code works until then (10 minutes).
+             */
+            expires_at: string;
+            /**
+             * Verification Id
+             * Format: uuid
+             */
+            verification_id: string;
+        };
+        /**
+         * RiderType
+         * @enum {string}
+         */
+        gize_api__riders__models__RiderType: "adult" | "student" | "corporate";
+        /**
+         * RiderType
+         * @description Individual riders only: company riders come through their company.
+         * @enum {string}
+         */
+        gize_api__route_requests__models__RiderType: "adult" | "student";
     };
     responses: never;
     parameters: never;
@@ -1557,6 +2951,19 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "created_at": "2026-10-01T06:30:00Z",
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *           "name": "Bole",
+                     *           "updated_at": "2026-11-14T09:15:00Z"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
                     "application/json": components["schemas"]["AreaPage"];
                 };
             };
@@ -1640,6 +3047,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *       "name": "Bole",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["AreaRead"];
                 };
             };
@@ -1743,6 +3158,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *       "name": "Bole",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["AreaRead"];
                 };
             };
@@ -1924,6 +3347,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *       "name": "Bole",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["AreaRead"];
                 };
             };
@@ -2031,6 +3462,28 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "action": "driver.updated",
+                     *           "actor_staff_id": "7cd08e9f-1dab-4a2f-8b5c-8d9e0f1a2b01",
+                     *           "after": {
+                     *             "is_active": false
+                     *           },
+                     *           "before": {
+                     *             "is_active": true
+                     *           },
+                     *           "created_at": "2026-11-14T09:15:00Z",
+                     *           "entity_id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *           "entity_type": "driver",
+                     *           "id": "a0f3b1c2-4ade-4d5c-9e8f-1a2b3c4d5e01",
+                     *           "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
                     "application/json": components["schemas"]["AuditEntryPage"];
                 };
             };
@@ -2110,6 +3563,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "billing": "postpaid",
+                     *           "contact_email": "transport@example.com",
+                     *           "contact_name": "Hanna Bekele",
+                     *           "contact_phone": "+251911000101",
+                     *           "created_at": "2026-10-01T06:30:00Z",
+                     *           "id": "8de19fa0-2ebc-4b3a-9c6d-9e0f1a2b3c01",
+                     *           "is_active": true,
+                     *           "name": "Lucy Software PLC",
+                     *           "notes": null,
+                     *           "updated_at": "2026-11-14T09:15:00Z"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
                     "application/json": components["schemas"]["CompanyPage"];
                 };
             };
@@ -2193,6 +3665,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "billing": "postpaid",
+                     *       "contact_email": "transport@example.com",
+                     *       "contact_name": "Hanna Bekele",
+                     *       "contact_phone": "+251911000101",
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "id": "8de19fa0-2ebc-4b3a-9c6d-9e0f1a2b3c01",
+                     *       "is_active": true,
+                     *       "name": "Lucy Software PLC",
+                     *       "notes": null,
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["CompanyRead"];
                 };
             };
@@ -2296,6 +3782,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "billing": "postpaid",
+                     *       "contact_email": "transport@example.com",
+                     *       "contact_name": "Hanna Bekele",
+                     *       "contact_phone": "+251911000101",
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "id": "8de19fa0-2ebc-4b3a-9c6d-9e0f1a2b3c01",
+                     *       "is_active": true,
+                     *       "name": "Lucy Software PLC",
+                     *       "notes": null,
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["CompanyRead"];
                 };
             };
@@ -2477,6 +3977,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "billing": "postpaid",
+                     *       "contact_email": "transport@example.com",
+                     *       "contact_name": "Hanna Bekele",
+                     *       "contact_phone": "+251911000101",
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "id": "8de19fa0-2ebc-4b3a-9c6d-9e0f1a2b3c01",
+                     *       "is_active": true,
+                     *       "name": "Lucy Software PLC",
+                     *       "notes": null,
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["CompanyRead"];
                 };
             };
@@ -2583,6 +4097,26 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "created_at": "2026-10-01T06:30:00Z",
+                     *           "destination_area": {
+                     *             "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *             "name": "Bole"
+                     *           },
+                     *           "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *           "origin_area": {
+                     *             "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *             "name": "CMC"
+                     *           },
+                     *           "updated_at": "2026-11-14T09:15:00Z"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
                     "application/json": components["schemas"]["CorridorPage"];
                 };
             };
@@ -2666,6 +4200,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "destination_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *         "name": "Bole"
+                     *       },
+                     *       "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *       "origin_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *         "name": "CMC"
+                     *       },
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["CorridorRead"];
                 };
             };
@@ -2769,6 +4318,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "destination_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *         "name": "Bole"
+                     *       },
+                     *       "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *       "origin_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *         "name": "CMC"
+                     *       },
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["CorridorRead"];
                 };
             };
@@ -2950,6 +4514,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "destination_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *         "name": "Bole"
+                     *       },
+                     *       "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *       "origin_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *         "name": "CMC"
+                     *       },
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["CorridorRead"];
                 };
             };
@@ -3036,6 +4615,2388 @@ export interface operations {
             };
         };
     };
+    drivers_list: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+                q?: string | null;
+                is_active?: boolean | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "address": "Bole, Woreda 03",
+                     *           "created_at": "2026-10-01T06:30:00Z",
+                     *           "full_name": "Dawit Alemu",
+                     *           "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *           "is_active": true,
+                     *           "phone": "+251911000201",
+                     *           "plate": "AA 3-B12345",
+                     *           "updated_at": "2026-11-14T09:15:00Z"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
+                    "application/json": components["schemas"]["DriverPage"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid Cursor, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    drivers_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One per user action, reused on every retry of it (api-contract.md). */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriverCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description The new driver. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "address": "Bole, Woreda 03",
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "full_name": "Dawit Alemu",
+                     *       "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *       "is_active": true,
+                     *       "phone": "+251911000201",
+                     *       "plate": "AA 3-B12345",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["DriverRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Driver Exists, Plate Taken, Request In Progress */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Mismatch, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    drivers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                driver_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "address": "Bole, Woreda 03",
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "full_name": "Dawit Alemu",
+                     *       "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *       "is_active": true,
+                     *       "phone": "+251911000201",
+                     *       "plate": "AA 3-B12345",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["DriverRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    drivers_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                driver_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Driver Assigned */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    drivers_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                driver_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriverUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "address": "Bole, Woreda 03",
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "full_name": "Dawit Alemu",
+                     *       "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *       "is_active": true,
+                     *       "phone": "+251911000201",
+                     *       "plate": "AA 3-B12345",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["DriverRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Driver Assigned, Driver Exists, Plate Taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    offers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-11-14T09:15:00Z",
+                     *       "expires_at": "2026-11-16T09:15:00Z",
+                     *       "id": "5abe6c7d-9b8f-4e0d-8f3a-6b7c8d9e0f01",
+                     *       "request_id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *       "rider_id": null,
+                     *       "rider_name": "Meron Haile",
+                     *       "route_code": "CMC-BOLE-1",
+                     *       "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "skip_reason": null,
+                     *       "sms_status": "sent",
+                     *       "start_date": "2026-12-01",
+                     *       "status": "open",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    offers_accept: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One per user action, reused on every retry of it (api-contract.md). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-11-14T09:15:00Z",
+                     *       "expires_at": "2026-11-16T09:15:00Z",
+                     *       "id": "5abe6c7d-9b8f-4e0d-8f3a-6b7c8d9e0f01",
+                     *       "request_id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *       "rider_id": null,
+                     *       "rider_name": "Meron Haile",
+                     *       "route_code": "CMC-BOLE-1",
+                     *       "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "skip_reason": null,
+                     *       "sms_status": "sent",
+                     *       "start_date": "2026-12-01",
+                     *       "status": "open",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Offer Closed, Request In Progress, Rider Exists, Rider Has Seat, Route Full */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Mismatch, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    offers_withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-11-14T09:15:00Z",
+                     *       "expires_at": "2026-11-16T09:15:00Z",
+                     *       "id": "5abe6c7d-9b8f-4e0d-8f3a-6b7c8d9e0f01",
+                     *       "request_id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *       "rider_id": null,
+                     *       "rider_name": "Meron Haile",
+                     *       "route_code": "CMC-BOLE-1",
+                     *       "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "skip_reason": null,
+                     *       "sms_status": "sent",
+                     *       "start_date": "2026-12-01",
+                     *       "status": "open",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Offer Closed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "as_of": "2026-11-15",
+                     *       "drivers": {
+                     *         "active": 13
+                     *       },
+                     *       "riders": {
+                     *         "reserved": 24,
+                     *         "riding": 150,
+                     *         "total": 180
+                     *       },
+                     *       "route_requests": {
+                     *         "open": 9
+                     *       },
+                     *       "routes": {
+                     *         "active": 12,
+                     *         "active_without_driver": 1,
+                     *         "draft": 1,
+                     *         "forming": 3,
+                     *         "paused": 0,
+                     *         "ready_to_launch": 2
+                     *       },
+                     *       "seat_offers": {
+                     *         "open": 2
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Overview"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    public_areas_list: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+                q?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *           "name": "Bole"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
+                    "application/json": components["schemas"]["PublicAreaPage"];
+                };
+            };
+            /** @description Invalid Cursor, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    public_offers_accept: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One per user action, reused on every retry of it (api-contract.md). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicOfferAccept"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "route_code": "CMC-BOLE-1",
+                     *       "start_date": "2026-12-01",
+                     *       "status": "accepted"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["PublicOfferAccepted"];
+                };
+            };
+            /** @description Phone Not Verified */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Offer Closed, Request In Progress, Rider Exists, Rider Has Seat, Route Full */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Mismatch, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    public_routes_list: {
+        parameters: {
+            query: {
+                limit?: number;
+                cursor?: string | null;
+                from_area_id: string;
+                to_area_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "code": "CMC-BOLE-1",
+                     *           "destination_area": {
+                     *             "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *             "name": "Bole"
+                     *           },
+                     *           "full": false,
+                     *           "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *           "morning_arrival_time": "07:20",
+                     *           "morning_time": "06:30",
+                     *           "origin_area": {
+                     *             "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *             "name": "CMC"
+                     *           },
+                     *           "prices": {
+                     *             "one_way": 1800,
+                     *             "round_trip": 3200,
+                     *             "saturday": 600
+                     *           },
+                     *           "return_arrival_time": "18:30",
+                     *           "return_time": "17:30",
+                     *           "served_areas": [
+                     *             {
+                     *               "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a03",
+                     *               "name": "Megenagna"
+                     *             }
+                     *           ],
+                     *           "status": "active"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
+                    "application/json": components["schemas"]["PublicRoutePage"];
+                };
+            };
+            /** @description Invalid Cursor, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    registrations_adult: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One per user action, reused on every retry of it (api-contract.md). */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdultRegistration"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "outcome": "reserved",
+                     *       "rider_id": "3e9c4a5b-7f6d-4c8b-8d1e-4f5a6b7c8d01",
+                     *       "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "route_request_id": null,
+                     *       "start_date": "2026-12-01"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["AdultRegistered"];
+                };
+            };
+            /** @description Phone Not Verified */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Request In Progress, Rider Exists, Route Full, Route Request Exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Mismatch, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    riders_list: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+                q?: string | null;
+                rider_type?: components["schemas"]["gize_api__riders__models__RiderType"] | null;
+                seat?: components["schemas"]["SeatState"] | null;
+                route_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "company": null,
+                     *           "created_at": "2026-10-01T06:30:00Z",
+                     *           "destination_area": {
+                     *             "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *             "name": "Bole"
+                     *           },
+                     *           "full_name": "Selam Tesfaye",
+                     *           "home_area": {
+                     *             "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *             "name": "CMC"
+                     *           },
+                     *           "id": "3e9c4a5b-7f6d-4c8b-8d1e-4f5a6b7c8d01",
+                     *           "next_seat": null,
+                     *           "open_requests": 0,
+                     *           "phone_masked": "+2519****0123",
+                     *           "plan": "round_trip",
+                     *           "rider_type": "adult",
+                     *           "saturday_addon": false,
+                     *           "seat": {
+                     *             "end_date": null,
+                     *             "route_code": "CMC-BOLE-1",
+                     *             "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *             "start_date": "2026-11-01",
+                     *             "status": "active"
+                     *           },
+                     *           "source": "staff",
+                     *           "updated_at": "2026-11-14T09:15:00Z"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
+                    "application/json": components["schemas"]["RiderPage"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid Cursor, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    riders_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One per user action, reused on every retry of it (api-contract.md). */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiderCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description The new rider. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "company": null,
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "destination_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *         "name": "Bole"
+                     *       },
+                     *       "full_name": "Selam Tesfaye",
+                     *       "home_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *         "name": "CMC"
+                     *       },
+                     *       "id": "3e9c4a5b-7f6d-4c8b-8d1e-4f5a6b7c8d01",
+                     *       "next_seat": null,
+                     *       "open_requests": 0,
+                     *       "phone": "+251911000123",
+                     *       "plan": "round_trip",
+                     *       "rider_type": "adult",
+                     *       "saturday_addon": false,
+                     *       "seat": {
+                     *         "end_date": null,
+                     *         "route_code": "CMC-BOLE-1",
+                     *         "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *         "start_date": "2026-11-01",
+                     *         "status": "active"
+                     *       },
+                     *       "source": "staff",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["RiderRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Request In Progress, Rider Exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Mismatch, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    riders_lookup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiderLookup"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "company": null,
+                     *           "created_at": "2026-10-01T06:30:00Z",
+                     *           "destination_area": {
+                     *             "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *             "name": "Bole"
+                     *           },
+                     *           "full_name": "Selam Tesfaye",
+                     *           "home_area": {
+                     *             "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *             "name": "CMC"
+                     *           },
+                     *           "id": "3e9c4a5b-7f6d-4c8b-8d1e-4f5a6b7c8d01",
+                     *           "next_seat": null,
+                     *           "open_requests": 0,
+                     *           "phone_masked": "+2519****0123",
+                     *           "plan": "round_trip",
+                     *           "rider_type": "adult",
+                     *           "saturday_addon": false,
+                     *           "seat": {
+                     *             "end_date": null,
+                     *             "route_code": "CMC-BOLE-1",
+                     *             "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *             "start_date": "2026-11-01",
+                     *             "status": "active"
+                     *           },
+                     *           "source": "staff",
+                     *           "updated_at": "2026-11-14T09:15:00Z"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["RiderMatches"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    riders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "company": null,
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "destination_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *         "name": "Bole"
+                     *       },
+                     *       "full_name": "Selam Tesfaye",
+                     *       "home_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *         "name": "CMC"
+                     *       },
+                     *       "id": "3e9c4a5b-7f6d-4c8b-8d1e-4f5a6b7c8d01",
+                     *       "next_seat": null,
+                     *       "open_requests": 0,
+                     *       "phone": "+251911000123",
+                     *       "plan": "round_trip",
+                     *       "rider_type": "adult",
+                     *       "saturday_addon": false,
+                     *       "seat": {
+                     *         "end_date": null,
+                     *         "route_code": "CMC-BOLE-1",
+                     *         "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *         "start_date": "2026-11-01",
+                     *         "status": "active"
+                     *       },
+                     *       "source": "staff",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["RiderRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    riders_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rider Has Seat */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    riders_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiderUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "company": null,
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "destination_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *         "name": "Bole"
+                     *       },
+                     *       "full_name": "Selam Tesfaye",
+                     *       "home_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *         "name": "CMC"
+                     *       },
+                     *       "id": "3e9c4a5b-7f6d-4c8b-8d1e-4f5a6b7c8d01",
+                     *       "next_seat": null,
+                     *       "open_requests": 0,
+                     *       "phone": "+251911000123",
+                     *       "plan": "round_trip",
+                     *       "rider_type": "adult",
+                     *       "saturday_addon": false,
+                     *       "seat": {
+                     *         "end_date": null,
+                     *         "route_code": "CMC-BOLE-1",
+                     *         "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *         "start_date": "2026-11-01",
+                     *         "status": "active"
+                     *       },
+                     *       "source": "staff",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["RiderRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rider Exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    riders_place: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One per user action, reused on every retry of it (api-contract.md). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                rider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeatPlacement"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "company": null,
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "destination_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *         "name": "Bole"
+                     *       },
+                     *       "full_name": "Selam Tesfaye",
+                     *       "home_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *         "name": "CMC"
+                     *       },
+                     *       "id": "3e9c4a5b-7f6d-4c8b-8d1e-4f5a6b7c8d01",
+                     *       "next_seat": null,
+                     *       "open_requests": 0,
+                     *       "phone": "+251911000123",
+                     *       "plan": "round_trip",
+                     *       "rider_type": "adult",
+                     *       "saturday_addon": false,
+                     *       "seat": {
+                     *         "end_date": null,
+                     *         "route_code": "CMC-BOLE-1",
+                     *         "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *         "start_date": "2026-11-01",
+                     *         "status": "active"
+                     *       },
+                     *       "source": "staff",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["RiderRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Already On Route, Request In Progress, Rider Moving, Route Full, Route Has Waiting Requests, Route Not Ready */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Mismatch, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    riders_end_seat: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One per user action, reused on every retry of it (api-contract.md). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                rider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeatEnd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "company": null,
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "destination_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *         "name": "Bole"
+                     *       },
+                     *       "full_name": "Selam Tesfaye",
+                     *       "home_area": {
+                     *         "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *         "name": "CMC"
+                     *       },
+                     *       "id": "3e9c4a5b-7f6d-4c8b-8d1e-4f5a6b7c8d01",
+                     *       "next_seat": null,
+                     *       "open_requests": 0,
+                     *       "phone": "+251911000123",
+                     *       "plan": "round_trip",
+                     *       "rider_type": "adult",
+                     *       "saturday_addon": false,
+                     *       "seat": {
+                     *         "end_date": null,
+                     *         "route_code": "CMC-BOLE-1",
+                     *         "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *         "start_date": "2026-11-01",
+                     *         "status": "active"
+                     *       },
+                     *       "source": "staff",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["RiderRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Request In Progress, Rider Has No Seat */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Mismatch, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     route_requests_list: {
         parameters: {
             query?: {
@@ -3058,6 +7019,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "contact_name": "Meron Haile",
+                     *           "contact_phone": "+251911000124",
+                     *           "created_at": "2026-10-01T06:30:00Z",
+                     *           "decline_reason": null,
+                     *           "from_area": null,
+                     *           "from_area_name": null,
+                     *           "id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *           "kind": "route",
+                     *           "matched_route": null,
+                     *           "notes": null,
+                     *           "preferred_morning_time": null,
+                     *           "preferred_return_time": null,
+                     *           "rider_name": "Meron Haile",
+                     *           "rider_type": "adult",
+                     *           "route": {
+                     *             "code": "CMC-BOLE-1",
+                     *             "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01"
+                     *           },
+                     *           "school_name": null,
+                     *           "source": "app",
+                     *           "status": "new",
+                     *           "to_area": null,
+                     *           "to_area_name": null,
+                     *           "updated_at": "2026-11-14T09:15:00Z"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRequestPage"];
                 };
             };
@@ -3141,6 +7135,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "contact_name": "Meron Haile",
+                     *       "contact_phone": "+251911000124",
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "decline_reason": null,
+                     *       "from_area": null,
+                     *       "from_area_name": null,
+                     *       "id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *       "kind": "route",
+                     *       "matched_route": null,
+                     *       "notes": null,
+                     *       "preferred_morning_time": null,
+                     *       "preferred_return_time": null,
+                     *       "rider_name": "Meron Haile",
+                     *       "rider_type": "adult",
+                     *       "route": {
+                     *         "code": "CMC-BOLE-1",
+                     *         "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01"
+                     *       },
+                     *       "school_name": null,
+                     *       "source": "app",
+                     *       "status": "new",
+                     *       "to_area": null,
+                     *       "to_area_name": null,
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRequestRead"];
                 };
             };
@@ -3242,6 +7264,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "area_pairs": [
+                     *         {
+                     *           "from_area": {
+                     *             "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *             "name": "CMC"
+                     *           },
+                     *           "from_area_name": null,
+                     *           "open": 2,
+                     *           "to_area": null,
+                     *           "to_area_name": "Kality"
+                     *         }
+                     *       ],
+                     *       "area_pairs_truncated": false,
+                     *       "routes": [
+                     *         {
+                     *           "open": 3,
+                     *           "route": {
+                     *             "code": "CMC-BOLE-1",
+                     *             "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01"
+                     *           },
+                     *           "seats_free_next_month": 1,
+                     *           "status": "active"
+                     *         }
+                     *       ],
+                     *       "routes_truncated": false
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRequestSummary"];
                 };
             };
@@ -3309,6 +7360,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "contact_name": "Meron Haile",
+                     *       "contact_phone": "+251911000124",
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "decline_reason": null,
+                     *       "from_area": null,
+                     *       "from_area_name": null,
+                     *       "id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *       "kind": "route",
+                     *       "matched_route": null,
+                     *       "notes": null,
+                     *       "preferred_morning_time": null,
+                     *       "preferred_return_time": null,
+                     *       "rider_name": "Meron Haile",
+                     *       "rider_type": "adult",
+                     *       "route": {
+                     *         "code": "CMC-BOLE-1",
+                     *         "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01"
+                     *       },
+                     *       "school_name": null,
+                     *       "source": "app",
+                     *       "status": "new",
+                     *       "to_area": null,
+                     *       "to_area_name": null,
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRequestRead"];
                 };
             };
@@ -3481,6 +7560,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "contact_name": "Meron Haile",
+                     *       "contact_phone": "+251911000124",
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "decline_reason": null,
+                     *       "from_area": null,
+                     *       "from_area_name": null,
+                     *       "id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *       "kind": "route",
+                     *       "matched_route": null,
+                     *       "notes": null,
+                     *       "preferred_morning_time": null,
+                     *       "preferred_return_time": null,
+                     *       "rider_name": "Meron Haile",
+                     *       "rider_type": "adult",
+                     *       "route": {
+                     *         "code": "CMC-BOLE-1",
+                     *         "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01"
+                     *       },
+                     *       "school_name": null,
+                     *       "source": "app",
+                     *       "status": "new",
+                     *       "to_area": null,
+                     *       "to_area_name": null,
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRequestRead"];
                 };
             };
@@ -3588,6 +7695,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "contact_name": "Meron Haile",
+                     *       "contact_phone": "+251911000124",
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "decline_reason": null,
+                     *       "from_area": null,
+                     *       "from_area_name": null,
+                     *       "id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *       "kind": "route",
+                     *       "matched_route": null,
+                     *       "notes": null,
+                     *       "preferred_morning_time": null,
+                     *       "preferred_return_time": null,
+                     *       "rider_name": "Meron Haile",
+                     *       "rider_type": "adult",
+                     *       "route": {
+                     *         "code": "CMC-BOLE-1",
+                     *         "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01"
+                     *       },
+                     *       "school_name": null,
+                     *       "source": "app",
+                     *       "status": "new",
+                     *       "to_area": null,
+                     *       "to_area_name": null,
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRequestRead"];
                 };
             };
@@ -3697,6 +7832,74 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "code": "CMC-BOLE-1",
+                     *           "company": null,
+                     *           "copied_from_route_id": null,
+                     *           "corridor": {
+                     *             "destination_area": {
+                     *               "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *               "name": "Bole"
+                     *             },
+                     *             "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *             "origin_area": {
+                     *               "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *               "name": "CMC"
+                     *             }
+                     *           },
+                     *           "created_at": "2026-10-01T06:30:00Z",
+                     *           "driver": {
+                     *             "full_name": "Dawit Alemu",
+                     *             "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *             "plate": "AA 3-B12345"
+                     *           },
+                     *           "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *           "launch_minimum": 10,
+                     *           "morning_arrival_time": "07:20",
+                     *           "morning_time": "06:30",
+                     *           "prices": {
+                     *             "one_way": 1800,
+                     *             "round_trip": 3200,
+                     *             "saturday": 600
+                     *           },
+                     *           "reserved": 0,
+                     *           "return_arrival_time": "18:30",
+                     *           "return_time": "17:30",
+                     *           "route_type": "public",
+                     *           "school_name": null,
+                     *           "seats": 14,
+                     *           "seats_free": {
+                     *             "next_month": 1,
+                     *             "this_month": 2
+                     *           },
+                     *           "seats_taken": {
+                     *             "next_month": 13,
+                     *             "this_month": 12
+                     *           },
+                     *           "served_areas": [
+                     *             {
+                     *               "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a03",
+                     *               "name": "Megenagna"
+                     *             }
+                     *           ],
+                     *           "status": "active",
+                     *           "status_changes": [
+                     *             {
+                     *               "blocked_by": [],
+                     *               "launch_date": null,
+                     *               "ready": true,
+                     *               "to": "paused"
+                     *             }
+                     *           ],
+                     *           "updated_at": "2026-11-14T09:15:00Z"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
                     "application/json": components["schemas"]["RoutePage"];
                 };
             };
@@ -3780,6 +7983,69 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "code": "CMC-BOLE-1",
+                     *       "company": null,
+                     *       "copied_from_route_id": null,
+                     *       "corridor": {
+                     *         "destination_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *           "name": "Bole"
+                     *         },
+                     *         "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *         "origin_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *           "name": "CMC"
+                     *         }
+                     *       },
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "driver": {
+                     *         "full_name": "Dawit Alemu",
+                     *         "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *         "plate": "AA 3-B12345"
+                     *       },
+                     *       "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "launch_minimum": 10,
+                     *       "morning_arrival_time": "07:20",
+                     *       "morning_time": "06:30",
+                     *       "prices": {
+                     *         "one_way": 1800,
+                     *         "round_trip": 3200,
+                     *         "saturday": 600
+                     *       },
+                     *       "reserved": 0,
+                     *       "return_arrival_time": "18:30",
+                     *       "return_time": "17:30",
+                     *       "route_type": "public",
+                     *       "school_name": null,
+                     *       "seats": 14,
+                     *       "seats_free": {
+                     *         "next_month": 1,
+                     *         "this_month": 2
+                     *       },
+                     *       "seats_taken": {
+                     *         "next_month": 13,
+                     *         "this_month": 12
+                     *       },
+                     *       "served_areas": [
+                     *         {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a03",
+                     *           "name": "Megenagna"
+                     *         }
+                     *       ],
+                     *       "status": "active",
+                     *       "status_changes": [
+                     *         {
+                     *           "blocked_by": [],
+                     *           "launch_date": null,
+                     *           "ready": true,
+                     *           "to": "paused"
+                     *         }
+                     *       ],
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRead"];
                 };
             };
@@ -3883,6 +8149,69 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "code": "CMC-BOLE-1",
+                     *       "company": null,
+                     *       "copied_from_route_id": null,
+                     *       "corridor": {
+                     *         "destination_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *           "name": "Bole"
+                     *         },
+                     *         "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *         "origin_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *           "name": "CMC"
+                     *         }
+                     *       },
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "driver": {
+                     *         "full_name": "Dawit Alemu",
+                     *         "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *         "plate": "AA 3-B12345"
+                     *       },
+                     *       "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "launch_minimum": 10,
+                     *       "morning_arrival_time": "07:20",
+                     *       "morning_time": "06:30",
+                     *       "prices": {
+                     *         "one_way": 1800,
+                     *         "round_trip": 3200,
+                     *         "saturday": 600
+                     *       },
+                     *       "reserved": 0,
+                     *       "return_arrival_time": "18:30",
+                     *       "return_time": "17:30",
+                     *       "route_type": "public",
+                     *       "school_name": null,
+                     *       "seats": 14,
+                     *       "seats_free": {
+                     *         "next_month": 1,
+                     *         "this_month": 2
+                     *       },
+                     *       "seats_taken": {
+                     *         "next_month": 13,
+                     *         "this_month": 12
+                     *       },
+                     *       "served_areas": [
+                     *         {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a03",
+                     *           "name": "Megenagna"
+                     *         }
+                     *       ],
+                     *       "status": "active",
+                     *       "status_changes": [
+                     *         {
+                     *           "blocked_by": [],
+                     *           "launch_date": null,
+                     *           "ready": true,
+                     *           "to": "paused"
+                     *         }
+                     *       ],
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRead"];
                 };
             };
@@ -4064,6 +8393,69 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "code": "CMC-BOLE-1",
+                     *       "company": null,
+                     *       "copied_from_route_id": null,
+                     *       "corridor": {
+                     *         "destination_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *           "name": "Bole"
+                     *         },
+                     *         "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *         "origin_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *           "name": "CMC"
+                     *         }
+                     *       },
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "driver": {
+                     *         "full_name": "Dawit Alemu",
+                     *         "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *         "plate": "AA 3-B12345"
+                     *       },
+                     *       "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "launch_minimum": 10,
+                     *       "morning_arrival_time": "07:20",
+                     *       "morning_time": "06:30",
+                     *       "prices": {
+                     *         "one_way": 1800,
+                     *         "round_trip": 3200,
+                     *         "saturday": 600
+                     *       },
+                     *       "reserved": 0,
+                     *       "return_arrival_time": "18:30",
+                     *       "return_time": "17:30",
+                     *       "route_type": "public",
+                     *       "school_name": null,
+                     *       "seats": 14,
+                     *       "seats_free": {
+                     *         "next_month": 1,
+                     *         "this_month": 2
+                     *       },
+                     *       "seats_taken": {
+                     *         "next_month": 13,
+                     *         "this_month": 12
+                     *       },
+                     *       "served_areas": [
+                     *         {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a03",
+                     *           "name": "Megenagna"
+                     *         }
+                     *       ],
+                     *       "status": "active",
+                     *       "status_changes": [
+                     *         {
+                     *           "blocked_by": [],
+                     *           "launch_date": null,
+                     *           "ready": true,
+                     *           "to": "paused"
+                     *         }
+                     *       ],
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRead"];
                 };
             };
@@ -4094,7 +8486,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Route Code Taken, Route Has Prices, Route Has Requests, Route Has Riders, Seats Below Launch Minimum, Seats Below Taken */
+            /** @description Driver Busy, Route Code Taken, Route Has Prices, Route Has Requests, Route Has Riders, Seats Below Launch Minimum, Seats Below Taken */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -4171,6 +8563,69 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "code": "CMC-BOLE-1",
+                     *       "company": null,
+                     *       "copied_from_route_id": null,
+                     *       "corridor": {
+                     *         "destination_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *           "name": "Bole"
+                     *         },
+                     *         "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *         "origin_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *           "name": "CMC"
+                     *         }
+                     *       },
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "driver": {
+                     *         "full_name": "Dawit Alemu",
+                     *         "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *         "plate": "AA 3-B12345"
+                     *       },
+                     *       "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "launch_minimum": 10,
+                     *       "morning_arrival_time": "07:20",
+                     *       "morning_time": "06:30",
+                     *       "prices": {
+                     *         "one_way": 1800,
+                     *         "round_trip": 3200,
+                     *         "saturday": 600
+                     *       },
+                     *       "reserved": 0,
+                     *       "return_arrival_time": "18:30",
+                     *       "return_time": "17:30",
+                     *       "route_type": "public",
+                     *       "school_name": null,
+                     *       "seats": 14,
+                     *       "seats_free": {
+                     *         "next_month": 1,
+                     *         "this_month": 2
+                     *       },
+                     *       "seats_taken": {
+                     *         "next_month": 13,
+                     *         "this_month": 12
+                     *       },
+                     *       "served_areas": [
+                     *         {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a03",
+                     *           "name": "Megenagna"
+                     *         }
+                     *       ],
+                     *       "status": "active",
+                     *       "status_changes": [
+                     *         {
+                     *           "blocked_by": [],
+                     *           "launch_date": null,
+                     *           "ready": true,
+                     *           "to": "paused"
+                     *         }
+                     *       ],
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRead"];
                 };
             };
@@ -4194,6 +8649,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Route Has Riders */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4274,6 +8738,69 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "code": "CMC-BOLE-1",
+                     *       "company": null,
+                     *       "copied_from_route_id": null,
+                     *       "corridor": {
+                     *         "destination_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *           "name": "Bole"
+                     *         },
+                     *         "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *         "origin_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *           "name": "CMC"
+                     *         }
+                     *       },
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "driver": {
+                     *         "full_name": "Dawit Alemu",
+                     *         "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *         "plate": "AA 3-B12345"
+                     *       },
+                     *       "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "launch_minimum": 10,
+                     *       "morning_arrival_time": "07:20",
+                     *       "morning_time": "06:30",
+                     *       "prices": {
+                     *         "one_way": 1800,
+                     *         "round_trip": 3200,
+                     *         "saturday": 600
+                     *       },
+                     *       "reserved": 0,
+                     *       "return_arrival_time": "18:30",
+                     *       "return_time": "17:30",
+                     *       "route_type": "public",
+                     *       "school_name": null,
+                     *       "seats": 14,
+                     *       "seats_free": {
+                     *         "next_month": 1,
+                     *         "this_month": 2
+                     *       },
+                     *       "seats_taken": {
+                     *         "next_month": 13,
+                     *         "this_month": 12
+                     *       },
+                     *       "served_areas": [
+                     *         {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a03",
+                     *           "name": "Megenagna"
+                     *         }
+                     *       ],
+                     *       "status": "active",
+                     *       "status_changes": [
+                     *         {
+                     *           "blocked_by": [],
+                     *           "launch_date": null,
+                     *           "ready": true,
+                     *           "to": "paused"
+                     *         }
+                     *       ],
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRead"];
                 };
             };
@@ -4369,6 +8896,407 @@ export interface operations {
             };
         };
     };
+    routes_set_driver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                route_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RouteDriverSet"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "CMC-BOLE-1",
+                     *       "company": null,
+                     *       "copied_from_route_id": null,
+                     *       "corridor": {
+                     *         "destination_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *           "name": "Bole"
+                     *         },
+                     *         "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *         "origin_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *           "name": "CMC"
+                     *         }
+                     *       },
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "driver": {
+                     *         "full_name": "Dawit Alemu",
+                     *         "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *         "plate": "AA 3-B12345"
+                     *       },
+                     *       "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "launch_minimum": 10,
+                     *       "morning_arrival_time": "07:20",
+                     *       "morning_time": "06:30",
+                     *       "prices": {
+                     *         "one_way": 1800,
+                     *         "round_trip": 3200,
+                     *         "saturday": 600
+                     *       },
+                     *       "reserved": 0,
+                     *       "return_arrival_time": "18:30",
+                     *       "return_time": "17:30",
+                     *       "route_type": "public",
+                     *       "school_name": null,
+                     *       "seats": 14,
+                     *       "seats_free": {
+                     *         "next_month": 1,
+                     *         "this_month": 2
+                     *       },
+                     *       "seats_taken": {
+                     *         "next_month": 13,
+                     *         "this_month": 12
+                     *       },
+                     *       "served_areas": [
+                     *         {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a03",
+                     *           "name": "Megenagna"
+                     *         }
+                     *       ],
+                     *       "status": "active",
+                     *       "status_changes": [
+                     *         {
+                     *           "blocked_by": [],
+                     *           "launch_date": null,
+                     *           "ready": true,
+                     *           "to": "paused"
+                     *         }
+                     *       ],
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["RouteRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Driver Busy */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    routes_launch_messages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                route_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "failed": 1,
+                     *       "launch_date": "2026-12-01",
+                     *       "pending": 0,
+                     *       "riders": [
+                     *         {
+                     *           "attempts": 3,
+                     *           "full_name": "Selam Tesfaye",
+                     *           "rider_id": "3e9c4a5b-7f6d-4c8b-8d1e-4f5a6b7c8d01",
+                     *           "start_date": "2026-12-01",
+                     *           "status": "failed"
+                     *         }
+                     *       ],
+                     *       "sending": 0,
+                     *       "sent": 1,
+                     *       "total": 2,
+                     *       "unconfirmed": 0
+                     *     }
+                     */
+                    "application/json": components["schemas"]["LaunchMessages"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    routes_retry_launch_messages: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One per user action, reused on every retry of it (api-contract.md). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                route_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "failed": 1,
+                     *       "launch_date": "2026-12-01",
+                     *       "pending": 0,
+                     *       "riders": [
+                     *         {
+                     *           "attempts": 3,
+                     *           "full_name": "Selam Tesfaye",
+                     *           "rider_id": "3e9c4a5b-7f6d-4c8b-8d1e-4f5a6b7c8d01",
+                     *           "start_date": "2026-12-01",
+                     *           "status": "failed"
+                     *         }
+                     *       ],
+                     *       "sending": 0,
+                     *       "sent": 1,
+                     *       "total": 2,
+                     *       "unconfirmed": 0
+                     *     }
+                     */
+                    "application/json": components["schemas"]["LaunchMessages"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Request In Progress */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Mismatch, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     routes_launch_months: {
         parameters: {
             query?: never;
@@ -4386,6 +9314,24 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "launch_minimum": 10,
+                     *       "months": [
+                     *         {
+                     *           "launch_date": "2026-12-01",
+                     *           "ready": true,
+                     *           "reserved": 11
+                     *         },
+                     *         {
+                     *           "launch_date": "2027-01-01",
+                     *           "ready": true,
+                     *           "reserved": 11
+                     *         }
+                     *       ],
+                     *       "status": "forming"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteLaunchMonths"];
                 };
             };
@@ -4454,6 +9400,254 @@ export interface operations {
             };
         };
     };
+    offers_list: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                route_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "created_at": "2026-11-14T09:15:00Z",
+                     *           "expires_at": "2026-11-16T09:15:00Z",
+                     *           "id": "5abe6c7d-9b8f-4e0d-8f3a-6b7c8d9e0f01",
+                     *           "request_id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *           "rider_id": null,
+                     *           "rider_name": "Meron Haile",
+                     *           "route_code": "CMC-BOLE-1",
+                     *           "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *           "skip_reason": null,
+                     *           "sms_status": "sent",
+                     *           "start_date": "2026-12-01",
+                     *           "status": "open",
+                     *           "updated_at": "2026-11-14T09:15:00Z"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
+                    "application/json": components["schemas"]["OfferPage"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid Cursor, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    offers_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One per user action, reused on every retry of it (api-contract.md). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                route_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    /** @description The new offer. */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-11-14T09:15:00Z",
+                     *       "expires_at": "2026-11-16T09:15:00Z",
+                     *       "id": "5abe6c7d-9b8f-4e0d-8f3a-6b7c8d9e0f01",
+                     *       "request_id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *       "rider_id": null,
+                     *       "rider_name": "Meron Haile",
+                     *       "route_code": "CMC-BOLE-1",
+                     *       "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "skip_reason": null,
+                     *       "sms_status": "sent",
+                     *       "start_date": "2026-12-01",
+                     *       "status": "open",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No Waiting Requests, Offer Open, Request In Progress, Route Full, Route Has Waiting Requests, Route Not Ready */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Mismatch, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     routes_set_prices: {
         parameters: {
             query?: never;
@@ -4475,6 +9669,69 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "code": "CMC-BOLE-1",
+                     *       "company": null,
+                     *       "copied_from_route_id": null,
+                     *       "corridor": {
+                     *         "destination_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *           "name": "Bole"
+                     *         },
+                     *         "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *         "origin_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *           "name": "CMC"
+                     *         }
+                     *       },
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "driver": {
+                     *         "full_name": "Dawit Alemu",
+                     *         "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *         "plate": "AA 3-B12345"
+                     *       },
+                     *       "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "launch_minimum": 10,
+                     *       "morning_arrival_time": "07:20",
+                     *       "morning_time": "06:30",
+                     *       "prices": {
+                     *         "one_way": 1800,
+                     *         "round_trip": 3200,
+                     *         "saturday": 600
+                     *       },
+                     *       "reserved": 0,
+                     *       "return_arrival_time": "18:30",
+                     *       "return_time": "17:30",
+                     *       "route_type": "public",
+                     *       "school_name": null,
+                     *       "seats": 14,
+                     *       "seats_free": {
+                     *         "next_month": 1,
+                     *         "this_month": 2
+                     *       },
+                     *       "seats_taken": {
+                     *         "next_month": 13,
+                     *         "this_month": 12
+                     *       },
+                     *       "served_areas": [
+                     *         {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a03",
+                     *           "name": "Megenagna"
+                     *         }
+                     *       ],
+                     *       "status": "active",
+                     *       "status_changes": [
+                     *         {
+                     *           "blocked_by": [],
+                     *           "launch_date": null,
+                     *           "ready": true,
+                     *           "to": "paused"
+                     *         }
+                     *       ],
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRead"];
                 };
             };
@@ -4505,7 +9762,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Route Has No Prices */
+            /** @description Route Has No Prices, Route Has Riders */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -4582,6 +9839,69 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "code": "CMC-BOLE-1",
+                     *       "company": null,
+                     *       "copied_from_route_id": null,
+                     *       "corridor": {
+                     *         "destination_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a02",
+                     *           "name": "Bole"
+                     *         },
+                     *         "id": "1c7a2e3f-5d4b-4a6f-8b9c-2d3e4f5a6b01",
+                     *         "origin_area": {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a01",
+                     *           "name": "CMC"
+                     *         }
+                     *       },
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "driver": {
+                     *         "full_name": "Dawit Alemu",
+                     *         "id": "6bcf7d8e-0c9a-4f1e-9a4b-7c8d9e0f1a01",
+                     *         "plate": "AA 3-B12345"
+                     *       },
+                     *       "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *       "launch_minimum": 10,
+                     *       "morning_arrival_time": "07:20",
+                     *       "morning_time": "06:30",
+                     *       "prices": {
+                     *         "one_way": 1800,
+                     *         "round_trip": 3200,
+                     *         "saturday": 600
+                     *       },
+                     *       "reserved": 0,
+                     *       "return_arrival_time": "18:30",
+                     *       "return_time": "17:30",
+                     *       "route_type": "public",
+                     *       "school_name": null,
+                     *       "seats": 14,
+                     *       "seats_free": {
+                     *         "next_month": 1,
+                     *         "this_month": 2
+                     *       },
+                     *       "seats_taken": {
+                     *         "next_month": 13,
+                     *         "this_month": 12
+                     *       },
+                     *       "served_areas": [
+                     *         {
+                     *           "id": "0b6f1d2e-4c3a-4f5e-9a8b-1c2d3e4f5a03",
+                     *           "name": "Megenagna"
+                     *         }
+                     *       ],
+                     *       "status": "active",
+                     *       "status_changes": [
+                     *         {
+                     *           "blocked_by": [],
+                     *           "launch_date": null,
+                     *           "ready": true,
+                     *           "to": "paused"
+                     *         }
+                     *       ],
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["RouteRead"];
                 };
             };
@@ -4688,6 +10008,23 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "created_at": "2026-10-01T06:30:00Z",
+                     *           "email": "operations@example.com",
+                     *           "first_signed_in_at": "2026-10-01T06:30:00Z",
+                     *           "full_name": "Tigist Mengistu",
+                     *           "id": "7cd08e9f-1dab-4a2f-8b5c-8d9e0f1a2b01",
+                     *           "is_active": true,
+                     *           "role": "staff",
+                     *           "updated_at": "2026-11-14T09:15:00Z"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
                     "application/json": components["schemas"]["StaffPage"];
                 };
             };
@@ -4773,6 +10110,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "email": "operations@example.com",
+                     *       "first_signed_in_at": "2026-10-01T06:30:00Z",
+                     *       "full_name": "Tigist Mengistu",
+                     *       "id": "7cd08e9f-1dab-4a2f-8b5c-8d9e0f1a2b01",
+                     *       "is_active": true,
+                     *       "role": "staff",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["StaffRead"];
                 };
             };
@@ -4874,6 +10223,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "email": "operations@example.com",
+                     *       "full_name": "Tigist Mengistu",
+                     *       "id": "7cd08e9f-1dab-4a2f-8b5c-8d9e0f1a2b01",
+                     *       "role": "staff"
+                     *     }
+                     */
                     "application/json": components["schemas"]["StaffMe"];
                 };
             };
@@ -4941,6 +10298,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "email": "operations@example.com",
+                     *       "first_signed_in_at": "2026-10-01T06:30:00Z",
+                     *       "full_name": "Tigist Mengistu",
+                     *       "id": "7cd08e9f-1dab-4a2f-8b5c-8d9e0f1a2b01",
+                     *       "is_active": true,
+                     *       "role": "staff",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["StaffRead"];
                 };
             };
@@ -5030,6 +10399,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "created_at": "2026-10-01T06:30:00Z",
+                     *       "email": "operations@example.com",
+                     *       "first_signed_in_at": "2026-10-01T06:30:00Z",
+                     *       "full_name": "Tigist Mengistu",
+                     *       "id": "7cd08e9f-1dab-4a2f-8b5c-8d9e0f1a2b01",
+                     *       "is_active": true,
+                     *       "role": "staff",
+                     *       "updated_at": "2026-11-14T09:15:00Z"
+                     *     }
+                     */
                     "application/json": components["schemas"]["StaffRead"];
                 };
             };
@@ -5085,6 +10466,186 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    verification_request: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One per user action, reused on every retry of it (api-contract.md). */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "expires_at": "2026-11-15T09:25:00Z",
+                     *       "verification_id": "9ef2a0b1-3fcd-4c4b-8d7e-0f1a2b3c4d01"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["VerificationSent"];
+                };
+            };
+            /** @description Request In Progress */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Mismatch, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Idempotency Key Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description SMS Unavailable, Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    verification_verify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerificationCheck"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "expires_at": "2026-11-15T09:50:00Z",
+                     *       "verified_phone_token": "example.example.example"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["PhoneVerified"];
+                };
+            };
+            /** @description Verification Expired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Failed, Verification Code Invalid */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
                 };
             };
             /** @description Too Many Requests */

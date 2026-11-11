@@ -33,7 +33,18 @@ export function useTimestampFormat() {
     [format],
   );
 
-  return { dateTime, date };
+  /** A calendar day the API sends as "YYYY-MM-DD" (a seat's start): no time, no time zone shift. */
+  const day = useCallback(
+    (value: string | null | undefined) => {
+      const parsed = value ? new Date(`${value}T00:00:00Z`) : null;
+      return parsed && !Number.isNaN(parsed.getTime())
+        ? format.dateTime(parsed, { dateStyle: "medium", timeZone: "UTC" })
+        : "";
+    },
+    [format],
+  );
+
+  return { dateTime, date, day };
 }
 
 /**

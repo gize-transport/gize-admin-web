@@ -15,6 +15,8 @@
 - Error `code` values are stable identifiers. New codes may be added; existing ones are never renamed or reused. CI blocks removing a code from `ErrorCode` or from an operation's `x-error-codes` (`scripts/contract_codes.py`).
 - The backend tags each merge to `main` that changes the API as `api-vX.Y.Z` (semver: minor = additive, patch = docs/examples; major only for a breaking change the owner approved with the `breaking-change-approved` PR label). The tag's GitHub release has `openapi.json` attached. Tagging is automatic (`.github/workflows/contract-release.yml`).
 - Error responses are `application/problem+json` (`Problem`, or `ValidationProblem` for `VALIDATION_FAILED`), and each one lists the codes it can carry in `x-error-codes`. `ErrorCode` is an enum in the schema.
+- Every operation shows examples (GZ-061): each 2xx response its model's (a page with one item), each error response one per code it lists. The data is made up. The backend's test suite fails if any operation returns, in any test, a code its `x-error-codes` doesn't list.
+- Errors any request gets, listed on no operation: `BAD_REQUEST` (400, a request the framework can't read), `CORS_PREFLIGHT_REJECTED` (400, a browser preflight from an origin or with a header not allowed), `METHOD_NOT_ALLOWED` (405); also `NOT_FOUND` (404) for a path that doesn't exist and `PAYLOAD_TOO_LARGE` (413) for a body over the limit, even on an operation that takes none.
 
 ## How the frontend stays in sync
 

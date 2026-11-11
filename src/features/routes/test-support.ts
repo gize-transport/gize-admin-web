@@ -45,6 +45,7 @@ export function route(
     corridor: bolePiassa,
     route_type: "public",
     school_name: null,
+    driver: null,
     company: null,
     morning_time: "06:30",
     morning_arrival_time: "07:15",

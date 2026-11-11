@@ -57,6 +57,7 @@ export function route(
     },
     route_type: "corporate",
     school_name: null,
+    driver: null,
     company: { id: owner.id, name: owner.name },
     morning_time: "06:30",
     morning_arrival_time: "07:15",
