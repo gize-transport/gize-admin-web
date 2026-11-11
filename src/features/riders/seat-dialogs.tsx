@@ -53,6 +53,11 @@ type SeatRoute = {
   /** No seat free from the earliest start ("Full"), or the seats free this month; null: unknown. */
   full: boolean;
   freeThisMonth: number | null;
+  /**
+   * Why an adult can't have it now, as the API's rules say (riders_place): a paused route takes no
+   * one; Saturday riders need a route with a Saturday price. Shown, not chosen; the API decides.
+   */
+  unavailable: "paused" | "noSaturday" | null;
 };
 
 const selectClass =
@@ -95,6 +100,7 @@ function useSeatRoutes(rider: RiderRead) {
       times: `${route.morning_time}–${route.return_time}`,
       full: route.seats_free.this_month <= 0,
       freeThisMonth: route.seats_free.this_month,
+      unavailable: null,
     }));
   } else {
     routes = trip.data?.items.map((route) => ({
@@ -106,11 +112,18 @@ function useSeatRoutes(rider: RiderRead) {
       times: `${route.morning_time}–${route.return_time}`,
       full: route.full,
       freeThisMonth: null,
+      unavailable:
+        route.status === "paused"
+          ? "paused"
+          : rider.saturday_addon && route.prices.saturday === null
+            ? "noSaturday"
+            : null,
     }));
   }
-  // Without both areas the trip can't be looked up (no list, nothing loading).
-  const noTrip =
-    !company && (rider.home_area === null || rider.destination_area === null);
+  // Without both areas (or a company) the routes can't be looked up: no list, nothing loading.
+  const noTrip = company
+    ? rider.company === null
+    : rider.home_area === null || rider.destination_area === null;
   return { query, routes, noTrip };
 }
 
@@ -153,7 +166,8 @@ export function PlaceSeatDialog({
   const [routeId, setRouteId] = useState<string | null>(null);
   const [start, setStart] = useState(company ? today : (months[0] ?? ""));
   const [reason, setReason] = useState("");
-  const [needsReason, setNeedsReason] = useState(false);
+  // The route that asked for a reason ("others asked first"): only it needs one.
+  const [reasonFor, setReasonFor] = useState<string | null>(null);
   const [errors, setErrors] = useState<{
     route?: string;
     start?: string;
@@ -164,7 +178,7 @@ export function PlaceSeatDialog({
   const [sentRoute, setSentRoute] = useState<SeatRoute | null>(null);
   const waiting = useRetryWait(problem);
   const returnFocusTo = useRef<HTMLElement | null>(null);
-  const routeGroup = useRef<HTMLFieldSetElement>(null);
+  const routeGroup = useRef<HTMLDivElement>(null);
   const startField = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
   const reasonField = useRef<HTMLTextAreaElement>(null);
   const [handedOver, setHandedOver] = useState(false);
@@ -175,6 +189,17 @@ export function PlaceSeatDialog({
   }, [focusReason]);
 
   const chosen = offered?.find((route) => route.id === routeId) ?? null;
+  const needsReason = reasonFor !== null && reasonFor === routeId;
+
+  /** The chosen radio, else the first, else the group itself (nothing listed). */
+  function focusRoutes() {
+    const group = routeGroup.current;
+    (
+      group?.querySelector<HTMLInputElement>("input:checked") ??
+      group?.querySelector<HTMLInputElement>("input:not(:disabled)") ??
+      group
+    )?.focus();
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -185,10 +210,7 @@ export function PlaceSeatDialog({
     const trimmed = reason.trim();
     if (needsReason && !trimmed) found.reason = t("skipReasonRequired");
     setErrors(found);
-    if (found.route) {
-      routeGroup.current?.querySelector<HTMLInputElement>("input")?.focus();
-      return;
-    }
+    if (found.route) return focusRoutes();
     if (found.start) return startField.current?.focus();
     if (found.reason) return reasonField.current?.focus();
     if (!chosen) return;
@@ -214,7 +236,7 @@ export function PlaceSeatDialog({
             error instanceof ApiError &&
             error.code === "ROUTE_HAS_WAITING_REQUESTS"
           ) {
-            setNeedsReason(true);
+            setReasonFor(chosen.id);
             setErrors({ reason: t("skipReasonNeeded") });
             setFocusReason((count) => count + 1);
             return;
@@ -222,16 +244,15 @@ export function PlaceSeatDialog({
           const fields = fieldMessages(error);
           if (fields.route_id || fields.start_date) {
             setErrors({
-              route: fields.route_id ? t("seatRouteRefused") : undefined,
+              route: fields.route_id
+                ? t(company ? "seatRouteRefusedCompany" : "seatRouteRefused")
+                : undefined,
               start: fields.start_date
                 ? t(company ? "seatStartDayRefused" : "seatStartMonthRefused")
                 : undefined,
             });
-            if (fields.route_id) {
-              routeGroup.current
-                ?.querySelector<HTMLInputElement>("input:checked")
-                ?.focus();
-            } else startField.current?.focus();
+            if (fields.route_id) focusRoutes();
+            else startField.current?.focus();
             return;
           }
           setProblem(error);
@@ -241,10 +262,11 @@ export function PlaceSeatDialog({
   }
 
   const full = problem instanceof ApiError && problem.code === "ROUTE_FULL";
-  // A request can name a running (or paused) route only; adults only.
+  // A request can name a running (or paused) route only; for adults (a student's names their
+  // school and guardian, GZ-033).
   const canRequest =
     full &&
-    !company &&
+    rider.rider_type === "adult" &&
     sentRoute !== null &&
     (sentRoute.status === "active" || sentRoute.status === "paused");
   let problemWords = problem !== null ? message(problem) : "";
@@ -338,16 +360,25 @@ export function PlaceSeatDialog({
             </p>
           )}
 
-          <fieldset
+          <div
             ref={routeGroup}
-            className="grid gap-2"
+            role="radiogroup"
+            tabIndex={-1}
+            className="grid gap-2 outline-none"
+            aria-labelledby={`${uid}-route-label`}
             aria-describedby={errors.route ? `${uid}-route-error` : undefined}
+            aria-invalid={errors.route ? true : undefined}
           >
-            <legend className="mb-1 text-table font-semibold text-ink">
+            <p
+              id={`${uid}-route-label`}
+              className="mb-1 text-table font-semibold text-ink"
+            >
               {t(company ? "seatRouteLegendCompany" : "seatRouteLegend")}
-            </legend>
+            </p>
             {noTrip ? (
-              <p className="text-body text-muted">{t("seatNoTrip")}</p>
+              <p className="text-body text-muted">
+                {t(company ? "seatNoCompany" : "seatNoTrip")}
+              </p>
             ) : query.isPending ? (
               <div className="grid gap-2" aria-busy="true">
                 <Skeleton className="h-14" />
@@ -381,16 +412,21 @@ export function PlaceSeatDialog({
                       }));
                     }}
                     name={`${uid}-route`}
+                    describedBy={
+                      errors.route ? `${uid}-route-error` : undefined
+                    }
                   />
                 ))}
               </div>
             ) : (
               <p className="text-body text-muted">
-                {company
-                  ? t("seatNoCompanyRoutes", {
-                      company: rider.company?.name ?? "",
-                    })
-                  : t("seatNoTripRoutes")}
+                {routes && routes.length > 0
+                  ? t("seatNoOtherRoutes")
+                  : company
+                    ? t("seatNoCompanyRoutes", {
+                        company: rider.company?.name ?? "",
+                      })
+                    : t("seatNoTripRoutes")}
               </p>
             )}
             {errors.route && (
@@ -398,7 +434,7 @@ export function PlaceSeatDialog({
                 {errors.route}
               </p>
             )}
-          </fieldset>
+          </div>
 
           <div className="grid gap-1.5 sm:max-w-xs">
             <Label htmlFor={`${uid}-start`}>
@@ -520,21 +556,37 @@ function RouteOption({
   checked,
   onChoose,
   name,
+  describedBy,
 }: {
   route: SeatRoute;
   checked: boolean;
   onChoose: () => void;
   name: string;
+  describedBy?: string;
 }) {
   const t = useTranslations("Riders");
+  const uid = useId();
+  const unavailable = route.unavailable;
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 has-[:checked]:border-royal has-[:checked]:bg-ice">
+    <label
+      className={
+        unavailable
+          ? "flex items-start gap-3 rounded-lg border border-line p-3 text-muted"
+          : "flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 has-[:checked]:border-royal has-[:checked]:bg-ice"
+      }
+    >
       <input
         type="radio"
         name={name}
         value={route.id}
         checked={checked}
+        disabled={unavailable !== null}
         onChange={onChoose}
+        aria-describedby={
+          [unavailable ? `${uid}-why` : null, describedBy]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         className="mt-1 size-4 shrink-0 accent-royal"
       />
       <span className="grid min-w-0 gap-1">
@@ -557,6 +609,13 @@ function RouteOption({
           {" · "}
           {route.times}
         </span>
+        {unavailable && (
+          <span id={`${uid}-why`} className="text-meta text-muted">
+            {t(
+              unavailable === "paused" ? "routePausedNote" : "routeNoSaturday",
+            )}
+          </span>
+        )}
         {route.freeThisMonth !== null && !route.full && (
           <span className="text-meta text-muted">
             {t("seatsFreeThisMonth", { count: route.freeThisMonth })}
@@ -590,7 +649,11 @@ export function EndSeatDialog({
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const [today] = useState(() => todayInAddis());
   const company = rider.rider_type === "corporate";
-  const ends = monthEnds(today);
+  // A seat already ending (and no move) can only end earlier: the API keeps an earlier end.
+  const endsBy =
+    rider.seat?.end_date && !rider.next_seat ? rider.seat.end_date : null;
+  const ends = monthEnds(today).filter((value) => !endsBy || value <= endsBy);
+  const latest = endsBy ?? latestDay(today);
   const [last, setLast] = useState(company ? today : (ends[0] ?? ""));
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [problem, setProblem] = useState<unknown>(null);
@@ -674,7 +737,7 @@ export function EndSeatDialog({
                 }}
                 type="date"
                 min={today}
-                max={latestDay(today)}
+                max={latest}
                 value={last}
                 onChange={(event) => setLast(event.target.value)}
                 aria-invalid={fieldError ? true : undefined}
@@ -705,10 +768,24 @@ export function EndSeatDialog({
               </p>
             )}
           </div>
+          {endsBy && (
+            <p className="text-table text-muted">
+              {t("endAlreadyEnding", {
+                date: day(endsBy),
+                code: rider.seat?.route_code ?? "",
+              })}
+            </p>
+          )}
           <p className="text-table text-muted">
-            {t(rider.next_seat ? "endNoteMoving" : "endNote", {
-              code: rider.next_seat?.route_code ?? "",
-            })}
+            {rider.next_seat
+              ? // The move is cancelled only if they leave before it starts.
+                last && last < rider.next_seat.start_date
+                ? t("endNoteMoving", { code: rider.next_seat.route_code })
+                : t("endNoteAfterMove", {
+                    code: rider.next_seat.route_code,
+                    date: day(rider.next_seat.start_date),
+                  })
+              : t("endNote")}
           </p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <DialogClose asChild>
@@ -750,11 +827,14 @@ export function KeepSeatDialog({
   const t = useTranslations("Riders");
   const { message } = useApiErrorMessages();
   const { day } = useDayNames();
+  const queryClient = useQueryClient();
   const place = usePlaceRider();
   const [idempotencyKey] = useState(() => crypto.randomUUID());
+  // As the dialog opened: a refusal reloads the rider, and the words mustn't change under it.
+  const [seat] = useState(rider.seat);
+  const [nextSeat] = useState(rider.next_seat);
   const error = place.error;
   const waiting = useRetryWait(error);
-  const seat = rider.seat;
   if (!seat) return null;
   const full = error instanceof ApiError && error.code === "ROUTE_FULL";
   return (
@@ -762,15 +842,19 @@ export function KeepSeatDialog({
       open={open}
       onOpenChange={(next) => {
         if (next) return;
+        // Gone (deleted meanwhile): their detail shows that once the dialog closes.
+        if (error instanceof ApiError && error.status === 404) {
+          refetchRider(queryClient, rider.id);
+        }
         place.reset();
         onClose();
       }}
       title={t("keepTitle", { code: seat.route_code })}
       description={
-        rider.next_seat
+        nextSeat
           ? t("keepMovingDescription", {
               code: seat.route_code,
-              next: rider.next_seat.route_code,
+              next: nextSeat.route_code,
             })
           : t("keepEndingDescription", {
               code: seat.route_code,

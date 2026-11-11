@@ -2575,7 +2575,8 @@ function listRiders(url, response) {
 // reservation on a forming route, a place on an active one); a company rider their company's
 // route from any day. A move ends the old seat the day before; others' open requests for an
 // active route come first (a skip reason), then the seats.
-/** @type {Map<string, { rider: FakeRider; fingerprint: string }>} */
+/** A retry gets the answer stored the first time (like the API), not the rider as they are now. */
+/** @type {Map<string, { answer: Schemas["RiderRead"]; fingerprint: string }>} */
 const seatKeys = new Map();
 
 /** Today in Addis Ababa, YYYY-MM-DD. */
@@ -3552,7 +3553,7 @@ const api = createServer(async (request, response) => {
       if (replay.fingerprint !== fingerprint) {
         return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
       }
-      return send(response, 200, riderRead(replay.rider));
+      return send(response, 200, replay.answer);
     }
     const found = riders.find((r) => r.id === seatMatch[1] && !r.deleted);
     if (!found) return problem(response, 404, "NOT_FOUND");
@@ -3577,15 +3578,24 @@ const api = createServer(async (request, response) => {
       ) {
         return validationProblem(response, "/end_date", "invalid");
       }
-      found.nextSeat = null;
-      if (found.seat.status === "reserved" || last < found.seat.start_date) {
-        found.seat = null;
-      } else if (found.seat.end_date === null || found.seat.end_date > last) {
-        found.seat.end_date = last;
-      }
+      // Each seat held ends after `last` (_end_seat): one not started by then (or a reservation)
+      // ends at once; one already ending earlier keeps its date.
+      /** @param {FakeSeat | null} seat @returns {FakeSeat | null} */
+      const endSeat = (seat) => {
+        if (seat === null) return null;
+        if (seat.status === "reserved" || last < seat.start_date) return null;
+        if (seat.end_date === null || seat.end_date > last)
+          seat.end_date = last;
+        return seat;
+      };
+      const next = endSeat(found.nextSeat);
+      const current = endSeat(found.seat);
+      found.seat = current ?? next;
+      found.nextSeat = current ? next : null;
       found.updated_at = new Date().toISOString();
-      seatKeys.set(`${user.email}|${key}`, { rider: found, fingerprint });
-      return send(response, 200, riderRead(found));
+      const answer = riderRead(found);
+      seatKeys.set(`${user.email}|${key}`, { answer, fingerprint });
+      return send(response, 200, answer);
     }
 
     const route = routes.find((r) => r.id === body.route_id);
@@ -3603,8 +3613,9 @@ const api = createServer(async (request, response) => {
       found.seat.end_date = null;
       found.nextSeat = null;
       found.updated_at = new Date().toISOString();
-      seatKeys.set(`${user.email}|${key}`, { rider: found, fingerprint });
-      return send(response, 200, riderRead(found));
+      const answer = riderRead(found);
+      seatKeys.set(`${user.email}|${key}`, { answer, fingerprint });
+      return send(response, 200, answer);
     }
     if (found.nextSeat !== null) return problem(response, 409, "RIDER_MOVING");
     if (found.seat?.status === "active" && route.status === "forming") {
@@ -3616,10 +3627,15 @@ const api = createServer(async (request, response) => {
         : company
           ? today
           : nextLaunchDay();
+    // An adult: a 1st from the next one to this month's 1st next year; a company rider: a day
+    // from today to a year ahead (_start).
+    const sameMonthNextYear = `${Number(today.slice(0, 4)) + 1}${today.slice(4, 8)}01`;
     if (
-      start < today ||
-      start > shiftDay(today, 366) ||
-      (!company && (!start.endsWith("-01") || start < nextLaunchDay()))
+      company
+        ? start < today || start > shiftDay(today, 365)
+        : !start.endsWith("-01") ||
+          start < nextLaunchDay() ||
+          start > sameMonthNextYear
     ) {
       return validationProblem(response, "/start_date", "invalid");
     }
@@ -3654,8 +3670,9 @@ const api = createServer(async (request, response) => {
       found.nextSeat = seat;
     }
     found.updated_at = new Date().toISOString();
-    seatKeys.set(`${user.email}|${key}`, { rider: found, fingerprint });
-    return send(response, 200, riderRead(found));
+    const answer = riderRead(found);
+    seatKeys.set(`${user.email}|${key}`, { answer, fingerprint });
+    return send(response, 200, answer);
   }
 
   if (url.pathname === "/v1/riders/lookup" && request.method === "POST") {

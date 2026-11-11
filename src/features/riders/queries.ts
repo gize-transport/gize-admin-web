@@ -262,14 +262,25 @@ function refetchAfterSeat(
 
 /**
  * After a refusal: a 409 means the rider or route moved on meanwhile (reload them); a 404, the
- * rider is gone (their detail shows that once the dialog closes, `refetchRider`).
+ * rider is gone (their detail shows that once the dialog closes, `refetchRider`); an unknown
+ * outcome reloads the rider.
  */
 function refetchAfterRefusal(
   queryClient: ReturnType<typeof useQueryClient>,
   error: unknown,
   id: string,
 ) {
-  if (!(error instanceof ApiError)) return;
+  // Unknown outcome (no answer, a server error, a key already used): the change may have been
+  // made, so the rider shows where they stand now.
+  const unknown =
+    !(error instanceof ApiError) ||
+    error.kind === "network" ||
+    error.status >= 500 ||
+    (error.code?.startsWith("IDEMPOTENCY_") ?? false);
+  if (unknown) {
+    void queryClient.invalidateQueries({ queryKey: riderKeys.detail(id) });
+    return;
+  }
   if (error.status === 409) {
     void queryClient.invalidateQueries({ queryKey: riderKeys.detail(id) });
     void queryClient.invalidateQueries({ queryKey: ["routes"] });
