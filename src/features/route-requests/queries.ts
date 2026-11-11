@@ -11,7 +11,8 @@ type RouteType = components["schemas"]["RouteType"];
 type RouteStatus = components["schemas"]["RouteStatus"];
 export type RequestStatus = components["schemas"]["RequestStatus"];
 export type RequestKind = components["schemas"]["RequestKind"];
-export type RiderType = components["schemas"]["RiderType"];
+export type RiderType =
+  components["schemas"]["gize_api__route_requests__models__RiderType"];
 
 export const REQUESTS_PAGE_SIZE = 25;
 const PICKER_LIMIT = 20;
