@@ -169,7 +169,7 @@ describe("RidersScreen", () => {
     expect(seen[0]?.searchParams.has("seat")).toBe(false);
   });
 
-  it("searches by name without putting it in the address", async () => {
+  it("searches by name without putting it in the address, from the first page", async () => {
     navigation().search = "?type=adult&cursor=page-2";
     const seen: URL[] = [];
     serveRiders([riding], seen);
@@ -181,11 +181,31 @@ describe("RidersScreen", () => {
 
     await waitFor(() => expect(seen.at(-1)?.searchParams.get("q")).toBe("Abe"));
     expect(seen.at(-1)?.searchParams.get("rider_type")).toBe("adult");
-    // A new search starts from the first page; the name never reaches the address.
-    expect(navigation().replace).toHaveBeenCalledWith("/riders?type=adult", {
-      scroll: false,
-    });
+    // The address still holds the old page (the mock never moves on): it isn't sent with the name.
+    for (const url of seen.filter((u) => u.searchParams.has("q"))) {
+      expect(url.searchParams.has("cursor")).toBe(false);
+    }
+    // The address only says a search is on; the name never reaches it.
+    expect(navigation().replace).toHaveBeenCalledWith(
+      "/riders?type=adult&searched=1",
+      { scroll: false },
+    );
     expect(addresses().join(" ")).not.toContain("Abe");
+  });
+
+  it("drops a searched page once the search is gone (Back, reload)", async () => {
+    navigation().search = "?searched=1&cursor=page-2";
+    const seen: URL[] = [];
+    serveRiders([riding], seen);
+    renderWithProviders(<RidersScreen />);
+
+    await screen.findByRole("link", { name: "Abel Tesfaye" });
+    expect(seen.every((url) => !url.searchParams.has("cursor"))).toBe(true);
+    await waitFor(() =>
+      expect(navigation().replace).toHaveBeenCalledWith("/riders", {
+        scroll: false,
+      }),
+    );
   });
 
   it("finds a caller by phone with a POST, never in a URL", async () => {

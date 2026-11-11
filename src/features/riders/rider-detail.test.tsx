@@ -182,6 +182,32 @@ describe("RiderDetail", () => {
     expect(onDeleted).not.toHaveBeenCalled();
   });
 
+  it("waits out Too many requests before deleting again", async () => {
+    serveRole("admin");
+    server.use(
+      http.delete(apiUrl("/v1/riders/{rider_id}"), () =>
+        problemResponse(429, "RATE_LIMITED", "req-429", {
+          "Retry-After": "30",
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderPage(noSeat);
+
+    await user.click(
+      await screen.findByRole("button", { name: t.deleteRider }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: t.deleteRider }),
+    );
+
+    expect(await within(dialog).findByText("req-429")).toBeVisible();
+    expect(
+      within(dialog).getByRole("button", { name: t.deleteRider }),
+    ).toHaveAttribute("aria-disabled", "true");
+  });
+
   it("says when the rider no longer exists", async () => {
     serveRider();
     renderWithProviders(<RiderDetail riderId={riding.id} variant="page" />);

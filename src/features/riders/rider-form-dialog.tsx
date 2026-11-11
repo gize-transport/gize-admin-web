@@ -138,7 +138,11 @@ export function RiderFormDialog({
   // Recorded: the new rider opens and takes focus itself; the dialog doesn't hand focus back.
   const [recorded, setRecorded] = useState(false);
   const returnFocusTo = useRef<HTMLElement | null>(null);
-  const pending = create.isPending || update.isPending;
+  // The type of a refused record (the choice may change after) and, while it runs, the look-up of
+  // who has its phone: the button stays pending until that's known.
+  const [sentType, setSentType] = useState<FormValues["rider_type"]>("adult");
+  const [findingOwner, setFindingOwner] = useState(false);
+  const pending = create.isPending || update.isPending || findingOwner;
   // After a 429, the button stays disabled until Retry-After has passed.
   const waiting = useRetryWait(problem);
   // Correcting: their type is fixed. Recording: the type chosen.
@@ -176,12 +180,18 @@ export function RiderFormDialog({
             }
             return;
           }
+          // Correcting someone who has none yet (a student, before GZ-033) needn't add them.
+          const needsDestination = !rider || rider.destination_area !== null;
           if (!values.destination) {
-            issue("destination", t("destinationRequired"));
+            if (needsDestination) {
+              issue("destination", t("destinationRequired"));
+            }
           } else if (values.home && values.home.id === values.destination.id) {
             issue("destination", t("sameAreas"));
           }
-          if (!values.plan) issue("plan", t("planRequired"));
+          if (!values.plan && (!rider || rider.plan !== null)) {
+            issue("plan", t("planRequired"));
+          }
         }),
     [t, rider, fixedCompany],
   );
@@ -215,6 +225,7 @@ export function RiderFormDialog({
     async (values) => {
       setProblem(null);
       setExisting(null);
+      setSentType(values.rider_type);
       const name = sameLooking(values.full_name);
       const phone = mobileE164(values.phone) ?? values.phone;
       try {
@@ -275,6 +286,16 @@ export function RiderFormDialog({
     },
   );
 
+  // "B-07", or "B-07, then B-01" while they move.
+  const heldRoutes = rider?.seat
+    ? rider.next_seat
+      ? t("routesThen", {
+          now: rider.seat.route_code,
+          next: rider.next_seat.route_code,
+        })
+      : rider.seat.route_code
+    : null;
+
   /** A refusal on a field goes there (and gets focus); anything else above the form. */
   async function showRefusal(
     error: unknown,
@@ -289,6 +310,7 @@ export function RiderFormDialog({
       }
       setProblem(error);
       // Which rider has it: an adult's phone is theirs alone, a company rider's once per company.
+      setFindingOwner(true);
       try {
         const matches = await findRidersByPhone(phone);
         const match = matches.items.find((item) =>
@@ -299,6 +321,8 @@ export function RiderFormDialog({
         if (match) setExisting({ id: match.id, full_name: match.full_name });
       } catch {
         // The message stands without the link.
+      } finally {
+        setFindingOwner(false);
       }
       return;
     }
@@ -310,13 +334,13 @@ export function RiderFormDialog({
     if (first) {
       for (const [apiField, field] of failed) {
         let words = fields[apiField];
-        // A seat holder's change that doesn't fit their route.
-        if (rider?.seat && apiField === "home_area_id") {
-          words = t("homeNotOnRoute", { code: rider.seat.route_code });
-        } else if (rider?.seat && apiField === "destination_area_id") {
-          words = t("destinationNotOnRoute", { code: rider.seat.route_code });
-        } else if (rider?.seat && apiField === "saturday_addon") {
-          words = t("saturdayNotOnRoute", { code: rider.seat.route_code });
+        // A seat holder's change must fit every route they hold: now and after a move.
+        if (heldRoutes && apiField === "home_area_id") {
+          words = t("homeNotOnRoute", { routes: heldRoutes });
+        } else if (heldRoutes && apiField === "destination_area_id") {
+          words = t("destinationNotOnRoute", { routes: heldRoutes });
+        } else if (heldRoutes && apiField === "saturday_addon") {
+          words = t("saturdayNotOnRoute", { routes: heldRoutes });
         }
         setError(field, { message: words });
       }
@@ -328,7 +352,7 @@ export function RiderFormDialog({
 
   const exists = problem instanceof ApiError && problem.code === "RIDER_EXISTS";
   const problemWords = exists
-    ? t(riderType === "corporate" ? "existsCompany" : "existsAdult")
+    ? t(sentType === "corporate" ? "existsCompany" : "existsAdult")
     : problem !== null
       ? message(problem)
       : "";

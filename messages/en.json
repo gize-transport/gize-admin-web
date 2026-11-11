@@ -1297,9 +1297,9 @@
     "destinationRequired": "Choose where they go.",
     "sameAreas": "Choose an area other than where they board.",
     "planRequired": "Choose a plan.",
-    "homeNotOnRoute": "Route {code} doesn't stop in this area. Choose its start or an area it serves.",
-    "destinationNotOnRoute": "Route {code} doesn't go there. Choose the area at its end.",
-    "saturdayNotOnRoute": "Route {code} doesn't run on Saturdays.",
+    "homeNotOnRoute": "Their route ({routes}) doesn't stop in this area. Choose its start or an area it serves.",
+    "destinationNotOnRoute": "Their route ({routes}) doesn't go there. Choose the area at its end.",
+    "saturdayNotOnRoute": "Their route ({routes}) doesn't run on Saturdays.",
     "existsAdult": "A rider already has this phone number.",
     "existsCompany": "This company already has a rider with this phone number.",
     "existsLink": "Open {name}",
@@ -1307,6 +1307,7 @@
     "record": "Record rider",
     "save": "Save changes",
     "recordedToast": "Rider recorded",
-    "savedToast": "Rider saved"
+    "savedToast": "Rider saved",
+    "routesThen": "{now}, then {next}"
   }
 }

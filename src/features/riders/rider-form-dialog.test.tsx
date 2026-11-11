@@ -16,6 +16,7 @@ import {
 import { RiderFormDialog } from "./rider-form-dialog";
 import {
   companyRider,
+  moving,
   rider,
   riderId,
   riding,
@@ -260,6 +261,69 @@ describe("RiderFormDialog: recording", () => {
   });
 });
 
+describe("RiderFormDialog: while sending", () => {
+  it("shows the record as pending and can't send it twice", async () => {
+    let release: () => void = () => {};
+    const seen: { body: Schemas["RiderCreate"]; key: string | null }[] = [];
+    server.use(
+      http.post(apiUrl("/v1/riders"), async ({ request }) => {
+        seen.push({
+          body: (await request.json()) as Schemas["RiderCreate"],
+          key: request.headers.get("Idempotency-Key"),
+        });
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return HttpResponse.json(rider(9), { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    const { dialog, onRecorded } = renderForm();
+
+    await fillAdult(user, dialog);
+    await user.click(button(dialog, t.record));
+    await waitFor(() => expect(seen).toHaveLength(1));
+    const record = button(dialog, t.record);
+    expect(record).toHaveAttribute("aria-busy", "true");
+    await user.click(record);
+    release();
+
+    await waitFor(() => expect(onRecorded).toHaveBeenCalled());
+    expect(seen).toHaveLength(1);
+  });
+
+  it("waits out Too many requests before sending again", async () => {
+    serveCreate(
+      () =>
+        problemResponse(429, "RATE_LIMITED", "req-429", {
+          "Retry-After": "30",
+        }),
+      [],
+    );
+    const user = userEvent.setup();
+    const { dialog } = renderForm();
+
+    await fillAdult(user, dialog);
+    await user.click(button(dialog, t.record));
+
+    expect(await within(dialog).findByText("req-429")).toBeVisible();
+    expect(button(dialog, t.record)).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("keeps naming the kind of rider that was refused", async () => {
+    serveCreate(() => problemResponse(409, "RIDER_EXISTS"), []);
+    serveLookup([]);
+    const user = userEvent.setup();
+    const { dialog } = renderForm();
+
+    await fillAdult(user, dialog);
+    await user.click(button(dialog, t.record));
+    expect(await within(dialog).findByText(t.existsAdult)).toBeVisible();
+    await user.click(within(dialog).getByLabelText(t.typeCompanyOption));
+    expect(within(dialog).getByText(t.existsAdult)).toBeVisible();
+  });
+});
+
 describe("RiderFormDialog: correcting", () => {
   it("sends only what changed", async () => {
     const seen: Schemas["RiderUpdate"][] = [];
@@ -334,9 +398,48 @@ describe("RiderFormDialog: correcting", () => {
     await user.click(button(dialog, t.save));
 
     expect(
-      await within(dialog).findByText(fill(t.homeNotOnRoute, { code: "R-03" })),
+      await within(dialog).findByText(
+        fill(t.homeNotOnRoute, { routes: "R-03" }),
+      ),
     ).toBeVisible();
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it("names both routes for a rider who is moving", async () => {
+    serveUpdate(() => validationResponse("saturday_addon"), []);
+    const user = userEvent.setup();
+    const { dialog } = renderForm({ rider: moving });
+
+    await user.click(within(dialog).getByLabelText(t.saturdayLabel));
+    await user.click(button(dialog, t.save));
+
+    expect(
+      await within(dialog).findByText(
+        fill(t.saturdayNotOnRoute, {
+          routes: fill(t.routesThen, { now: "R-03", next: "R-07" }),
+        }),
+      ),
+    ).toBeVisible();
+  });
+
+  it("corrects someone without a destination or plan without asking for them", async () => {
+    const student = rider(8, {
+      rider_type: "student",
+      destination_area: null,
+      plan: null,
+    });
+    const seen: Schemas["RiderUpdate"][] = [];
+    serveUpdate(() => HttpResponse.json(student), seen);
+    const user = userEvent.setup();
+    const { dialog, onOpenChange } = renderForm({ rider: student });
+
+    const name = within(dialog).getByLabelText(t.nameLabel);
+    await user.clear(name);
+    await user.type(name, "Liya Girma");
+    await user.click(button(dialog, t.save));
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    expect(seen).toEqual([{ full_name: "Liya Girma" }]);
   });
 
   it("says when another rider has the new phone", async () => {

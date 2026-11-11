@@ -107,7 +107,8 @@ test.describe("riders", () => {
     await expect(
       details.getByText(fill(t.planWithSaturday, { plan: t.planMorning })),
     ).toBeVisible();
-    expect(page.url()).not.toContain(who.name.replaceAll(" ", "+"));
+    // Its random part, however the name might be encoded.
+    expect(page.url()).not.toContain(who.name.slice(-6));
   });
 
   test("a company rider: recorded once per company, the second time points to them", async ({
@@ -178,7 +179,8 @@ test.describe("riders", () => {
     const confirm = page.getByRole("alertdialog", { name: t.deleteTitle });
     await confirm.getByRole("button", { name: t.deleteRider }).click();
     await expect(page.getByText(t.deleted)).toBeVisible();
-    await expect(page).toHaveURL(/\/riders$/);
+    // Back on the list (with the search still on beside a closed panel on wide screens).
+    await expect(page).toHaveURL(/\/riders(\?searched=1)?$/);
     // The whole list again (on wide screens the search stays while the panel closes).
     await page.goto("/riders");
     await expect(

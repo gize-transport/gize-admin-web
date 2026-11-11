@@ -41,6 +41,8 @@ const TYPES: RiderType[] = ["adult", "student", "corporate"];
 const SEATS: SeatState[] = ["active", "reserved", "none"];
 const FILTERS = ["type", "seat", "route_id"];
 const SEARCH_DELAY_MS = 300;
+/** In the address while a name search is on (its pages are that search's): never the name. */
+const SEARCHED = "searched";
 /** The API's limit for a name search (`q`). */
 const NAME_MAX = 100;
 
@@ -86,12 +88,20 @@ export function RidersScreen() {
   const { cursor, get, setFilters, setParams } = useListParams();
   const detail = useDetailPanel({ param: "rider", basePath: "/riders" });
   const [search, setSearch] = useState<RiderSearch>({ kind: "none" });
+  // The cursor in the address belongs to the search that paged to it, but the search itself
+  // isn't kept there. A cursor left over from another search (one just replaced, or one this
+  // page no longer has after Back or a reload: `searched` says there was one) is never sent;
+  // it's cleared from the address meanwhile (changeSearch).
+  const [staleCursor, setStaleCursor] = useState<string | null>(() =>
+    get(SEARCHED) ? cursor : null,
+  );
+  if (staleCursor !== null && cursor !== staleCursor) setStaleCursor(null);
   const filters = {
     name: search.kind === "name" ? search.name : null,
     riderType: oneOf(get("type"), TYPES),
     seat: oneOf(get("seat"), SEATS),
     routeId: get("route_id") || null,
-    cursor,
+    cursor: cursor !== null && cursor === staleCursor ? null : cursor,
   };
   const phoneSearch = search.kind === "phone";
   const riders = useRiders(
@@ -108,10 +118,21 @@ export function RidersScreen() {
   }
 
   function changeSearch(next: RiderSearch) {
-    if (sameSearch(next, search)) return;
-    setSearch(next);
-    // Another search starts again from the first page.
-    if (cursor !== null) setParams({ cursor: null }, { replace: true });
+    const changed = !sameSearch(next, search);
+    if (changed) setSearch(next);
+    // A name search marks the address (no name in it), so its pages aren't read without it.
+    const searched = next.kind === "name" ? "1" : null;
+    // Another search starts again from the first page; so does a page from a search gone.
+    const dropCursor =
+      cursor !== null &&
+      (changed || (get(SEARCHED) !== null && search.kind === "none"));
+    if (dropCursor) setStaleCursor(cursor);
+    if (dropCursor || get(SEARCHED) !== searched) {
+      setParams(
+        { [SEARCHED]: searched, ...(dropCursor ? { cursor: null } : {}) },
+        { replace: true },
+      );
+    }
   }
 
   const columns = useMemo(
@@ -155,7 +176,13 @@ export function RidersScreen() {
           header: t("colPlan"),
           cell: (info) =>
             planLabel(info.row.original, t) ?? (
-              <span className="text-muted">{t("planCompany")}</span>
+              <span className="text-muted">
+                {t(
+                  info.row.original.rider_type === "corporate"
+                    ? "planCompany"
+                    : "notSet",
+                )}
+              </span>
             ),
         }),
         col.display({

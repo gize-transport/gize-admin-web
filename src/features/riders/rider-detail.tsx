@@ -143,7 +143,11 @@ function Loaded({
           </Fact>
         )}
         <Fact label={t("plan")}>
-          {plan ?? <span className="text-muted">{t("planCompany")}</span>}
+          {plan ?? (
+            <span className="text-muted">
+              {t(rider.rider_type === "corporate" ? "planCompany" : "notSet")}
+            </span>
+          )}
         </Fact>
         <Fact label={t("openRequests")}>
           <span className="tabular-nums">{rider.open_requests}</span>
