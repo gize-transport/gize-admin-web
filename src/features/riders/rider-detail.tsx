@@ -23,6 +23,8 @@ import { useCurrentStaff } from "@/lib/auth/use-current-staff";
 import { useTimestampFormat } from "@/lib/time";
 import { refetchRider, useDeleteRider, useRider } from "./queries";
 import { RiderFormDialog } from "./rider-form-dialog";
+import { EndSeatDialog, KeepSeatDialog, PlaceSeatDialog } from "./seat-dialogs";
+import { RouteRequestFormDialog } from "@/features/route-requests/route-request-form-dialog";
 import {
   planLabel,
   riderTypeLabel,
@@ -33,6 +35,7 @@ import {
 
 type RiderRead = components["schemas"]["RiderRead"];
 type SeatRef = components["schemas"]["SeatRef"];
+type RouteRef = components["schemas"]["RouteRef"];
 
 const linkClass = "font-semibold text-royal underline-offset-4 hover:underline";
 
@@ -94,6 +97,29 @@ function Loaded({
   const [formKey, setFormKey] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const queryClient = useQueryClient();
+  // Seat dialogs mount afresh each time (a new Idempotency-Key per opening).
+  const [seatDialog, setSeatDialog] = useState<{
+    kind: "place" | "end" | "keep";
+    key: number;
+  } | null>(null);
+  const [seatOpen, setSeatOpen] = useState(false);
+  const [requestPrefill, setRequestPrefillState] = useState<{
+    key: number;
+    route: RouteRef;
+  } | null>(null);
+  const [requestOpen, setRequestOpen] = useState(false);
+
+  function openSeatDialog(kind: "place" | "end" | "keep") {
+    setSeatDialog((current) => ({ kind, key: (current?.key ?? 0) + 1 }));
+    setSeatOpen(true);
+  }
+
+  /** A full route: the request form opens, filled in, as the seat dialog closes. */
+  function setRequestPrefill(next: { key: number; route: RouteRef }) {
+    setRequestPrefillState(next);
+    setRequestOpen(true);
+  }
   // Delete shows for admins only; the API still refuses others.
   const isAdmin = useCurrentStaff().data?.role === "admin";
   const sectionHeading = "font-display text-section font-semibold text-navy";
@@ -175,6 +201,25 @@ function Loaded({
         ) : (
           <p className="text-body text-muted">{t("noSeatDetail")}</p>
         )}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => openSeatDialog("place")}>
+            {t(rider.seat ? "moveButton" : "placeButton")}
+          </Button>
+          {rider.seat &&
+            (rider.seat.end_date !== null || rider.next_seat !== null) && (
+              <Button
+                variant="secondary"
+                onClick={() => openSeatDialog("keep")}
+              >
+                {t("keepButton", { code: rider.seat.route_code })}
+              </Button>
+            )}
+          {rider.seat && (
+            <Button variant="secondary" onClick={() => openSeatDialog("end")}>
+              {t("endButton")}
+            </Button>
+          )}
+        </div>
       </section>
 
       <section className="grid gap-4 border-t border-line pt-5">
@@ -210,6 +255,50 @@ function Loaded({
         )}
       </section>
 
+      {seatDialog?.kind === "place" && (
+        <PlaceSeatDialog
+          key={seatDialog.key}
+          rider={rider}
+          open={seatOpen}
+          onOpenChange={setSeatOpen}
+          onRecordRequest={(route) =>
+            setRequestPrefill({
+              key: (requestPrefill?.key ?? 0) + 1,
+              route,
+            })
+          }
+        />
+      )}
+      {seatDialog?.kind === "end" && (
+        <EndSeatDialog
+          key={seatDialog.key}
+          rider={rider}
+          open={seatOpen}
+          onOpenChange={setSeatOpen}
+        />
+      )}
+      {seatDialog?.kind === "keep" && (
+        <KeepSeatDialog
+          key={seatDialog.key}
+          rider={rider}
+          open={seatOpen}
+          onClose={() => setSeatOpen(false)}
+        />
+      )}
+      {requestPrefill !== null && (
+        <RouteRequestFormDialog
+          key={requestPrefill.key}
+          open={requestOpen}
+          onOpenChange={setRequestOpen}
+          prefill={{
+            route: requestPrefill.route,
+            riderName: rider.full_name,
+            phone: rider.phone ?? "",
+          }}
+          // Their open requests count changes.
+          onRecorded={() => refetchRider(queryClient, rider.id)}
+        />
+      )}
       <DeleteRiderDialog
         rider={rider}
         open={deleting}

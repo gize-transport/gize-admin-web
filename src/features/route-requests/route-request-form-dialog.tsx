@@ -87,6 +87,11 @@ type RouteRequestFormDialogProps = {
   request?: RouteRequestRead;
   /** The new request, once recorded: the caller opens it. */
   onRecorded?: (request: RouteRequestRead) => void;
+  /**
+   * Recording a seat on a full route for a known adult (GZW-031): the route and who they are,
+   * filled in and still editable.
+   */
+  prefill?: { route: RouteRef; riderName: string; phone: string };
 };
 
 /**
@@ -101,6 +106,7 @@ export function RouteRequestFormDialog({
   onOpenChange,
   request: requestProp,
   onRecorded,
+  prefill,
 }: RouteRequestFormDialogProps) {
   // The request as the form opened with it: changes are worked out against this.
   const [request] = useState(requestProp);
@@ -244,21 +250,21 @@ export function RouteRequestFormDialog({
   } = useForm<z.input<typeof schema>, unknown, z.output<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
-      kind: request?.kind ?? "new_areas",
+      kind: request?.kind ?? (prefill ? "route" : "new_areas"),
       fromMode: "listed",
       fromArea: null,
       fromName: "",
       toMode: "listed",
       toArea: null,
       toName: "",
-      route: null,
+      route: prefill?.route ?? null,
       rider_type: request?.rider_type ?? "adult",
-      rider_name: request?.rider_name ?? "",
+      rider_name: request?.rider_name ?? prefill?.riderName ?? "",
       school_name: request?.school_name ?? "",
       morning: request?.preferred_morning_time ?? "",
       back: request?.preferred_return_time ?? "",
-      contact_name: request?.contact_name ?? "",
-      contact_phone: request?.contact_phone ?? "",
+      contact_name: request?.contact_name ?? prefill?.riderName ?? "",
+      contact_phone: request?.contact_phone ?? prefill?.phone ?? "",
       notes: request?.notes ?? "",
     },
   });

@@ -199,3 +199,136 @@ test.describe("riders", () => {
     );
   });
 });
+
+/** Records an adult going Bole → Piassa (the trip of B-01 and B-07) and opens them. */
+async function recordAdult(page: Page) {
+  const who = caller();
+  await page.getByRole("button", { name: t.add }).first().click();
+  const dialog = page.getByRole("dialog", { name: t.addTitle });
+  await dialog.getByLabel(t.nameLabel, { exact: true }).fill(who.name);
+  await dialog.getByLabel(t.phoneLabel, { exact: true }).fill(who.phone);
+  await pick(page, dialog.getByRole("combobox", { name: t.homeLabel }), "Bole");
+  await pick(
+    page,
+    dialog.getByRole("combobox", { name: t.destinationLabel }),
+    "Piassa",
+  );
+  await dialog.getByLabel(t.planRoundTripOption).check();
+  await dialog.getByRole("button", { name: t.record }).click();
+  await expect(page.getByText(t.recordedToast)).toBeVisible();
+  return { who, details: await opened(page, who.name) };
+}
+
+test.describe("seats", () => {
+  test("staff reserve a seat on a forming route; a full running route becomes a route request; the reservation ends", async ({
+    page,
+  }) => {
+    await signIn(page, "staff", "/sign-in?next=%2Friders");
+    const { who, details } = await recordAdult(page);
+
+    await details.getByRole("button", { name: t.placeButton }).click();
+    const place = page.getByRole("dialog", {
+      name: fill(t.placeTitle, { name: who.name }),
+    });
+    await place.getByRole("radio", { name: /^B-01/ }).check();
+    await place.getByRole("button", { name: t.placeSave }).click();
+    await expect(page.getByText(t.placedToast)).toBeVisible();
+    await expect(details.getByText(t.seatReserved)).toBeVisible();
+    await expect(
+      details.getByRole("link", {
+        name: fill(t.seatRouteLink, { code: "B-01" }),
+      }),
+    ).toBeVisible();
+
+    // B-07 is running, full, and has someone else's request: a reason first, then full.
+    await details.getByRole("button", { name: t.moveButton }).click();
+    const move = page.getByRole("dialog", {
+      name: fill(t.moveTitle, { name: who.name }),
+    });
+    await expect(move.getByRole("radio", { name: /^B-01/ })).toHaveCount(0);
+    await move.getByRole("radio", { name: /^B-07/ }).check();
+    await move.getByRole("button", { name: t.moveSave }).click();
+    const reason = move.getByLabel(t.skipReasonLabel);
+    await expect(reason).toBeFocused();
+    await reason.fill("Works next to the B-07 stop");
+    await move.getByRole("button", { name: t.moveSave }).click();
+    await expect(
+      move.getByText(fill(t.seatFullRequest, { code: "B-07" })),
+    ).toBeVisible();
+    await move
+      .getByRole("button", {
+        name: fill(t.seatRecordRequest, { code: "B-07" }),
+      })
+      .click();
+    const request = page.getByRole("dialog", {
+      name: messages.RouteRequests.addTitle,
+    });
+    await expect(
+      request.getByLabel(messages.RouteRequests.riderNameLabel),
+    ).toHaveValue(who.name);
+    await request
+      .getByRole("button", { name: messages.RouteRequests.record })
+      .click();
+    await expect(
+      page.getByText(messages.RouteRequests.recordedToast),
+    ).toBeVisible();
+
+    // A reservation ends at once.
+    await details.getByRole("button", { name: t.endButton }).click();
+    const end = page.getByRole("dialog", {
+      name: fill(t.endTitle, { code: "B-01" }),
+    });
+    await end.getByRole("button", { name: t.endSave }).click();
+    await expect(page.getByText(t.endedToast)).toBeVisible();
+    await expect(details.getByText(t.noSeatDetail)).toBeVisible();
+  });
+
+  test("a company rider rides their company's route from today; an end is undone with Keep", async ({
+    page,
+  }) => {
+    await signIn(page, "staff", "/sign-in?next=%2Friders");
+    const who = caller();
+    await page.getByRole("button", { name: t.add }).first().click();
+    const dialog = page.getByRole("dialog", { name: t.addTitle });
+    await dialog.getByLabel(t.typeCompanyOption).check();
+    await dialog.getByLabel(t.nameLabel, { exact: true }).fill(who.name);
+    await dialog.getByLabel(t.phoneLabel, { exact: true }).fill(who.phone);
+    await pick(
+      page,
+      dialog.getByRole("combobox", { name: t.companyLabel }),
+      "Addis Brewery",
+    );
+    await pick(
+      page,
+      dialog.getByRole("combobox", { name: t.homeLabel }),
+      "Bole",
+    );
+    await dialog.getByRole("button", { name: t.record }).click();
+    const details = await opened(page, who.name);
+
+    await details.getByRole("button", { name: t.placeButton }).click();
+    const place = page.getByRole("dialog", {
+      name: fill(t.placeTitle, { name: who.name }),
+    });
+    await place.getByRole("radio", { name: /^R-21/ }).check();
+    await place.getByRole("button", { name: t.placeSave }).click();
+    await expect(details.getByText(t.seatRiding)).toBeVisible();
+
+    await details.getByRole("button", { name: t.endButton }).click();
+    await page
+      .getByRole("dialog", { name: fill(t.endTitle, { code: "R-21" }) })
+      .getByRole("button", { name: t.endSave })
+      .click();
+    const keep = details.getByRole("button", {
+      name: fill(t.keepButton, { code: "R-21" }),
+    });
+    await keep.click();
+    await page
+      .getByRole("alertdialog", { name: fill(t.keepTitle, { code: "R-21" }) })
+      .getByRole("button", { name: fill(t.keepSave, { code: "R-21" }) })
+      .click();
+    await expect(page.getByText(t.keptToast)).toBeVisible();
+    await expect(keep).toHaveCount(0);
+    await expect(details.getByText(t.seatRiding)).toBeVisible();
+  });
+});

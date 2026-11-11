@@ -2370,12 +2370,14 @@ function listAudit(url, response) {
  *   plan: Schemas["RiderPlan"] | null;
  *   saturday_addon: boolean;
  *   source: Schemas["RiderSource"];
- *   seat: { routeId: string; status: "reserved" | "active"; start_date: string; end_date: string | null } | null;
+ *   seat: FakeSeat | null;
+ *   nextSeat: FakeSeat | null;
  *   open_requests: number;
  *   deleted: boolean;
  *   created_at: string;
  *   updated_at: string;
  * }} FakeRider
+ * @typedef {{ routeId: string; status: "reserved" | "active"; start_date: string; end_date: string | null }} FakeSeat
  */
 /** @type {FakeRider[]} */
 const riders = [
@@ -2431,6 +2433,7 @@ const riders = [
     saturday_addon: false,
     source: /** @type {FakeRider["source"]} */ ("staff"),
     seat: null,
+    nextSeat: null,
     open_requests: 0,
     deleted: false,
     created_at: at,
@@ -2446,7 +2449,6 @@ const PLANS = ["round_trip", "morning", "evening"];
 /** @param {FakeRider} rider @returns {Schemas["RiderRead"]} */
 function riderRead(rider) {
   const company = companies.find((c) => c.id === rider.companyId);
-  const route = rider.seat && routes.find((r) => r.id === rider.seat?.routeId);
   return {
     id: rider.id,
     rider_type: rider.rider_type,
@@ -2458,20 +2460,24 @@ function riderRead(rider) {
     saturday_addon: rider.saturday_addon,
     source: rider.source,
     company: company ? { id: company.id, name: company.name } : null,
-    seat:
-      rider.seat && route
-        ? {
-            route_id: route.id,
-            route_code: route.code,
-            status: rider.seat.status,
-            start_date: rider.seat.start_date,
-            end_date: rider.seat.end_date,
-          }
-        : null,
-    next_seat: null,
+    seat: seatRef(rider.seat),
+    next_seat: seatRef(rider.nextSeat),
     open_requests: rider.open_requests,
     created_at: rider.created_at,
     updated_at: rider.updated_at,
+  };
+}
+
+/** @param {FakeSeat | null} seat @returns {Schemas["SeatRef"] | null} */
+function seatRef(seat) {
+  const route = seat && routes.find((r) => r.id === seat.routeId);
+  if (!seat || !route) return null;
+  return {
+    route_id: route.id,
+    route_code: route.code,
+    status: seat.status,
+    start_date: seat.start_date,
+    end_date: seat.end_date,
   };
 }
 
@@ -2561,6 +2567,108 @@ function listRiders(url, response) {
       offset + limit < matching.length
         ? Buffer.from(String(offset + limit)).toString("base64url")
         : null,
+  };
+  send(response, 200, page);
+}
+
+// Seats, like GZ-035: an adult rides a public route that takes their trip from a 1st (a
+// reservation on a forming route, a place on an active one); a company rider their company's
+// route from any day. A move ends the old seat the day before; others' open requests for an
+// active route come first (a skip reason), then the seats.
+/** A retry gets the answer stored the first time (like the API), not the rider as they are now. */
+/** @type {Map<string, { answer: Schemas["RiderRead"]; fingerprint: string }>} */
+const seatKeys = new Map();
+
+/** Today in Addis Ababa, YYYY-MM-DD. */
+const addisDay = () => addisToday().toISOString().slice(0, 10);
+
+/** @param {string} day @param {number} days */
+function shiftDay(day, days) {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+/** The route takes a rider boarding at `fromId` and getting off at `toId` (A or served → B). */
+/** @param {FakeRoute} route @param {string} fromId @param {string} toId */
+function takesTrip(route, fromId, toId) {
+  const corridor = corridors.find((c) => c.id === route.corridorId);
+  return (
+    corridor !== undefined &&
+    corridor.destinationId === toId &&
+    (corridor.originId === fromId || route.servedAreaIds.includes(fromId))
+  );
+}
+
+/** No seat free from the earliest start (fixed counts: the stand-in has no real seats). */
+/** @param {FakeRoute} route */
+function routeFull(route) {
+  return (
+    (route.status === "forming" ? route.reserved : route.taken) >= route.seats
+  );
+}
+
+/** @param {FakeRoute} route @param {FakeRider} rider */
+function routeTakesRider(route, rider) {
+  if (rider.rider_type === "corporate") {
+    const corridor = corridors.find((c) => c.id === route.corridorId);
+    return (
+      route.route_type === "corporate" &&
+      route.companyId === rider.companyId &&
+      corridor !== undefined &&
+      takesTrip(route, rider.homeId, corridor.destinationId)
+    );
+  }
+  return (
+    route.route_type === "public" &&
+    ["forming", "active"].includes(route.status) &&
+    route.prices !== null &&
+    route.prices.round_trip !== null &&
+    route.prices.one_way !== null &&
+    (!rider.saturday_addon || route.prices.saturday !== null) &&
+    rider.destinationId !== null &&
+    takesTrip(route, rider.homeId, rider.destinationId)
+  );
+}
+
+/** @param {URL} url @param {ServerResponse} response */
+function listPublicRoutes(url, response) {
+  const fromId = url.searchParams.get("from_area_id") ?? "";
+  const toId = url.searchParams.get("to_area_id") ?? "";
+  /** @type {Schemas["PublicRoutePage"]} */
+  const page = {
+    items: routes
+      .filter(
+        (route) =>
+          route.route_type === "public" &&
+          ["forming", "active", "paused"].includes(route.status) &&
+          route.prices?.round_trip != null &&
+          route.prices.one_way != null &&
+          takesTrip(route, fromId, toId),
+      )
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((route) => {
+        const corridor = corridors.find((c) => c.id === route.corridorId);
+        return {
+          id: route.id,
+          code: route.code,
+          origin_area: areaRef(corridor?.originId ?? ""),
+          destination_area: areaRef(corridor?.destinationId ?? ""),
+          served_areas: route.servedAreaIds.map(areaRef),
+          morning_time: route.morning_time,
+          morning_arrival_time: route.morning_arrival_time,
+          return_time: route.return_time,
+          return_arrival_time: route.return_arrival_time,
+          prices: {
+            round_trip: Number(route.prices?.round_trip),
+            one_way: Number(route.prices?.one_way),
+            saturday: route.prices?.saturday ?? null,
+          },
+          status: /** @type {Schemas["RouteStatus"]} */ (route.status),
+          full: routeFull(route),
+        };
+      }),
+    next_cursor: null,
   };
   send(response, 200, page);
 }
@@ -3426,6 +3534,147 @@ const api = createServer(async (request, response) => {
   }
 
   // Route requests (GZ-027): any staff member; delete is admin-only.
+  if (url.pathname === "/v1/public/routes" && request.method === "GET") {
+    return listPublicRoutes(url, response);
+  }
+
+  const seatMatch = /^\/v1\/riders\/([^/]+)\/seat(\/end)?$/.exec(url.pathname);
+  if (
+    seatMatch &&
+    ((request.method === "PUT" && !seatMatch[2]) ||
+      (request.method === "POST" && seatMatch[2]))
+  ) {
+    const key = idempotencyKey(request, response);
+    if (key === undefined) return;
+    const body = (await readJson(request)) ?? {};
+    const fingerprint = `${url.pathname}|${JSON.stringify(body)}`;
+    const replay = seatKeys.get(`${user.email}|${key}`);
+    if (replay) {
+      if (replay.fingerprint !== fingerprint) {
+        return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+      }
+      return send(response, 200, replay.answer);
+    }
+    const found = riders.find((r) => r.id === seatMatch[1] && !r.deleted);
+    if (!found) return problem(response, 404, "NOT_FOUND");
+    const today = addisDay();
+    const company = found.rider_type === "corporate";
+
+    if (seatMatch[2]) {
+      // A rider leaves: an adult at a month's end, a company rider any day.
+      if (found.seat === null)
+        return problem(response, 409, "RIDER_HAS_NO_SEAT");
+      const last =
+        typeof body.end_date === "string"
+          ? body.end_date
+          : company
+            ? today
+            : shiftDay(nextLaunchDay(), -1);
+      const monthEnd = shiftDay(last, 1).endsWith("-01");
+      if (
+        last < today ||
+        last > shiftDay(today, 365) ||
+        (!company && !monthEnd)
+      ) {
+        return validationProblem(response, "/end_date", "invalid");
+      }
+      // Each seat held ends after `last` (_end_seat): one not started by then (or a reservation)
+      // ends at once; one already ending earlier keeps its date.
+      /** @param {FakeSeat | null} seat @returns {FakeSeat | null} */
+      const endSeat = (seat) => {
+        if (seat === null) return null;
+        if (seat.status === "reserved" || last < seat.start_date) return null;
+        if (seat.end_date === null || seat.end_date > last)
+          seat.end_date = last;
+        return seat;
+      };
+      const next = endSeat(found.nextSeat);
+      const current = endSeat(found.seat);
+      found.seat = current ?? next;
+      found.nextSeat = current ? next : null;
+      found.updated_at = new Date().toISOString();
+      const answer = riderRead(found);
+      seatKeys.set(`${user.email}|${key}`, { answer, fingerprint });
+      return send(response, 200, answer);
+    }
+
+    const route = routes.find((r) => r.id === body.route_id);
+    if (!route || !routeTakesRider(route, found)) {
+      return validationProblem(response, "/route_id", "invalid");
+    }
+    if (company && !activeCompany(String(found.companyId))) {
+      return problem(response, 409, "ROUTE_NOT_READY");
+    }
+    if (found.seat?.routeId === route.id) {
+      // Back on the route of the seat they hold: its end is undone, a move ends.
+      if (found.seat.end_date === null && found.nextSeat === null) {
+        return problem(response, 409, "ALREADY_ON_ROUTE");
+      }
+      found.seat.end_date = null;
+      found.nextSeat = null;
+      found.updated_at = new Date().toISOString();
+      const answer = riderRead(found);
+      seatKeys.set(`${user.email}|${key}`, { answer, fingerprint });
+      return send(response, 200, answer);
+    }
+    if (found.nextSeat !== null) return problem(response, 409, "RIDER_MOVING");
+    if (found.seat?.status === "active" && route.status === "forming") {
+      return validationProblem(response, "/route_id", "invalid");
+    }
+    const start =
+      typeof body.start_date === "string"
+        ? body.start_date
+        : company
+          ? today
+          : nextLaunchDay();
+    // An adult: a 1st from the next one to this month's 1st next year; a company rider: a day
+    // from today to a year ahead (_start).
+    const sameMonthNextYear = `${Number(today.slice(0, 4)) + 1}${today.slice(4, 8)}01`;
+    if (
+      company
+        ? start < today || start > shiftDay(today, 365)
+        : !start.endsWith("-01") ||
+          start < nextLaunchDay() ||
+          start > sameMonthNextYear
+    ) {
+      return validationProblem(response, "/start_date", "invalid");
+    }
+    if (!company && route.status === "active" && !body.skip_reason) {
+      const waiting = requests.some(
+        (r) =>
+          !r.deleted &&
+          isOpen(r) &&
+          (r.routeId === route.id || r.matchedRouteId === route.id) &&
+          r.contact_phone !== found.phone,
+      );
+      if (waiting) return problem(response, 409, "ROUTE_HAS_WAITING_REQUESTS");
+    }
+    if (routeFull(route)) return problem(response, 409, "ROUTE_FULL");
+    /** @type {FakeSeat} */
+    const seat = {
+      routeId: route.id,
+      status: route.status === "forming" ? "reserved" : "active",
+      start_date: start,
+      end_date: null,
+    };
+    // Seat counts stay as seeded: other tests read them (launch progress).
+    const current = found.seat;
+    if (
+      current === null ||
+      current.status === "reserved" ||
+      current.start_date > today
+    ) {
+      found.seat = seat;
+    } else {
+      current.end_date = shiftDay(start, -1);
+      found.nextSeat = seat;
+    }
+    found.updated_at = new Date().toISOString();
+    const answer = riderRead(found);
+    seatKeys.set(`${user.email}|${key}`, { answer, fingerprint });
+    return send(response, 200, answer);
+  }
+
   if (url.pathname === "/v1/riders/lookup" && request.method === "POST") {
     const body = (await readJson(request)) ?? {};
     const phone = riderPhone(response, body.phone);
@@ -3501,6 +3750,7 @@ const api = createServer(async (request, response) => {
         saturday_addon: body.saturday_addon === true,
         source: "staff",
         seat: null,
+        nextSeat: null,
         open_requests: 0,
         deleted: false,
         created_at: now,

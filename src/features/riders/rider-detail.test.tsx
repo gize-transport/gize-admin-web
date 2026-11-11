@@ -208,6 +208,89 @@ describe("RiderDetail", () => {
     ).toHaveAttribute("aria-disabled", "true");
   });
 
+  it("offers the seat actions that fit where they stand", async () => {
+    const { unmount } = await renderPage(noSeat);
+    expect(screen.getByRole("button", { name: t.placeButton })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: t.endButton }),
+    ).not.toBeInTheDocument();
+    unmount();
+
+    await renderPage(riding);
+    expect(screen.getByRole("button", { name: t.moveButton })).toBeVisible();
+    expect(screen.getByRole("button", { name: t.endButton })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /^Keep on/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers to keep a rider who is moving on their route", async () => {
+    await renderPage(moving);
+    expect(
+      screen.getByRole("button", {
+        name: fill(t.keepButton, { code: "R-03" }),
+      }),
+    ).toBeVisible();
+  });
+
+  it("records a route request for a full route, filled in with the rider", async () => {
+    server.use(
+      http.get(apiUrl("/v1/public/routes"), () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: "00000000-0000-4000-d000-000000000009",
+              code: "R-09",
+              origin_area: { id: "a", name: "CMC" },
+              destination_area: { id: "b", name: "Mexico" },
+              served_areas: [],
+              morning_time: "06:30",
+              morning_arrival_time: null,
+              return_time: "17:30",
+              return_arrival_time: null,
+              prices: { round_trip: 2400, one_way: 1400, saturday: null },
+              status: "active",
+              full: true,
+            },
+          ],
+          next_cursor: null,
+        }),
+      ),
+      http.put(apiUrl("/v1/riders/{rider_id}/seat"), () =>
+        problemResponse(409, "ROUTE_FULL"),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderPage(noSeat);
+
+    await user.click(screen.getByRole("button", { name: t.placeButton }));
+    const place = await screen.findByRole("dialog");
+    await user.click(
+      await within(place).findByRole("radio", { name: /^R-09/ }),
+    );
+    await user.click(within(place).getByRole("button", { name: t.placeSave }));
+    await user.click(
+      await within(place).findByRole("button", {
+        name: fill(t.seatRecordRequest, { code: "R-09" }),
+      }),
+    );
+
+    const request = await screen.findByRole("dialog", {
+      name: messages.RouteRequests.addTitle,
+    });
+    const tr = messages.RouteRequests;
+    expect(within(request).getByLabelText(tr.kindRouteOption)).toBeChecked();
+    expect(
+      within(request).getByRole("combobox", { name: tr.routeLabel }),
+    ).toHaveTextContent("R-09");
+    expect(within(request).getByLabelText(tr.riderNameLabel)).toHaveValue(
+      "Selam Girma",
+    );
+    expect(within(request).getByLabelText(tr.contactPhoneLabel)).toHaveValue(
+      noSeat.phone,
+    );
+  });
+
   it("says when the rider no longer exists", async () => {
     serveRider();
     renderWithProviders(<RiderDetail riderId={riding.id} variant="page" />);
