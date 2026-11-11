@@ -1,10 +1,12 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import {
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type ElementType,
@@ -24,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { todayInAddis } from "@/features/riders/rider-labels";
 import { startMonths } from "@/features/riders/seat-dates";
 import { useApiErrorMessages } from "@/lib/api/errors";
@@ -34,6 +36,7 @@ import { useRetryWait } from "@/lib/api/use-retry-wait";
 import { returnFocus } from "@/lib/focus";
 import { useTimestampFormat } from "@/lib/time";
 import {
+  offerKeys,
   useAcceptOffer,
   useCreateOffer,
   useRouteOffers,
@@ -101,7 +104,36 @@ export function SeatOffers({
     setDialogOpen(true);
   }
 
-  const items = offers.data?.pages.flatMap((page) => page.items) ?? [];
+  const items = useMemo(
+    () => offers.data?.pages.flatMap((page) => page.items) ?? [],
+    [offers.data],
+  );
+
+  // An open offer turns `expired` when its 48 hours pass: reload then, so the page never shows
+  // it open (the API says what it is).
+  const queryClient = useQueryClient();
+  const nextExpiry = items
+    .filter((item) => item.status === "open")
+    .map((item) => Date.parse(item.expires_at))
+    .sort((a, b) => a - b)[0];
+  useEffect(() => {
+    if (nextExpiry === undefined) return;
+    // Timers cap at about 24.8 days; an offer lasts 48 hours.
+    const wait = Math.min(
+      Math.max(nextExpiry - Date.now(), 0) + 1000,
+      2 ** 31 - 1,
+    );
+    const timer = setTimeout(
+      () =>
+        void queryClient.invalidateQueries({
+          queryKey: offerKeys.route(route.id),
+        }),
+      wait,
+    );
+    return () => clearTimeout(timer);
+  }, [nextExpiry, queryClient, route.id]);
+
+  const loadError = offers.isError && !offers.isFetchNextPageError;
 
   return (
     <section className="grid gap-3">
@@ -120,7 +152,7 @@ export function SeatOffers({
           <Skeleton className="h-16" />
           <Skeleton className="h-16" />
         </div>
-      ) : offers.isError ? (
+      ) : loadError && !offers.data ? (
         <ProblemAlert
           message={message(offers.error)}
           requestId={
@@ -147,6 +179,25 @@ export function SeatOffers({
           ))}
         </ul>
       )}
+      {/* A reload or the next page failed: what's loaded stays, the error shows beside it. */}
+      {offers.data && offers.isError && (
+        <ProblemAlert
+          message={message(offers.error)}
+          requestId={
+            offers.error instanceof ApiError ? offers.error.requestId : null
+          }
+          retryAfterSeconds={
+            offers.error instanceof ApiError
+              ? offers.error.retryAfterSeconds
+              : null
+          }
+          onRetry={() =>
+            void (offers.isFetchNextPageError
+              ? offers.fetchNextPage()
+              : offers.refetch())
+          }
+        />
+      )}
       {offers.hasNextPage && (
         <Button
           variant="secondary"
@@ -162,7 +213,7 @@ export function SeatOffers({
         <OfferDialog
           key={dialog.key}
           route={route}
-          openOffers={items.filter((item) => item.status === "open")}
+          routeOffers={items}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
         />
@@ -259,13 +310,13 @@ function OfferItem({
  */
 function OfferDialog({
   route,
-  openOffers,
+  routeOffers,
   open,
   onOpenChange,
 }: {
   route: RouteRead;
-  /** The route's open offers loaded so far: their requests are marked in the list. */
-  openOffers: OfferRead[];
+  /** The route's offers loaded so far: requests with an open or earlier offer are marked. */
+  routeOffers: OfferRead[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -281,10 +332,7 @@ function OfferDialog({
   const months = startMonths(today);
   const running = route.status === "active";
   const waiting = useWaitingRequests(route.id, open);
-  // Seats go to adults' requests (students' routes have none).
-  const requests =
-    waiting.data?.items.filter((request) => request.rider_type === "adult") ??
-    [];
+  const requests = waiting.data?.items ?? [];
 
   /** null: whoever has waited longest (the API picks). */
   const [requestId, setRequestId] = useState<string | null>(null);
@@ -299,11 +347,13 @@ function OfferDialog({
     reason?: string;
   }>({});
   const [problem, setProblem] = useState<unknown>(null);
+  // The month a refused offer named (the choice may change after).
+  const [sentStart, setSentStart] = useState(months[0] ?? "");
   const retryWait = useRetryWait(problem);
   const returnFocusTo = useRef<HTMLElement | null>(null);
-  const group = useRef<HTMLDivElement>(null);
+  const group = useRef<HTMLFieldSetElement>(null);
   const startField = useRef<HTMLSelectElement>(null);
-  const reasonField = useRef<HTMLTextAreaElement>(null);
+  const reasonField = useRef<HTMLInputElement>(null);
   const [focusReason, setFocusReason] = useState(0);
   useEffect(() => {
     if (focusReason > 0) reasonField.current?.focus();
@@ -320,6 +370,7 @@ function OfferDialog({
     }
     setErrors({});
     setProblem(null);
+    setSentStart(running ? start : (months[0] ?? ""));
     create.mutate(
       {
         routeId: route.id,
@@ -347,7 +398,14 @@ function OfferDialog({
             return;
           }
           const fields = fieldMessages(error);
+          if (fields.skip_reason) {
+            setErrors({ reason: t("reasonInvalid") });
+            reasonField.current?.focus();
+            return;
+          }
           if (fields.request_id) {
+            // Who waits has changed: the list shows it again.
+            void waiting.refetch();
             setErrors({ request: t("requestRefused") });
             group.current
               ?.querySelector<HTMLInputElement>("input:checked")
@@ -369,7 +427,7 @@ function OfferDialog({
   if (problem instanceof ApiError) {
     if (problem.code === "ROUTE_FULL") {
       problemWords = t(running ? "fullRunning" : "fullForming", {
-        month: month(running ? start : (months[0] ?? "")),
+        month: month(sentStart),
       });
     } else if (problem.code === "NO_WAITING_REQUESTS") {
       problemWords = t("nobodyWaiting");
@@ -413,24 +471,17 @@ function OfferDialog({
             />
           )}
 
-          <div
-            ref={group}
-            role="radiogroup"
-            className="grid gap-2"
-            aria-labelledby={`${uid}-to`}
-            aria-describedby={errors.request ? `${uid}-to-error` : undefined}
-            aria-invalid={errors.request ? true : undefined}
-          >
-            <p
-              id={`${uid}-to`}
-              className="mb-1 text-table font-semibold text-ink"
-            >
+          <fieldset ref={group} className="grid gap-2">
+            <legend className="mb-1 text-table font-semibold text-ink">
               {t("toLegend")}
-            </p>
+            </legend>
             <Choice
               name={`${uid}-request`}
               checked={requestId === null}
-              onChoose={() => setRequestId(null)}
+              onChoose={() => {
+                setRequestId(null);
+                setErrors({});
+              }}
               label={t("nextInLine")}
               detail={t("nextInLineHint")}
               strong
@@ -471,13 +522,24 @@ function OfferDialog({
                       const asked = t("askedOn", {
                         date: date(request.created_at),
                       });
-                      const offered = openOffers.find(
+                      const offers = routeOffers.filter(
                         (item) => item.request_id === request.id,
                       );
-                      return offered
-                        ? `${asked} · ${t("alreadyOfferedUntil", {
-                            date: dateTime(offered.expires_at),
-                          })}`
+                      const open = offers.find(
+                        (item) => item.status === "open",
+                      );
+                      if (open) {
+                        return `${asked} · ${t("alreadyOfferedUntil", {
+                          date: dateTime(open.expires_at),
+                        })}`;
+                      }
+                      // Passed over before (no answer, or no): the API puts them after the others.
+                      return offers.some(
+                        (item) =>
+                          item.status === "expired" ||
+                          item.status === "withdrawn",
+                      )
+                        ? `${asked} · ${t("offeredBefore")}`
                         : asked;
                     })()}
                     describedBy={errors.request ? `${uid}-to-error` : undefined}
@@ -490,7 +552,7 @@ function OfferDialog({
                 {errors.request}
               </p>
             )}
-          </div>
+          </fieldset>
 
           {running ? (
             <div className="grid gap-1.5 sm:max-w-xs">
@@ -530,10 +592,9 @@ function OfferDialog({
           {needsReason && (
             <div className="grid gap-1.5">
               <Label htmlFor={`${uid}-reason`}>{t("reasonLabel")}</Label>
-              <Textarea
+              <Input
                 id={`${uid}-reason`}
                 ref={reasonField}
-                rows={2}
                 maxLength={REASON_MAX}
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}

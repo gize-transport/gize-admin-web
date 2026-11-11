@@ -18,7 +18,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
@@ -180,7 +179,7 @@ export function PlaceSeatDialog({
   const returnFocusTo = useRef<HTMLElement | null>(null);
   const routeGroup = useRef<HTMLDivElement>(null);
   const startField = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
-  const reasonField = useRef<HTMLTextAreaElement>(null);
+  const reasonField = useRef<HTMLInputElement>(null);
   const [handedOver, setHandedOver] = useState(false);
   // The reason box takes focus once it's on screen (after a "others asked first" refusal).
   const [focusReason, setFocusReason] = useState(0);
@@ -242,6 +241,11 @@ export function PlaceSeatDialog({
             return;
           }
           const fields = fieldMessages(error);
+          if (fields.skip_reason) {
+            setErrors({ reason: t("skipReasonInvalid") });
+            reasonField.current?.focus();
+            return;
+          }
           if (fields.route_id || fields.start_date) {
             setErrors({
               route: fields.route_id
@@ -494,10 +498,9 @@ export function PlaceSeatDialog({
           {needsReason && (
             <div className="grid gap-1.5">
               <Label htmlFor={`${uid}-reason`}>{t("skipReasonLabel")}</Label>
-              <Textarea
+              <Input
                 id={`${uid}-reason`}
                 ref={reasonField}
-                rows={2}
                 maxLength={REASON_MAX}
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}

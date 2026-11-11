@@ -11,8 +11,8 @@ import type { components } from "@/lib/api/schema";
 type OfferCreate = components["schemas"]["OfferCreate"];
 
 const OFFERS_PAGE_SIZE = 20;
-/** The waiting list shown when offering: enough to see who's next and pick another. */
-const WAITING_LIMIT = 25;
+/** The waiting list shown when offering: the API's most (one page). */
+const WAITING_LIMIT = 100;
 
 export const offerKeys = {
   all: ["offers"] as const,
@@ -61,7 +61,7 @@ export function useWaitingRequests(routeId: string, enabled: boolean) {
 
 /**
  * After an offer changes: the route's offers, the route (seats it holds), route requests
- * (fulfilled on acceptance), riders (one may be made) and demand.
+ * (fulfilled on acceptance, which demand counts) and riders (one may be made).
  */
 function refetchAfterOffer(queryClient: ReturnType<typeof useQueryClient>) {
   return Promise.all(

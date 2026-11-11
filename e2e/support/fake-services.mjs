@@ -2753,9 +2753,20 @@ function offerRead(offer) {
   };
 }
 
-/** The adult requests waiting for a route, oldest first. */
-/** @param {FakeRoute} route */
+/**
+ * The adult requests waiting for a route, oldest first, those already passed over here (an
+ * expired or withdrawn offer) behind the others (`waiting_without_offer`).
+ * @param {FakeRoute} route
+ */
 function waitingFor(route) {
+  /** @param {FakeRequest} r */
+  const passedOver = (r) =>
+    offers.some(
+      (o) =>
+        o.requestId === r.id &&
+        o.routeId === route.id &&
+        ["expired", "withdrawn"].includes(offerStatus(o)),
+    );
   return requests
     .filter(
       (r) =>
@@ -2764,7 +2775,11 @@ function waitingFor(route) {
         r.rider_type === "adult" &&
         (r.routeId === route.id || r.matchedRouteId === route.id),
     )
-    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    .sort(
+      (a, b) =>
+        Number(passedOver(a)) - Number(passedOver(b)) ||
+        a.created_at.localeCompare(b.created_at),
+    );
 }
 
 /** @param {string} requestId */
@@ -3732,7 +3747,12 @@ const api = createServer(async (request, response) => {
     if (key === undefined) return;
     if (key !== null) {
       const replay = offerKeys.get(`${user.email}|${key}`);
-      if (replay) return send(response, replay.status, replay.answer);
+      if (replay) {
+        if (replay.fingerprint !== url.pathname) {
+          return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+        }
+        return send(response, replay.status, replay.answer);
+      }
     }
     const offer = offers.find((o) => o.id === offerMatch[1]);
     if (!offer) return problem(response, 404, "NOT_FOUND");
@@ -3747,13 +3767,18 @@ const api = createServer(async (request, response) => {
     const asked = requests.find((r) => r.id === offer.requestId);
     const route = routes.find((r) => r.id === offer.routeId);
     if (!asked || !route) return problem(response, 409, "OFFER_CLOSED");
-    // The asker's rider by phone: one riding elsewhere is moved by staff instead.
-    let rider = riders.find(
+    // The asker's rider by phone and name; someone else with that phone is for staff to sort
+    // out; one riding elsewhere is moved by staff instead.
+    const samePhone = riders.find(
       (r) =>
         !r.deleted &&
         r.rider_type === "adult" &&
         r.phone === asked.contact_phone,
     );
+    if (samePhone && samePhone.full_name !== asked.rider_name) {
+      return problem(response, 409, "RIDER_EXISTS");
+    }
+    let rider = samePhone;
     if (rider?.seat) return problem(response, 409, "RIDER_HAS_SEAT");
     if (!rider) {
       const corridor = corridors.find((c) => c.id === route.corridorId);
@@ -3783,6 +3808,8 @@ const api = createServer(async (request, response) => {
       start_date: offer.start_date,
       end_date: null,
     };
+    if (route.status === "forming") route.reserved += 1;
+    else route.taken += 1;
     asked.status = "fulfilled";
     offer.status = "accepted";
     offer.riderId = rider.id;

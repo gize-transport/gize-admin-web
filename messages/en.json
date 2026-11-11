@@ -1373,7 +1373,8 @@
     "seatNoOtherRoutes": "No other route takes this trip.",
     "seatNoCompany": "They have no company. Record them again for their company.",
     "endNoteAfterMove": "They still move to {code} on {date}, and leave it after the day you choose.",
-    "endAlreadyEnding": "Their seat already ends after {date}. To end it later, keep them on {code} first."
+    "endAlreadyEnding": "Their seat already ends after {date}. To end it later, keep them on {code} first.",
+    "skipReasonInvalid": "Write the reason on one line, in 100 characters or fewer."
   },
   "Offers": {
     "title": "Seat offers",
@@ -1403,8 +1404,8 @@
     "offerHint": "The seat is held for 48 hours. The person gets a text message and accepts on the website or by phone.",
     "toLegend": "Who gets the offer",
     "nextInLine": "Whoever has waited longest",
-    "nextInLineHint": "The oldest request waiting for this route without an open offer.",
-    "orChoose": "Or choose a request (ahead of older ones, with a reason):",
+    "nextInLineHint": "The oldest request waiting for this route without an open offer. People offered a seat here before go after the others.",
+    "orChoose": "Or choose a request (ahead of others, with a reason):",
     "waitingNone": "Nobody is waiting for this route.",
     "askedOn": "Asked {date}",
     "startLabel": "Seat free from",
@@ -1418,7 +1419,7 @@
     "startRefused": "Choose a 1st from next month on, within a year.",
     "fullRunning": "No seat is free on every day from {month}. Try a later month.",
     "fullForming": "No seat is free on this forming route from {month}.",
-    "nobodyWaiting": "Nobody is waiting for this route, so there's no one to offer the seat to.",
+    "nobodyWaiting": "Nobody is waiting without an open offer, so there's no one to offer the seat to.",
     "alreadyOffered": "This request already has an open offer.",
     "routeNotReady": "Seats are offered on forming or running public routes only.",
     "offerSave": "Offer seat",
@@ -1433,6 +1434,8 @@
     "withdrawTitle": "Withdraw the offer to {name}?",
     "withdrawDescription": "Do this when they said no, or the offer was a mistake. The seat on {code} is free again for the next request.",
     "withdrawnToast": "Offer withdrawn",
-    "alreadyOfferedUntil": "Already offered, open until {date}"
+    "alreadyOfferedUntil": "Already offered, open until {date}",
+    "offeredBefore": "Offered before (no answer, or no): goes after the others",
+    "reasonInvalid": "Write the reason on one line, in 100 characters or fewer."
   }
 }

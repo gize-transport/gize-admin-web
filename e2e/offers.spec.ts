@@ -64,8 +64,10 @@ test("staff offer free seats: ahead of the queue with a reason, then the next in
   await page.goto(`/routes/${route.id}`);
   const offersList = page.getByRole("list", { name: t.listLabel });
 
+  // Buttons after a toast are pressed by keyboard: on phones the toast can sit over them (and
+  // stays while the pointer rests on it).
   // The later request, ahead of the older one: a reason first.
-  await page.getByRole("button", { name: t.offer }).click();
+  await page.getByRole("button", { name: t.offer }).press("Enter");
   let dialog = page.getByRole("dialog", {
     name: fill(t.offerTitle, { code: route.code }),
   });
@@ -84,7 +86,7 @@ test("staff offer free seats: ahead of the queue with a reason, then the next in
   );
 
   // Next in line: the older request.
-  await page.getByRole("button", { name: t.offer }).click();
+  await page.getByRole("button", { name: t.offer }).press("Enter");
   dialog = page.getByRole("dialog", {
     name: fill(t.offerTitle, { code: route.code }),
   });
@@ -96,7 +98,7 @@ test("staff offer free seats: ahead of the queue with a reason, then the next in
   await expect(firstOffer).toContainText(t.sms.sent);
 
   // The second person said no.
-  await secondOffer.getByRole("button", { name: t.withdraw }).click();
+  await secondOffer.getByRole("button", { name: t.withdraw }).press("Enter");
   await page
     .getByRole("alertdialog", {
       name: fill(t.withdrawTitle, { name: second.name }),
@@ -106,7 +108,7 @@ test("staff offer free seats: ahead of the queue with a reason, then the next in
   await expect(secondOffer).toContainText(t.status.withdrawn);
 
   // The first said yes on the phone: they get the seat and a rider record.
-  await firstOffer.getByRole("button", { name: t.accept }).click();
+  await firstOffer.getByRole("button", { name: t.accept }).press("Enter");
   await page
     .getByRole("alertdialog", {
       name: fill(t.acceptTitle, { name: first.name }),

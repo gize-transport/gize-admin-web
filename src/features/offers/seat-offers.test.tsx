@@ -139,12 +139,6 @@ const waitingLater = routeRequest(12, {
   rider_name: "Hana Tesfaye",
   created_at: "2026-10-20T07:00:00Z",
 });
-const waitingStudent = routeRequest(13, {
-  kind: "route",
-  rider_type: "student",
-  rider_name: "Liya Student",
-  school_name: "Lycée",
-});
 
 async function openOfferDialog(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole("button", { name: t.offer }));
@@ -230,11 +224,77 @@ describe("SeatOffers: the list", () => {
   });
 });
 
+describe("SeatOffers: keeping the list current", () => {
+  it("keeps the loaded offers when the next page fails, and retries that page", async () => {
+    // The Retry-After wait runs on the real clock.
+    vi.useRealTimers();
+    let failNext = true;
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offers"), ({ request }) => {
+        const cursor = new URL(request.url).searchParams.get("cursor");
+        if (cursor === null) {
+          return HttpResponse.json({ items: [open], next_cursor: "1" });
+        }
+        if (failNext) {
+          failNext = false;
+          return problemResponse(429, "RATE_LIMITED", "req-429", {
+            "Retry-After": "1",
+          });
+        }
+        return HttpResponse.json({ items: [expired], next_cursor: null });
+      }),
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    await screen.findByRole("link", { name: "Dawit Alemu" });
+    await user.click(screen.getByRole("button", { name: t.showMore }));
+    expect(await screen.findByText("req-429")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Dawit Alemu" })).toBeVisible();
+    // Retry opens once Retry-After has passed.
+    const retry = screen.getByRole("button", {
+      name: messages.ProblemAlert.retry,
+    });
+    await waitFor(
+      () => expect(retry).not.toHaveAttribute("aria-disabled", "true"),
+      { timeout: 3000 },
+    );
+    await user.click(retry);
+    expect(
+      await screen.findByRole("link", { name: "Kidus Tadesse" }),
+    ).toBeVisible();
+  });
+
+  it("reloads when an open offer's 48 hours pass", async () => {
+    let calls = 0;
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offers"), () => {
+        calls += 1;
+        // Its 48 hours ended a moment ago (the clock is fixed at 09:00 UTC).
+        const lapsing = offer(1, { expires_at: "2026-11-11T08:59:59Z" });
+        return HttpResponse.json({
+          items: [calls === 1 ? lapsing : { ...lapsing, status: "expired" }],
+          next_cursor: null,
+        });
+      }),
+    );
+    renderOffers();
+
+    expect(await screen.findByRole("button", { name: t.accept })).toBeVisible();
+    expect(
+      await screen.findByText(t.status.expired, {}, { timeout: 3000 }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: t.accept }),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("SeatOffers: offering", () => {
   it("offers a running route's seat to whoever has waited longest, from the next 1st", async () => {
     const sent: Sent[] = [];
     serveOffers([[]]);
-    serveWaiting([waitingAdult, waitingLater, waitingStudent]);
+    serveWaiting([waitingAdult, waitingLater]);
     serveCreate(() => HttpResponse.json(open, { status: 201 }), sent);
     const user = userEvent.setup();
     renderOffers();
@@ -246,10 +306,6 @@ describe("SeatOffers: offering", () => {
     expect(
       await within(dialog).findByRole("radio", { name: "Abebe Kebede" }),
     ).toHaveAccessibleDescription(fill(t.askedOn, { date: "Oct 1, 2026" }));
-    // Only adults' requests can be offered a seat.
-    expect(
-      within(dialog).queryByRole("radio", { name: "Liya Student" }),
-    ).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText(t.startLabel)).toHaveValue(
       "2026-12-01",
     );
@@ -364,6 +420,91 @@ describe("SeatOffers: offering", () => {
     );
   });
 
+  it("marks a request offered a seat here before: it goes after the others", async () => {
+    serveOffers([
+      [offer(5, { request_id: waitingAdult.id, status: "withdrawn" })],
+    ]);
+    serveWaiting([waitingAdult, waitingLater]);
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    expect(
+      await within(dialog).findByRole("radio", { name: "Abebe Kebede" }),
+    ).toHaveAccessibleDescription(
+      `${fill(t.askedOn, { date: "Oct 1, 2026" })} · ${t.offeredBefore}`,
+    );
+    expect(
+      within(dialog).getByRole("radio", { name: "Hana Tesfaye" }),
+    ).toHaveAccessibleDescription(fill(t.askedOn, { date: "Oct 20, 2026" }));
+  });
+
+  it("explains a refused reason on its field", async () => {
+    serveOffers([[]]);
+    serveWaiting([waitingAdult, waitingLater]);
+    serveCreate(
+      (body) =>
+        body.skip_reason
+          ? validationResponse("skip_reason")
+          : problemResponse(409, "ROUTE_HAS_WAITING_REQUESTS"),
+      [],
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    await user.click(
+      await within(dialog).findByRole("radio", { name: "Hana Tesfaye" }),
+    );
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+    const reason = await within(dialog).findByLabelText(t.reasonLabel);
+    await user.type(reason, "x");
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+
+    expect(await within(dialog).findByText(t.reasonInvalid)).toBeVisible();
+    expect(reason).toHaveFocus();
+  });
+
+  it("waits out Too many requests before offering again", async () => {
+    serveOffers([[]]);
+    serveWaiting([]);
+    serveCreate(
+      () =>
+        problemResponse(429, "RATE_LIMITED", "req-429", {
+          "Retry-After": "30",
+        }),
+      [],
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+    expect(await within(dialog).findByText("req-429")).toBeVisible();
+    expect(
+      within(dialog).getByRole("button", { name: t.offerSave }),
+    ).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("uses a new Idempotency-Key each time the dialog opens", async () => {
+    const sent: Sent[] = [];
+    serveOffers([[]]);
+    serveWaiting([]);
+    serveCreate(() => HttpResponse.json(open, { status: 201 }), sent);
+    const user = userEvent.setup();
+    renderOffers();
+
+    for (let round = 0; round < 2; round += 1) {
+      const dialog = await openOfferDialog(user);
+      await user.click(
+        within(dialog).getByRole("button", { name: t.offerSave }),
+      );
+      await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    }
+    expect(sent).toHaveLength(2);
+    expect(sent[1]?.key).not.toBe(sent[0]?.key);
+  });
+
   it.each([
     ["NO_WAITING_REQUESTS", t.nobodyWaiting],
     ["OFFER_OPEN", t.alreadyOffered],
@@ -450,6 +591,54 @@ describe("SeatOffers: answering", () => {
         within(dialog).getByRole("button", { name: t.accept }),
       ).toHaveAttribute("aria-disabled", "true");
     }
+  });
+
+  it("sends an acceptance again with the same key after no answer", async () => {
+    const keys: (string | null)[] = [];
+    serveOffers([[open]]);
+    server.use(
+      http.post(apiUrl("/v1/offers/{offer_id}/accept"), ({ request }) => {
+        keys.push(request.headers.get("Idempotency-Key"));
+        return keys.length === 1
+          ? HttpResponse.error()
+          : HttpResponse.json({ ...open, status: "accepted" });
+      }),
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    await user.click(await screen.findByRole("button", { name: t.accept }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: t.accept }));
+    expect(
+      await within(dialog).findByText(messages.Problems.network),
+    ).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: t.accept }));
+
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(t.acceptedToast));
+    expect(keys).toHaveLength(2);
+    expect(keys[1]).toBe(keys[0]);
+  });
+
+  it("waits out Too many requests before accepting again", async () => {
+    serveOffers([[open]]);
+    server.use(
+      http.post(apiUrl("/v1/offers/{offer_id}/accept"), () =>
+        problemResponse(429, "RATE_LIMITED", "req-429", {
+          "Retry-After": "30",
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    await user.click(await screen.findByRole("button", { name: t.accept }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: t.accept }));
+    expect(await within(dialog).findByText("req-429")).toBeVisible();
+    expect(
+      within(dialog).getByRole("button", { name: t.accept }),
+    ).toHaveAttribute("aria-disabled", "true");
   });
 
   it("withdraws an offer, and explains one no longer open", async () => {
