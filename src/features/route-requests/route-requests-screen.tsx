@@ -2,7 +2,7 @@
 
 import { InboxIcon, PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   createDataTableColumnHelper,
   DataTable,
@@ -10,16 +10,13 @@ import {
   RowAction,
   useListParams,
 } from "@/components/data-table";
-import { isNotFound } from "@/components/detail/detail-frame";
 import { useDetailPanel } from "@/components/detail/use-detail-panel";
 import { EmptyState } from "@/components/empty-state";
 import { NoPermission } from "@/components/no-permission";
 import { PageHeader } from "@/components/page-header";
-import { RoutePicker } from "@/components/pickers/route-picker";
+import { RouteFilter } from "@/components/pickers/route-filter";
 import { ProblemAlert } from "@/components/problem-alert";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { useRoute } from "@/features/routes/queries";
 import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError, isForbidden } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
@@ -34,7 +31,6 @@ import { RouteRequestFormDialog } from "./route-request-form-dialog";
 import { AskedFor, RequestStatusPill, riderLabel } from "./request-labels";
 
 type RouteRequestRead = components["schemas"]["RouteRequestRead"];
-type RouteRef = components["schemas"]["RouteRef"];
 
 const col = createDataTableColumnHelper<RouteRequestRead>();
 
@@ -189,7 +185,16 @@ export function RouteRequestsScreen() {
           }))}
         />
         <div className="grid items-start gap-4 lg:max-w-md">
-          <RouteFilter routeId={filters.routeId} />
+          <RouteFilter
+            routeId={filters.routeId}
+            labels={{
+              label: t("routeFilter"),
+              anyRoute: t("anyRoute"),
+              loading: t("loadingName"),
+              unknownRoute: t("unknownRoute"),
+              routeUnavailable: t("routeUnavailable"),
+            }}
+          />
         </div>
       </div>
       <div
@@ -276,44 +281,5 @@ export function RouteRequestsScreen() {
         />
       )}
     </>
-  );
-}
-
-/** The route filter (requests asking for it or matched to it), kept in the URL as its id. */
-function RouteFilter({ routeId }: { routeId: string | null }) {
-  const t = useTranslations("RouteRequests");
-  // Unique ids: Next can keep earlier pages in the document (see SearchField).
-  const uid = useId();
-  const { setFilter } = useListParams();
-  const [picked, setPicked] = useState<RouteRef | null>(null);
-  const known = picked !== null && picked.id === routeId ? picked : null;
-  const route = useRoute(known === null ? routeId : null);
-
-  let value: RouteRef | null = known;
-  if (routeId !== null && known === null && route.data) {
-    value = { id: route.data.id, code: route.data.code };
-  }
-  const unknown = routeId !== null && known === null && route.isError;
-  const loading = routeId !== null && value === null && !unknown;
-
-  return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={`${uid}-route`}>{t("routeFilter")}</Label>
-      <RoutePicker
-        id={`${uid}-route`}
-        value={value}
-        placeholder={t(loading ? "loadingName" : "anyRoute")}
-        aria-describedby={unknown ? `${uid}-route-unknown` : undefined}
-        onChange={(next) => {
-          setPicked(next);
-          setFilter("route_id", next?.id ?? null);
-        }}
-      />
-      {unknown && (
-        <p id={`${uid}-route-unknown`} className="text-table text-muted">
-          {t(isNotFound(route.error) ? "unknownRoute" : "routeUnavailable")}
-        </p>
-      )}
-    </div>
   );
 }

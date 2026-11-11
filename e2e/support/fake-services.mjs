@@ -2355,6 +2355,216 @@ function listAudit(url, response) {
   send(response, 200, page);
 }
 
+// Riders, like GZ-034/GZ-035: newest first, `q` the start of a name (ignoring case), phones
+// masked in lists and found with a POST; an adult's phone is theirs alone, a company rider's once
+// per company; a rider holding a seat can't be deleted, and their changes must fit its route.
+/**
+ * @typedef {{
+ *   id: string;
+ *   rider_type: Schemas["gize_api__riders__models__RiderType"];
+ *   full_name: string;
+ *   phone: string;
+ *   companyId: string | null;
+ *   homeId: string;
+ *   destinationId: string | null;
+ *   plan: Schemas["RiderPlan"] | null;
+ *   saturday_addon: boolean;
+ *   source: Schemas["RiderSource"];
+ *   seat: { routeId: string; status: "reserved" | "active"; start_date: string; end_date: string | null } | null;
+ *   open_requests: number;
+ *   deleted: boolean;
+ *   created_at: string;
+ *   updated_at: string;
+ * }} FakeRider
+ */
+/** @type {FakeRider[]} */
+const riders = [
+  {
+    full_name: "Abel Tesfaye",
+    phone: "+251911000412",
+    homeId: areaId("Bole"),
+    destinationId: areaId("Piassa"),
+    plan: /** @type {const} */ ("round_trip"),
+    seat: {
+      routeId: routeIdOf("B-07"),
+      status: /** @type {const} */ ("active"),
+      start_date: "2026-09-01",
+      end_date: null,
+    },
+  },
+  {
+    full_name: "Kidus Alemu",
+    phone: "+251911000208",
+    homeId: areaId("Megenagna"),
+    destinationId: areaId("Piassa"),
+    plan: /** @type {const} */ ("morning"),
+    source: /** @type {const} */ ("app"),
+    open_requests: 1,
+    seat: {
+      routeId: routeIdOf("B-01"),
+      status: /** @type {const} */ ("reserved"),
+      start_date: "2099-12-01",
+      end_date: null,
+    },
+  },
+  {
+    full_name: "Hirut Bekele",
+    phone: "+251911000303",
+    rider_type: /** @type {const} */ ("corporate"),
+    companyId: companyId("Addis Brewery"),
+    homeId: areaId("Bole"),
+    destinationId: null,
+    plan: null,
+  },
+  // No seat: one an admin may delete (one per Playwright project).
+  { full_name: "Selam Girma", phone: "+251911000501" },
+  { full_name: "Selam Girmay", phone: "+251911000502" },
+].map((seed, index) => {
+  const at = new Date(Date.UTC(2026, 9, 1, 8, index)).toISOString();
+  return {
+    id: `00000000-0000-4000-9000-${String(index + 1).padStart(12, "0")}`,
+    rider_type: /** @type {FakeRider["rider_type"]} */ ("adult"),
+    companyId: null,
+    homeId: areaId("CMC"),
+    destinationId: areaId("Mexico"),
+    plan: /** @type {FakeRider["plan"]} */ ("round_trip"),
+    saturday_addon: false,
+    source: /** @type {FakeRider["source"]} */ ("staff"),
+    seat: null,
+    open_requests: 0,
+    deleted: false,
+    created_at: at,
+    updated_at: at,
+    ...seed,
+  };
+});
+/** "staff email|Idempotency-Key" → the rider recorded and the request's fingerprint. */
+/** @type {Map<string, { rider: FakeRider; fingerprint: string }>} */
+const riderKeys = new Map();
+const PLANS = ["round_trip", "morning", "evening"];
+
+/** @param {FakeRider} rider @returns {Schemas["RiderRead"]} */
+function riderRead(rider) {
+  const company = companies.find((c) => c.id === rider.companyId);
+  const route = rider.seat && routes.find((r) => r.id === rider.seat?.routeId);
+  return {
+    id: rider.id,
+    rider_type: rider.rider_type,
+    full_name: rider.full_name,
+    phone: rider.phone,
+    home_area: areaRef(rider.homeId),
+    destination_area: rider.destinationId ? areaRef(rider.destinationId) : null,
+    plan: rider.plan,
+    saturday_addon: rider.saturday_addon,
+    source: rider.source,
+    company: company ? { id: company.id, name: company.name } : null,
+    seat:
+      rider.seat && route
+        ? {
+            route_id: route.id,
+            route_code: route.code,
+            status: rider.seat.status,
+            start_date: rider.seat.start_date,
+            end_date: rider.seat.end_date,
+          }
+        : null,
+    next_seat: null,
+    open_requests: rider.open_requests,
+    created_at: rider.created_at,
+    updated_at: rider.updated_at,
+  };
+}
+
+/** @param {FakeRider} rider @returns {Schemas["RiderListItem"]} */
+function riderListItem(rider) {
+  const { phone, ...read } = riderRead(rider);
+  return {
+    ...read,
+    phone_masked: phone ? `${phone.slice(0, 5)}****${phone.slice(-4)}` : null,
+  };
+}
+
+/** An Ethiopian mobile as stored, or undefined after a 422. */
+/** @param {ServerResponse} response @param {unknown} value */
+function riderPhone(response, value) {
+  const match =
+    typeof value === "string" && value.length <= 20
+      ? MOBILE.exec(value.trim().replace(/[  \t().-]/g, ""))
+      : null;
+  if (!match) {
+    validationProblem(response, "/phone", "invalid");
+    return undefined;
+  }
+  return `+251${match[1]}`;
+}
+
+/** Another live rider who already has this phone (adults: anyone adult; company: same company). */
+/** @param {string} phone @param {string | null} companyId @param {string | null} exceptId */
+function phoneTaken(phone, companyId, exceptId) {
+  return riders.some(
+    (r) =>
+      !r.deleted &&
+      r.id !== exceptId &&
+      r.phone === phone &&
+      (companyId === null
+        ? r.rider_type !== "corporate"
+        : r.companyId === companyId),
+  );
+}
+
+/** Where the seat's route lets them board: its start or an area it serves. */
+/** @param {FakeRider} rider @param {string} areaId */
+function boardsOnSeatRoute(rider, areaId) {
+  const route = rider.seat && routes.find((r) => r.id === rider.seat?.routeId);
+  if (!route) return true;
+  const corridor = corridors.find((c) => c.id === route.corridorId);
+  return corridor?.originId === areaId || route.servedAreaIds.includes(areaId);
+}
+
+/** @param {URL} url @param {ServerResponse} response */
+function listRiders(url, response) {
+  const type = url.searchParams.get("rider_type");
+  if (type !== null && !["adult", "student", "corporate"].includes(type)) {
+    return validationProblem(response, "/rider_type", "not_allowed", "query");
+  }
+  const seat = url.searchParams.get("seat");
+  if (seat !== null && !["reserved", "active", "none"].includes(seat)) {
+    return validationProblem(response, "/seat", "not_allowed", "query");
+  }
+  const routeId = url.searchParams.get("route_id");
+  if (routeId !== null && !UUID.test(routeId)) {
+    return validationProblem(response, "/route_id", "invalid_format", "query");
+  }
+  const q = (url.searchParams.get("q") ?? "").toLowerCase();
+  const limit = Number(url.searchParams.get("limit") ?? 25);
+  const cursor = url.searchParams.get("cursor");
+  const offset =
+    cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
+  if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
+    return problem(response, 422, "INVALID_CURSOR");
+  }
+  const matching = riders
+    .filter(
+      (r) =>
+        !r.deleted &&
+        r.full_name.toLowerCase().startsWith(q) &&
+        (type === null || r.rider_type === type) &&
+        (seat === null ||
+          (seat === "none" ? r.seat === null : r.seat?.status === seat)) &&
+        (routeId === null || r.seat?.routeId === routeId),
+    )
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  /** @type {Schemas["RiderPage"]} */
+  const page = {
+    items: matching.slice(offset, offset + limit).map(riderListItem),
+    next_cursor:
+      offset + limit < matching.length
+        ? Buffer.from(String(offset + limit)).toString("base64url")
+        : null,
+  };
+  send(response, 200, page);
+}
+
 /** @type {Map<string, { route: FakeRoute; fingerprint: string }>} */
 const routeKeys = new Map();
 
@@ -3216,6 +3426,162 @@ const api = createServer(async (request, response) => {
   }
 
   // Route requests (GZ-027): any staff member; delete is admin-only.
+  if (url.pathname === "/v1/riders/lookup" && request.method === "POST") {
+    const body = (await readJson(request)) ?? {};
+    const phone = riderPhone(response, body.phone);
+    if (phone === undefined) return;
+    /** @type {Schemas["RiderMatches"]} */
+    const matches = {
+      items: riders
+        .filter((r) => !r.deleted && r.phone === phone)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .map(riderListItem),
+    };
+    return send(response, 200, matches);
+  }
+
+  if (url.pathname === "/v1/riders") {
+    if (request.method === "GET") return listRiders(url, response);
+    if (request.method === "POST") {
+      const key = idempotencyKey(request, response);
+      if (key === undefined) return;
+      const body = (await readJson(request)) ?? {};
+      const fingerprint = JSON.stringify(body);
+      const fullName = shortText(response, body.full_name, "full_name");
+      if (fullName === undefined) return;
+      const phone = riderPhone(response, body.phone);
+      if (phone === undefined) return;
+      const type = body.rider_type ?? "adult";
+      const company = type === "corporate";
+      // The model's rules for each type (a 422 on the body, like the API's validator).
+      const fits = company
+        ? typeof body.company_id === "string" &&
+          body.destination_area_id === undefined &&
+          body.plan === undefined &&
+          body.saturday_addon !== true
+        : type === "adult" &&
+          body.company_id === undefined &&
+          typeof body.destination_area_id === "string" &&
+          PLANS.includes(String(body.plan)) &&
+          body.destination_area_id !== body.home_area_id;
+      if (!fits) return validationProblem(response, "", "invalid");
+      const replay = riderKeys.get(`${user.email}|${key}`);
+      if (replay) {
+        if (replay.fingerprint !== fingerprint) {
+          return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+        }
+        return send(response, 201, riderRead(replay.rider), {
+          "Idempotent-Replayed": "true",
+        });
+      }
+      for (const field of ["home_area_id", "destination_area_id"]) {
+        const id = body[field];
+        if (id !== undefined && !areas.some((area) => area.id === id)) {
+          return validationProblem(response, `/${field}`, "invalid");
+        }
+      }
+      if (company && !activeCompany(String(body.company_id))) {
+        return validationProblem(response, "/company_id", "invalid");
+      }
+      const companyId = company ? String(body.company_id) : null;
+      if (phoneTaken(phone, companyId, null)) {
+        return problem(response, 409, "RIDER_EXISTS");
+      }
+      const now = new Date().toISOString();
+      /** @type {FakeRider} */
+      const added = {
+        id: randomUUID(),
+        rider_type: company ? "corporate" : "adult",
+        full_name: fullName,
+        phone,
+        companyId,
+        homeId: String(body.home_area_id),
+        destinationId: company ? null : String(body.destination_area_id),
+        plan: company ? null : /** @type {Schemas["RiderPlan"]} */ (body.plan),
+        saturday_addon: body.saturday_addon === true,
+        source: "staff",
+        seat: null,
+        open_requests: 0,
+        deleted: false,
+        created_at: now,
+        updated_at: now,
+      };
+      riders.push(added);
+      riderKeys.set(`${user.email}|${key}`, { rider: added, fingerprint });
+      return send(response, 201, riderRead(added), {
+        Location: `/v1/riders/${added.id}`,
+      });
+    }
+  }
+
+  const riderMatch = /^\/v1\/riders\/([^/]+)$/.exec(url.pathname);
+  if (riderMatch) {
+    // Delete is admin-only (a dependency, before anything else).
+    if (request.method === "DELETE" && !isAdmin) {
+      return problem(response, 403, "FORBIDDEN");
+    }
+    if (!UUID.test(riderMatch[1] ?? "")) {
+      return validationProblem(response, "/rider_id", "invalid_format", "path");
+    }
+    const body =
+      request.method === "PATCH" ? ((await readJson(request)) ?? {}) : {};
+    const found = riders.find((r) => r.id === riderMatch[1] && !r.deleted);
+    if (!found) return problem(response, 404, "NOT_FOUND");
+    if (request.method === "GET") return send(response, 200, riderRead(found));
+    if (request.method === "DELETE") {
+      if (found.seat !== null) return problem(response, 409, "RIDER_HAS_SEAT");
+      found.deleted = true;
+      return send(response, 204);
+    }
+    if (request.method === "PATCH") {
+      /** @type {Partial<FakeRider>} */
+      const change = {};
+      if (body.full_name !== undefined) {
+        const name = shortText(response, body.full_name, "full_name");
+        if (name === undefined) return;
+        change.full_name = name;
+      }
+      if (body.phone !== undefined) {
+        const phone = riderPhone(response, body.phone);
+        if (phone === undefined) return;
+        if (phoneTaken(phone, found.companyId, found.id)) {
+          return problem(response, 409, "RIDER_EXISTS");
+        }
+        change.phone = phone;
+      }
+      if (body.home_area_id !== undefined) {
+        const id = String(body.home_area_id);
+        if (!areas.some((a) => a.id === id) || !boardsOnSeatRoute(found, id)) {
+          return validationProblem(response, "/home_area_id", "invalid");
+        }
+        change.homeId = id;
+      }
+      if (body.destination_area_id !== undefined) {
+        if (found.rider_type === "corporate") {
+          return validationProblem(response, "/destination_area_id", "invalid");
+        }
+        change.destinationId = String(body.destination_area_id);
+      }
+      if (body.plan !== undefined) {
+        if (
+          found.rider_type === "corporate" ||
+          !PLANS.includes(String(body.plan))
+        ) {
+          return validationProblem(response, "/plan", "invalid");
+        }
+        change.plan = /** @type {Schemas["RiderPlan"]} */ (body.plan);
+      }
+      if (body.saturday_addon !== undefined) {
+        if (found.rider_type === "corporate") {
+          return validationProblem(response, "/saturday_addon", "invalid");
+        }
+        change.saturday_addon = body.saturday_addon === true;
+      }
+      Object.assign(found, change, { updated_at: new Date().toISOString() });
+      return send(response, 200, riderRead(found));
+    }
+  }
+
   if (url.pathname === "/v1/route-requests") {
     if (request.method === "GET") return listRequests(url, response);
     if (request.method === "POST") {

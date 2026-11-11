@@ -35,6 +35,15 @@ describe("useTimestampFormat", () => {
 
     expect(result.current.dateTime(null)).toBe("");
     expect(result.current.date("not a date")).toBe("");
+    expect(result.current.day(null)).toBe("");
+    expect(result.current.day("not a day")).toBe("");
+  });
+
+  it("shows a calendar day as it is, whatever the time zone", () => {
+    const { result } = renderHook(() => useTimestampFormat(), { wrapper });
+
+    expect(result.current.day("2026-12-01")).toBe("Dec 1, 2026");
+    expect(result.current.day("2026-11-30")).toBe("Nov 30, 2026");
   });
 });
 

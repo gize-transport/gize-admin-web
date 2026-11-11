@@ -46,7 +46,7 @@ Status: done · Needs backend: GZ-025
 
 ## Build order
 
-Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.6.0`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`), staff name corrections (`api-v2.6.0`). So after W0 come W1, all of W2, GZW-040 and GZW-041, and W6. GZW-042 and GZW-043 wait for GZ-040 and GZ-042, W3 for M3, W5 for M5.
+Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.17.0`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`), staff name corrections (`api-v2.6.0`), rider management (`api-v2.10.0`), assign rider to route (`api-v2.11.0`), seat offers (`api-v2.13.0`), drivers (`api-v2.14.0`), assign driver to route (`api-v2.15.0`), the overview summary (`api-v2.16.0`). So GZW-030, GZW-031, GZW-042, GZW-050, GZW-053 and GZW-070 can be built; GZW-043 waits for GZ-042, GZW-051 and GZW-052 for GZ-051 and GZ-052, and a student's guardian for GZ-033.
 
 ### Questions for the backend
 
@@ -121,8 +121,12 @@ Status: done · Needs backend: – (Supabase Auth settings, README "Supabase Aut
 
 ## W3 – Riders
 
-### GZW-030 · Riders list and detail · Needs backend: GZ-034 · Status: todo
+### GZW-030 · Riders list and detail · Needs backend: GZ-034 (in `api-v2.10.0`), GZ-035 (in `api-v2.11.0`) · Status: done
 - Search, filters (type, status, route), detail with guardian/children or company, edit, admin delete.
+- Built (owner decisions 2026-11-11): `riders_list` newest first with type, seat (riding, reserved, none) and route filters in the URL. One "Name or phone" box: letters search names (`q`), a whole Ethiopian mobile is looked up with `riders_lookup` (a POST), digits short of a number ask for the whole number. What's typed stays on the page, never in its address or storage. Phones show masked in the list and in full only on the detail.
+- Detail (side panel ≥ 1280 px, page otherwise): phone, company (linked), where they board and go, plan and Saturday add-on, open requests, how they joined, the seat held (riding or reserved, from/until) and a move to come (`next_seat`).
+- Record a rider here (owner decision): an adult from a phone call (where they board and go, plan, Saturday) or a company rider (company, where they board). `RIDER_EXISTS` links to the rider who has the phone; a phone search that finds nobody offers to record them with it. Edit sends only what changed; a seat holder's change that doesn't fit their route is explained on its field. Admin delete is refused while they hold a seat (`RIDER_HAS_SEAT`).
+- Not yet: a student's guardian and children (GZ-033 not built: students show as "Student"); payments, trips and complaints from the mockup (no API). Placing, moving and ending seats is GZW-031.
 
 ### GZW-031 · Assign rider to route · Needs backend: GZ-035 · Status: todo
 - Dialog: route → boarding area (A or an area served) → plan → Saturday add-on; scope confirmed when GZ-035's contract is tagged. Individual riders start on the 1st of a month (reservation on a forming route, place on an active one) and leave at a month's end; company riders (recorded by staff: name, phone, company) start and stop on any day. A skip reason is required when the API reports older open requests for the route. `ROUTE_FULL` explained with an offer to record a route request; rule violations explained; idempotent.

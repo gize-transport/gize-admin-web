@@ -31,7 +31,7 @@ export const navItems: readonly NavItem[] = [
   { key: "routeRequests", href: "/route-requests", available: true },
   { key: "demand", href: "/demand", available: true },
   { key: "companies", href: "/companies", available: true },
-  { key: "riders", href: "/riders", available: false },
+  { key: "riders", href: "/riders", available: true },
   { key: "drivers", href: "/drivers", available: false },
   { key: "areas", href: "/areas", group: "places", available: true },
   { key: "corridors", href: "/corridors", group: "places", available: true },

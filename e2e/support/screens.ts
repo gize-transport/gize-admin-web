@@ -104,6 +104,27 @@ export const screens: readonly Screen[] = [
     readyText: "Works near Piassa, any seat from next month.",
   },
   {
+    name: "riders",
+    path: "/riders",
+    signInAs: "staff",
+    // A sample rider no e2e test changes (they record their own).
+    readyText: "Kidus Alemu",
+  },
+  {
+    name: "rider",
+    // Abel Tesfaye: an adult riding B-07.
+    path: "/riders/00000000-0000-4000-9000-000000000001",
+    signInAs: "admin",
+    readyText: "+251911000412",
+  },
+  {
+    name: "rider-panel",
+    // From 1280 px the details open beside the list; narrower, this opens the rider's page.
+    path: "/riders?rider=00000000-0000-4000-9000-000000000002",
+    signInAs: "staff",
+    readyText: "+251911000208",
+  },
+  {
     name: "demand",
     path: "/demand",
     signInAs: "staff",

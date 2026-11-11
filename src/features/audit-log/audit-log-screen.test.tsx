@@ -204,6 +204,58 @@ describe("AuditLogScreen", () => {
     expect(within(first).getAllByText(t.noValue).length).toBeGreaterThan(0);
   });
 
+  it("names rider and seat changes, linking to the rider", async () => {
+    const RIDER = "00000000-0000-4000-f000-000000000041";
+    serveLog([
+      entry(41, {
+        action: "rider.updated",
+        entity_type: "rider",
+        entity_id: RIDER,
+        before: {
+          phone: "[redacted]",
+          plan: "round_trip",
+          saturday_addon: false,
+        },
+        after: { phone: "[redacted]", plan: "morning", saturday_addon: true },
+      }),
+      entry(42, {
+        action: "route_assignment.created",
+        entity_type: "route_assignment",
+        entity_id: "00000000-0000-4000-f000-000000000042",
+        before: null,
+        after: { status: "reserved", start_date: "2026-12-01" },
+      }),
+    ]);
+    const user = userEvent.setup();
+    renderWithProviders(<AuditLogScreen />);
+
+    await screen.findByText(t.actions.rider.updated);
+    const rider = rowOf(t.actions.rider.updated);
+    expect(
+      within(rider).getByRole("link", { name: /^Rider changed/ }),
+    ).toHaveAttribute("href", `/riders/${RIDER}`);
+    await user.click(within(rider).getByText(t.showChanges));
+    expect(rider).toHaveTextContent(
+      `${t.fields.plan}${t.values.plan.round_trip}${t.values.plan.morning}`,
+    );
+    expect(rider).toHaveTextContent(
+      `${t.fields.saturday_addon}${t.no}${t.yes}`,
+    );
+    expect(rider).not.toHaveTextContent("[redacted]");
+
+    // A seat has no page of its own: named, not linked.
+    const seat = rowOf(t.actions.route_assignment.created);
+    expect(within(seat).queryByRole("link")).toBeNull();
+    expect(
+      within(seat).getByText(t.entityTitle.route_assignment),
+    ).toBeVisible();
+    await user.click(within(seat).getByText(t.showChanges));
+    // A new record has nothing before.
+    expect(seat).toHaveTextContent(
+      `${t.fields.status}–${t.noValue}${t.values.status.reserved}`,
+    );
+  });
+
   it("filters by who made the change", async () => {
     const seen: URL[] = [];
     serveLog(entries, seen);
