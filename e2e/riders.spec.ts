@@ -241,7 +241,9 @@ test.describe("seats", () => {
     ).toBeVisible();
 
     // B-07 is running, full, and has someone else's request: a reason first, then full.
-    await details.getByRole("button", { name: t.moveButton }).click();
+    // By keyboard: on phones the "Seat saved" toast can sit over the button (and stays while the
+    // pointer rests on it).
+    await details.getByRole("button", { name: t.moveButton }).press("Enter");
     const move = page.getByRole("dialog", {
       name: fill(t.moveTitle, { name: who.name }),
     });

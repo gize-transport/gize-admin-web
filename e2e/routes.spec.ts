@@ -184,7 +184,11 @@ test.describe("routes", () => {
     const { code } = await addRoute(page, "public");
     await page.getByLabel(t.searchLabel).fill(code);
     const details = await openRoute(page, code.toUpperCase());
-    await details.getByRole("button", { name: t.edit, exact: true }).click();
+    // By keyboard: on phones the "Route added" toast can sit over the button (and stays while
+    // the pointer rests on it).
+    await details
+      .getByRole("button", { name: t.edit, exact: true })
+      .press("Enter");
     const edit = page.getByRole("dialog", {
       name: fill(t.editTitle, { code: code.toUpperCase() }),
     });

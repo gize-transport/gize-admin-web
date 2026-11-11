@@ -21,6 +21,7 @@ import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
 import { useRetryWait } from "@/lib/api/use-retry-wait";
+import { SeatOffers } from "@/features/offers/seat-offers";
 import { useCurrentStaff } from "@/lib/auth/use-current-staff";
 import { useTimestampFormat } from "@/lib/time";
 import { refetchRoute, useDeleteRoute, useRoute } from "./queries";
@@ -223,6 +224,15 @@ function Loaded({
         </SectionHeading>
         <RouteStatusActions route={route} />
       </section>
+
+      {/* Offers are for adults' (public) routes. */}
+      {route.route_type === "public" && (
+        <SeatOffers
+          route={route}
+          SectionHeading={SectionHeading}
+          headingClass={sectionHeading}
+        />
+      )}
 
       <section className="grid gap-4 border-t border-line pt-5">
         <div className="flex flex-wrap gap-2">

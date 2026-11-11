@@ -61,6 +61,7 @@ Open (not blocking):
 7. **Requests per area pair** (GZW-041): the demand summary counts open new-areas requests per area pair, but `route_requests_list` can't list them (it filters by `status`, `kind`, `open` and `route_id` only). Could it also filter by each end – `from_area_id` / `from_area_name` and `to_area_id` / `to_area_name`, a name compared as the summary groups it (ignoring case)? Until then (owner decision 2026-11-04) an area pair's card links to all new new-areas requests (`?kind=new_areas&status=new`); the link narrows to the pair once the filter is tagged.
 8. **Requests naming an area not listed yet** (GZW-041): when staff add that area, the requests keep the typed name (`from_area_name` / `to_area_name`), so the demand summary still shows the pair as "not listed" and its corridor or route can't be started from it. Could adding an area (or a separate call) link open requests whose name matches it, ignoring case, so they count under the listed area? Until then (owner decision 2026-11-04) Demand offers no "Add area"; staff add areas from Areas, and such a card only links to the requests.
 9. **A company rider on a draft or paused route** (GZW-031): `riders_place` doesn't check the route's status for company riders (`_takes`), so one can be placed on their company's draft route and gets an `active` seat. Is that intended (a company route runs from the agreement), or should only `active` routes (or `active` and `paused`) take them, like adults on `forming`/`active`? Until then the portal lists all of the company's routes with their status and lets the API decide.
+10. **Who's next for a route's seat** (GZW-042): `offers_create` picks from `waiting_without_offer` (requests passed over here go last; ones with an open offer elsewhere are skipped), but `route_requests_list` lists open requests oldest first with no sign of either. So the offer dialog can't show the API's real order, and a request chosen "ahead" may not be. Could the API list a route's queue (or add a position, or "offered before / open offer" to each request)? Until then the dialog marks, from the route's own offers, requests with an open offer and ones offered before, and says that people offered before go after the others.
 
 ---
 
@@ -118,6 +119,9 @@ Status: done · Needs backend: – (Supabase Auth settings, README "Supabase Aut
 ### GZW-028 · Add a van · Needs backend: GZ-028 (in `api-v2.3.0`) · Status: done
 - From route detail: `routes_copy` (`Idempotency-Key`) with new code, seats and launch minimum (individual routes); it copies corridor, type, school or company, times, areas served and prices (unchanged). The result says whether the copy starts `forming` or `draft` and opens it. Errors: `ROUTE_CODE_TAKEN`, `ROUTE_NOT_READY` (a corporate route's company is inactive).
 
+### GZW-025 · Launch messages · Needs backend: GZ-041 (in `api-v2.12.0`) · Status: todo
+- Found in GZW-042: when a route launches, the API texts every rider on it in the background (`routes_launch_messages`: each message sent, failed, pending or unconfirmed) and staff retry what failed (`routes_retry_launch_messages`, Idempotency-Key, 202). On the route's page after a launch: who was texted and how it went (no phone numbers), and a Retry for failed or pending ones; a message sending right now, or unconfirmed, is never resent (the API decides). Company routes send none.
+
 ---
 
 ## W3 – Riders
@@ -147,8 +151,10 @@ Status: done · Needs backend: – (Supabase Auth settings, README "Supabase Aut
 - `route_requests_summary`, two lists, busiest first, at most 100 each: **area pairs** (open new-areas requests not matched yet, between areas no route serves yet: listed area or a name not listed yet at each end, and the count) and **routes** (open requests waiting for a route, its status and `seats_free_next_month`). When a list is cut (`*_truncated`), say "Showing the 100 busiest".
 - From an area pair: open its requests; when both ends are listed areas, offer "Add corridor" or "Add route" prefilled; a name not listed yet offers "Add area" first (not yet: question 8). From a route: open it, or add a van (GZW-028). Card layout from `AdminWaitlists.png`, brand colours.
 
-### GZW-042 · Seat offers and skips · Needs backend: GZ-040 · Status: todo
+### GZW-042 · Seat offers and skips · Needs backend: GZ-040 (in `api-v2.13.0`) · Status: done
 - Free seats offered to the oldest open request, offer status and expiry; skipping a request needs a reason (audited). Scope confirmed when GZ-040's contract is tagged.
+- Built (owner decisions 2026-11-11): a "Seat offers" section on a public route's page. The route's offers newest first (`offers_list`): who asked (their request), the seat's month, open until when (Addis time), accepted (their rider), expired or withdrawn, the text message (sent, sending, not delivered: call them) and any skip reason. "Offer a free seat" (`offers_create`, Idempotency-Key): to whoever has waited longest (the API picks), or a request chosen from the adults waiting for the route, which needs a reason when older ones wait (`ROUTE_HAS_WAITING_REQUESTS`); a running route's seat from a chosen 1st, a forming route's a reservation from the next 1st. Refusals explained (`ROUTE_FULL`, `NO_WAITING_REQUESTS`, `OFFER_OPEN`, `ROUTE_NOT_READY`, a request that no longer waits). An open offer: Accept for them (`offers_accept`, when they said yes on the phone; `RIDER_HAS_SEAT` → move them in Riders, `RIDER_EXISTS`, `OFFER_CLOSED`) or Withdraw (`offers_withdraw`).
+- Not here: a request's offers on its own page (the API lists offers by route only).
 
 ### GZW-043 · Company days without service · Needs backend: GZ-042 · Status: todo
 - Record and list dates a company's route does not run (date, reason, who asked), per route and company. Scope confirmed when GZ-042's contract is tagged.

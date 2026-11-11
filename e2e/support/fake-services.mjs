@@ -20,10 +20,12 @@ const ACCESS_TOKEN_SECONDS = 3600;
 
 /**
  * Like Supabase Auth: a sign-in starts a session; its access tokens carry the session ID and
- * expire; each refresh token works once (rotation); logout ends the session.
- * @type {Map<string, { user: TestUser, refreshToken: string, active: boolean }>}
+ * expire; refresh tokens rotate, and a used one still works for 10 seconds (Supabase's reuse
+ * interval: the browser and the middleware may refresh at once); logout ends the session.
+ * @type {Map<string, { user: TestUser, refreshToken: string, active: boolean, previous?: { token: string, until: number } }>}
  */
 const sessions = new Map();
+const REFRESH_REUSE_MS = 10_000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,9 +140,22 @@ function supabaseUser(user) {
  * @param {TestUser} user
  * @param {string} [sessionId]
  */
-function issueTokens(user, sessionId = randomUUID()) {
-  const refreshToken = randomUUID();
-  sessions.set(sessionId, { user, refreshToken, active: true });
+function issueTokens(user, sessionId = randomUUID(), { rotate = true } = {}) {
+  const before = sessions.get(sessionId);
+  // A reuse within the interval gets the session's current refresh token again (no new one);
+  // otherwise it rotates, and the token just used stays good for the interval.
+  const keep = !rotate && before !== undefined;
+  const refreshToken = keep ? before.refreshToken : randomUUID();
+  if (!keep) {
+    sessions.set(sessionId, {
+      user,
+      refreshToken,
+      active: true,
+      previous: before
+        ? { token: before.refreshToken, until: Date.now() + REFRESH_REUSE_MS }
+        : undefined,
+    });
+  }
   return {
     access_token: accessToken(user, sessionId),
     token_type: "bearer",
@@ -223,7 +238,10 @@ const supabase = createServer(async (request, response) => {
     if (grantType === "refresh_token") {
       const entry = [...sessions.entries()].find(
         ([, session]) =>
-          session.active && session.refreshToken === body.refresh_token,
+          session.active &&
+          (session.refreshToken === body.refresh_token ||
+            (session.previous?.token === body.refresh_token &&
+              session.previous.until > Date.now())),
       );
       if (!entry) {
         return authError(
@@ -234,7 +252,12 @@ const supabase = createServer(async (request, response) => {
         );
       }
       refreshCount += 1;
-      return send(response, 200, issueTokens(entry[1].user, entry[0]));
+      const reused = entry[1].refreshToken !== body.refresh_token;
+      return send(
+        response,
+        200,
+        issueTokens(entry[1].user, entry[0], { rotate: !reused }),
+      );
     }
   }
 
@@ -848,6 +871,18 @@ const routes = [
     taken: 12,
     hasRiders: true,
   },
+  // Running with free seats, for seat offers: one per Playwright project (B-31 wide, B-32
+  // narrow), since offers change what's free. Added last, so the other routes keep their ids.
+  ...["B-31", "B-32"].map((code) => ({
+    code,
+    corridorId: corridorId("Bole", "Piassa"),
+    route_type: /** @type {const} */ ("public"),
+    launch_minimum: 10,
+    status: /** @type {const} */ ("active"),
+    prices: { round_trip: 2400, one_way: 1400, saturday: null },
+    taken: 10,
+    hasRiders: true,
+  })),
 ].map((seed, index) => {
   const at = new Date(Date.UTC(2026, 9, 4, 6, index)).toISOString();
   return {
@@ -2673,6 +2708,84 @@ function listPublicRoutes(url, response) {
   send(response, 200, page);
 }
 
+// Seat offers, like GZ-040: staff offer a public route's free seat for 48 hours to the oldest
+// adult request waiting for it (asked for it or matched to it) without an open offer, or to one
+// they choose ahead of older ones (a skip reason); accept (by phone) or withdraw it.
+/**
+ * @typedef {{
+ *   id: string; routeId: string; requestId: string; riderId: string | null;
+ *   start_date: string; status: Schemas["OfferStatus"]; expires_at: string;
+ *   skip_reason: string | null; created_at: string; updated_at: string;
+ * }} FakeOffer
+ */
+/** @type {FakeOffer[]} */
+const offers = [];
+/** @type {Map<string, { answer: Schemas["OfferRead"]; status: number; fingerprint: string }>} */
+const offerKeys = new Map();
+const OFFER_HOURS = 48;
+
+/** `expired` once its 48 hours pass, whether or not anything ran since. */
+/** @param {FakeOffer} offer */
+function offerStatus(offer) {
+  return offer.status === "open" && offer.expires_at <= new Date().toISOString()
+    ? "expired"
+    : offer.status;
+}
+
+/** @param {FakeOffer} offer @returns {Schemas["OfferRead"]} */
+function offerRead(offer) {
+  const route = routes.find((r) => r.id === offer.routeId);
+  const request = requests.find((r) => r.id === offer.requestId);
+  return {
+    id: offer.id,
+    route_id: offer.routeId,
+    route_code: route?.code ?? "",
+    request_id: offer.requestId,
+    rider_id: offer.riderId,
+    rider_name: request?.rider_name ?? "",
+    start_date: offer.start_date,
+    status: offerStatus(offer),
+    expires_at: offer.expires_at,
+    skip_reason: offer.skip_reason,
+    sms_status: "sent",
+    created_at: offer.created_at,
+    updated_at: offer.updated_at,
+  };
+}
+
+/**
+ * The adult requests waiting for a route, oldest first, those already passed over here (an
+ * expired or withdrawn offer) behind the others (`waiting_without_offer`).
+ * @param {FakeRoute} route
+ */
+function waitingFor(route) {
+  /** @param {FakeRequest} r */
+  const passedOver = (r) =>
+    offers.some(
+      (o) =>
+        o.requestId === r.id &&
+        o.routeId === route.id &&
+        ["expired", "withdrawn"].includes(offerStatus(o)),
+    );
+  return requests
+    .filter(
+      (r) =>
+        !r.deleted &&
+        isOpen(r) &&
+        r.rider_type === "adult" &&
+        (r.routeId === route.id || r.matchedRouteId === route.id),
+    )
+    .sort(
+      (a, b) =>
+        Number(passedOver(a)) - Number(passedOver(b)) ||
+        a.created_at.localeCompare(b.created_at),
+    );
+}
+
+/** @param {string} requestId */
+const hasOpenOffer = (requestId) =>
+  offers.some((o) => o.requestId === requestId && offerStatus(o) === "open");
+
 /** @type {Map<string, { route: FakeRoute; fingerprint: string }>} */
 const routeKeys = new Map();
 
@@ -3534,6 +3647,182 @@ const api = createServer(async (request, response) => {
   }
 
   // Route requests (GZ-027): any staff member; delete is admin-only.
+  const routeOffersMatch = /^\/v1\/routes\/([^/]+)\/offers$/.exec(url.pathname);
+  if (routeOffersMatch) {
+    const route = routes.find((r) => r.id === routeOffersMatch[1]);
+    if (request.method === "GET") {
+      if (!route) return problem(response, 404, "NOT_FOUND");
+      /** @type {Schemas["OfferPage"]} */
+      const page = {
+        items: offers
+          .filter((o) => o.routeId === route.id)
+          .sort((a, b) => b.created_at.localeCompare(a.created_at))
+          .map(offerRead),
+        next_cursor: null,
+      };
+      return send(response, 200, page);
+    }
+    if (request.method === "POST") {
+      const key = idempotencyKey(request, response);
+      if (key === undefined) return;
+      const body = (await readJson(request)) ?? {};
+      const fingerprint = `${url.pathname}|${JSON.stringify(body)}`;
+      const replay = offerKeys.get(`${user.email}|${key}`);
+      if (replay) {
+        if (replay.fingerprint !== fingerprint) {
+          return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+        }
+        return send(response, replay.status, replay.answer);
+      }
+      if (!route) return problem(response, 404, "NOT_FOUND");
+      if (
+        route.route_type !== "public" ||
+        !["forming", "active"].includes(route.status)
+      ) {
+        return problem(response, 409, "ROUTE_NOT_READY");
+      }
+      const waiting = waitingFor(route).filter((r) => !hasOpenOffer(r.id));
+      /** @type {FakeRequest | undefined} */
+      let chosen = waiting[0];
+      if (body.request_id !== undefined && body.request_id !== null) {
+        const named = waitingFor(route).find((r) => r.id === body.request_id);
+        if (!named)
+          return validationProblem(response, "/request_id", "invalid");
+        if (hasOpenOffer(named.id)) return problem(response, 409, "OFFER_OPEN");
+        if (waiting[0]?.id !== named.id && !body.skip_reason) {
+          return problem(response, 409, "ROUTE_HAS_WAITING_REQUESTS");
+        }
+        chosen = named;
+      }
+      if (!chosen) return problem(response, 409, "NO_WAITING_REQUESTS");
+      const start =
+        route.status === "active" && typeof body.start_date === "string"
+          ? body.start_date
+          : nextLaunchDay();
+      if (!start.endsWith("-01") || start < nextLaunchDay()) {
+        return validationProblem(response, "/start_date", "invalid");
+      }
+      const held = offers.filter(
+        (o) => o.routeId === route.id && offerStatus(o) === "open",
+      ).length;
+      const used = route.status === "forming" ? route.reserved : route.taken;
+      if (used + held >= route.seats)
+        return problem(response, 409, "ROUTE_FULL");
+      const now = new Date();
+      /** @type {FakeOffer} */
+      const added = {
+        id: randomUUID(),
+        routeId: route.id,
+        requestId: chosen.id,
+        riderId: null,
+        start_date: start,
+        status: "open",
+        expires_at: new Date(
+          now.getTime() + OFFER_HOURS * 3600_000,
+        ).toISOString(),
+        skip_reason:
+          waiting[0]?.id !== chosen.id && body.skip_reason
+            ? String(body.skip_reason)
+            : null,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+      offers.push(added);
+      const answer = offerRead(added);
+      offerKeys.set(`${user.email}|${key}`, {
+        answer,
+        status: 201,
+        fingerprint,
+      });
+      return send(response, 201, answer);
+    }
+  }
+
+  const offerMatch = /^\/v1\/offers\/([^/]+)\/(accept|withdraw)$/.exec(
+    url.pathname,
+  );
+  if (offerMatch && request.method === "POST") {
+    const accepting = offerMatch[2] === "accept";
+    const key = accepting ? idempotencyKey(request, response) : null;
+    if (key === undefined) return;
+    if (key !== null) {
+      const replay = offerKeys.get(`${user.email}|${key}`);
+      if (replay) {
+        if (replay.fingerprint !== url.pathname) {
+          return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+        }
+        return send(response, replay.status, replay.answer);
+      }
+    }
+    const offer = offers.find((o) => o.id === offerMatch[1]);
+    if (!offer) return problem(response, 404, "NOT_FOUND");
+    if (offerStatus(offer) !== "open")
+      return problem(response, 409, "OFFER_CLOSED");
+    const now = new Date().toISOString();
+    if (!accepting) {
+      offer.status = "withdrawn";
+      offer.updated_at = now;
+      return send(response, 200, offerRead(offer));
+    }
+    const asked = requests.find((r) => r.id === offer.requestId);
+    const route = routes.find((r) => r.id === offer.routeId);
+    if (!asked || !route) return problem(response, 409, "OFFER_CLOSED");
+    // The asker's rider by phone and name; someone else with that phone is for staff to sort
+    // out; one riding elsewhere is moved by staff instead.
+    const samePhone = riders.find(
+      (r) =>
+        !r.deleted &&
+        r.rider_type === "adult" &&
+        r.phone === asked.contact_phone,
+    );
+    if (samePhone && samePhone.full_name !== asked.rider_name) {
+      return problem(response, 409, "RIDER_EXISTS");
+    }
+    let rider = samePhone;
+    if (rider?.seat) return problem(response, 409, "RIDER_HAS_SEAT");
+    if (!rider) {
+      const corridor = corridors.find((c) => c.id === route.corridorId);
+      rider = {
+        id: randomUUID(),
+        rider_type: "adult",
+        full_name: asked.rider_name,
+        phone: asked.contact_phone,
+        companyId: null,
+        homeId: corridor?.originId ?? "",
+        destinationId: corridor?.destinationId ?? null,
+        plan: "round_trip",
+        saturday_addon: false,
+        source: "staff",
+        seat: null,
+        nextSeat: null,
+        open_requests: 0,
+        deleted: false,
+        created_at: now,
+        updated_at: now,
+      };
+      riders.push(rider);
+    }
+    rider.seat = {
+      routeId: route.id,
+      status: route.status === "forming" ? "reserved" : "active",
+      start_date: offer.start_date,
+      end_date: null,
+    };
+    if (route.status === "forming") route.reserved += 1;
+    else route.taken += 1;
+    asked.status = "fulfilled";
+    offer.status = "accepted";
+    offer.riderId = rider.id;
+    offer.updated_at = now;
+    const answer = offerRead(offer);
+    offerKeys.set(`${user.email}|${key}`, {
+      answer,
+      status: 200,
+      fingerprint: url.pathname,
+    });
+    return send(response, 200, answer);
+  }
+
   if (url.pathname === "/v1/public/routes" && request.method === "GET") {
     return listPublicRoutes(url, response);
   }

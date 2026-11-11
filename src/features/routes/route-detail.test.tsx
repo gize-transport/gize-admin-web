@@ -145,6 +145,25 @@ describe("RouteDetail", () => {
     );
     expect(screen.getByText(t.rateAgreed)).toBeVisible();
     expect(screen.queryByText(t.launchMinimum)).toBeNull();
+    // Seat offers are for public routes only.
+    expect(
+      screen.queryByRole("heading", { name: messages.Offers.title }),
+    ).toBeNull();
+  });
+
+  it("shows a public route's seat offers", async () => {
+    serveRoute(forming);
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offers"), () =>
+        HttpResponse.json({ items: [], next_cursor: null }),
+      ),
+    );
+    renderWithProviders(<RouteDetail routeId={forming.id} variant="page" />);
+
+    expect(
+      await screen.findByRole("heading", { name: messages.Offers.title }),
+    ).toBeVisible();
+    expect(await screen.findByText(messages.Offers.none)).toBeVisible();
   });
 
   it("links to the route it was copied from, or says it was deleted", async () => {

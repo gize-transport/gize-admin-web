@@ -40,6 +40,9 @@ test.describe("audit log", () => {
     await expect(row(page, t.actions.area.renamed)).toHaveCount(0);
 
     await page.getByLabel(t.actorFilter).selectOption({ label: t.anyone });
+    // Everyone's changes have loaded (another's shows again) before a row is used: the filtered
+    // list's rows are replaced as it loads.
+    await expect(row(page, t.actions.area.renamed)).toBeVisible();
     const status = row(page, t.actions.route.status_changed);
     await status.getByText(t.showChanges).click();
     await status.getByRole("button", { name: t.recordHistory }).click();
