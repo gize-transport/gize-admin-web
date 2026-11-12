@@ -905,6 +905,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/routes/{route_id}/offer-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who a route's free seat goes to, in order
+         * @description The open requests waiting for the route (asked for it, or matched to it), in the
+         *     order `offers_create` picks: `position` 1 is whom it offers the seat to by default.
+         *     Oldest first, but requests offered a seat on this route before (`offered_before`: it
+         *     expired or was withdrawn) after the others. Then those that can't be offered a seat,
+         *     oldest first, with the reason (`not_offerable`): an open offer on any route, or a
+         *     student's request. Positions continue from page to page, as of each page's read. Any
+         *     route, even one that can't be offered from (only forming and active public ones can).
+         */
+        get: operations["offers_queue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/routes/{route_id}/offers": {
         parameters: {
             query?: never;
@@ -1685,6 +1711,13 @@ export interface components {
             this_month: number;
         };
         /**
+         * NotOfferable
+         * @description Why a request waiting for a route can't be offered its seat (GZ-075): it has an open
+         *     offer (on any route), or it's a student's (seats are offered to adults).
+         * @enum {string}
+         */
+        NotOfferable: "open_offer" | "student";
+        /**
          * OfferCreate
          * @description Offer the route's free seat. Leave `request_id` out for the oldest request waiting
          *     for the route; another one ahead of older ones needs `skip_reason` (audited).
@@ -1706,6 +1739,32 @@ export interface components {
         OfferPage: {
             /** Items */
             items: components["schemas"]["OfferRead"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** OfferQueueItem */
+        OfferQueueItem: {
+            /** @description Why it can't be offered: `open_offer` (on any route) or `student` (seats are offered to adults). */
+            not_offerable: components["schemas"]["NotOfferable"] | null;
+            /**
+             * Offered Before
+             * @description Offered a seat on this route before that expired or was withdrawn. Among requests that can be offered a seat, these come after the others.
+             */
+            offered_before: boolean;
+            /**
+             * Position
+             * @description 1 is whom "Offer a free seat" picks; another needs a `skip_reason`. `null` when the request can't be offered a seat (`not_offerable`).
+             */
+            position: number | null;
+            request: components["schemas"]["RouteRequestRead"];
+        };
+        /**
+         * OfferQueuePage
+         * @description A page of a route's offer queue (a named schema: generated clients keep the name).
+         */
+        OfferQueuePage: {
+            /** Items */
+            items: components["schemas"]["OfferQueueItem"][];
             /** Next Cursor */
             next_cursor: string | null;
         };
@@ -9369,6 +9428,132 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ValidationProblem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    offers_queue: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                route_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "not_offerable": null,
+                     *           "offered_before": false,
+                     *           "position": 1,
+                     *           "request": {
+                     *             "contact_name": "Meron Haile",
+                     *             "contact_phone": "+251911000124",
+                     *             "created_at": "2026-10-01T06:30:00Z",
+                     *             "decline_reason": null,
+                     *             "from_area": null,
+                     *             "from_area_name": null,
+                     *             "id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *             "kind": "route",
+                     *             "matched_route": null,
+                     *             "notes": null,
+                     *             "preferred_morning_time": null,
+                     *             "preferred_return_time": null,
+                     *             "rider_name": "Meron Haile",
+                     *             "rider_type": "adult",
+                     *             "route": {
+                     *               "code": "CMC-BOLE-1",
+                     *               "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01"
+                     *             },
+                     *             "school_name": null,
+                     *             "source": "app",
+                     *             "status": "new",
+                     *             "to_area": null,
+                     *             "to_area_name": null,
+                     *             "updated_at": "2026-11-14T09:15:00Z"
+                     *           }
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
+                    "application/json": components["schemas"]["OfferQueuePage"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid Cursor, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
                 };
             };
             /** @description Too Many Requests */

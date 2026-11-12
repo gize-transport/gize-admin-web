@@ -1,7 +1,6 @@
 import {
   useInfiniteQuery,
   useMutation,
-  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { api, unwrap } from "@/lib/api/client";
@@ -11,12 +10,13 @@ import type { components } from "@/lib/api/schema";
 type OfferCreate = components["schemas"]["OfferCreate"];
 
 const OFFERS_PAGE_SIZE = 20;
-/** The waiting list shown when offering: the API's most (one page). */
-const WAITING_LIMIT = 100;
+/** A page of a route's offer queue in the offer dialog. */
+const QUEUE_PAGE_SIZE = 50;
 
 export const offerKeys = {
   all: ["offers"] as const,
   route: (routeId: string) => ["offers", "route", routeId] as const,
+  queue: (routeId: string) => ["offers", "queue", routeId] as const,
 };
 
 /** A route's offers (`offers_list`), newest first, page by page ("Show more"). */
@@ -40,20 +40,26 @@ export function useRouteOffers(routeId: string) {
 }
 
 /**
- * The open requests waiting for a route (`route_requests_list`: asked for it or matched to it),
- * oldest first: who an offer goes to. Under "route-requests", so a request's change refetches it.
+ * Who a route's free seat goes to, in the order "Offer a free seat" picks (`offers_queue`):
+ * position 1 is the default, those offered a seat here before come after the others, and those
+ * that can't be offered (`not_offerable`) are last. Page by page ("Show more"); positions continue.
+ * An offer's change marks it stale (a refusal refetches it while the dialog shows it); the dialog
+ * reads it afresh each time it opens.
  */
-export function useWaitingRequests(routeId: string, enabled: boolean) {
-  return useQuery({
-    queryKey: ["route-requests", "waiting", routeId] as const,
-    queryFn: () =>
+export function useOfferQueue(routeId: string, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: offerKeys.queue(routeId),
+    queryFn: ({ pageParam }) =>
       unwrap(
-        api.GET("/v1/route-requests", {
+        api.GET("/v1/routes/{route_id}/offer-queue", {
           params: {
-            query: { route_id: routeId, open: true, limit: WAITING_LIMIT },
+            path: { route_id: routeId },
+            query: { limit: QUEUE_PAGE_SIZE, cursor: pageParam ?? undefined },
           },
         }),
       ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.next_cursor,
     enabled,
     staleTime: 0,
   });
@@ -61,18 +67,27 @@ export function useWaitingRequests(routeId: string, enabled: boolean) {
 
 /**
  * After an offer changes: the route's offers, the route (seats it holds), route requests
- * (fulfilled on acceptance, which demand counts) and riders (one may be made).
+ * (fulfilled on acceptance, which demand counts) and riders (one may be made). The queue is
+ * refetched only when asked (a refusal, while the dialog shows it); otherwise it's marked stale:
+ * the dialog closes on success and reads it afresh when it opens again.
  */
-function refetchAfterOffer(queryClient: ReturnType<typeof useQueryClient>) {
-  return Promise.all(
-    [
-      offerKeys.all,
+function refetchAfterOffer(
+  queryClient: ReturnType<typeof useQueryClient>,
+  { queue = false }: { queue?: boolean } = {},
+) {
+  return Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: ["offers", "queue"],
+      refetchType: queue ? "active" : "none",
+    }),
+    ...[
+      ["offers", "route"],
       ["routes"],
       ["route-requests"],
       ["riders"],
       ["companies"],
     ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
-  );
+  ]);
 }
 
 /** A refusal: the offer or route moved on meanwhile (409), or the outcome is unknown. */
@@ -87,7 +102,7 @@ function refetchAfterRefusal(
     error.status === 409 ||
     error.status === 404 ||
     (error.code?.startsWith("IDEMPOTENCY_") ?? false);
-  if (reload) void refetchAfterOffer(queryClient);
+  if (reload) void refetchAfterOffer(queryClient, { queue: true });
 }
 
 /** `offers_create`: a route's free seat for 48 hours. One Idempotency-Key per dialog opening. */

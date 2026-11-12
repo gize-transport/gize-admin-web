@@ -97,15 +97,37 @@ function serveOffers(pages: Schemas["OfferRead"][][]) {
   );
 }
 
-function serveWaiting(items: Schemas["RouteRequestRead"][]) {
+type QueueItem = Schemas["OfferQueueItem"];
+
+function queued(
+  request: Schemas["RouteRequestRead"],
+  position: number | null,
+  extras: Partial<Omit<QueueItem, "request" | "position">> = {},
+): QueueItem {
+  return {
+    request,
+    position,
+    offered_before: false,
+    not_offerable: null,
+    ...extras,
+  };
+}
+
+/** The route's offer queue (`offers_queue`), page by page; returns the pages asked for. */
+function serveQueue(pages: QueueItem[][]) {
+  const cursors: (string | null)[] = [];
   server.use(
-    http.get(apiUrl("/v1/route-requests"), () =>
-      HttpResponse.json<Schemas["RouteRequestPage"]>({
-        items,
-        next_cursor: null,
-      }),
-    ),
+    http.get(apiUrl("/v1/routes/{route_id}/offer-queue"), ({ request }) => {
+      const cursor = new URL(request.url).searchParams.get("cursor");
+      cursors.push(cursor);
+      const index = cursor === null ? 0 : Number(cursor);
+      return HttpResponse.json<Schemas["OfferQueuePage"]>({
+        items: pages[index] ?? [],
+        next_cursor: index + 1 < pages.length ? String(index + 1) : null,
+      });
+    }),
   );
+  return cursors;
 }
 
 type Sent = { body: Schemas["OfferCreate"]; key: string | null };
@@ -129,16 +151,35 @@ function renderOffers(onRoute = running) {
   );
 }
 
-const waitingAdult = routeRequest(11, {
+// The example from backend question 10: Meron is next, Almaz was offered a seat here before,
+// Dawit has an open offer elsewhere, and a student's request can't be offered a seat.
+const almaz = routeRequest(11, {
   kind: "route",
-  rider_name: "Abebe Kebede",
-  created_at: "2026-10-01T07:00:00Z",
+  rider_name: "Almaz Bekele",
+  created_at: "2026-09-01T07:00:00Z",
 });
-const waitingLater = routeRequest(12, {
+const dawit = routeRequest(12, {
   kind: "route",
-  rider_name: "Hana Tesfaye",
-  created_at: "2026-10-20T07:00:00Z",
+  rider_name: "Dawit Haile",
+  created_at: "2026-09-05T07:00:00Z",
 });
+const meron = routeRequest(13, {
+  kind: "route",
+  rider_name: "Meron Tadesse",
+  created_at: "2026-09-10T07:00:00Z",
+});
+const student = routeRequest(14, {
+  kind: "route",
+  rider_type: "student",
+  rider_name: "Kidist Alemu",
+  created_at: "2026-09-12T07:00:00Z",
+});
+const queue: QueueItem[] = [
+  queued(meron, 1),
+  queued(almaz, 2, { offered_before: true }),
+  queued(dawit, null, { not_offerable: "open_offer" }),
+  queued(student, null, { not_offerable: "student" }),
+];
 
 async function openOfferDialog(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole("button", { name: t.offer }));
@@ -291,52 +332,228 @@ describe("SeatOffers: keeping the list current", () => {
 });
 
 describe("SeatOffers: offering", () => {
-  it("offers a running route's seat to whoever has waited longest, from the next 1st", async () => {
+  it("names who is next in line and offers a running route's seat to them, from the next 1st", async () => {
     const sent: Sent[] = [];
     serveOffers([[]]);
-    serveWaiting([waitingAdult, waitingLater]);
+    serveQueue([queue]);
     serveCreate(() => HttpResponse.json(open, { status: 201 }), sent);
     const user = userEvent.setup();
     renderOffers();
 
     const dialog = await openOfferDialog(user);
-    expect(
-      within(dialog).getByRole("radio", { name: t.nextInLine }),
-    ).toBeChecked();
-    expect(
-      await within(dialog).findByRole("radio", { name: "Abebe Kebede" }),
-    ).toHaveAccessibleDescription(fill(t.askedOn, { date: "Oct 1, 2026" }));
+    const next = within(dialog).getByRole("radio", { name: t.nextInLine });
+    expect(next).toBeChecked();
+    await waitFor(() =>
+      expect(next).toHaveAccessibleDescription(
+        fill(t.nextInLineIs, { name: "Meron Tadesse", date: "Sep 10, 2026" }),
+      ),
+    );
     expect(within(dialog).getByLabelText(t.startLabel)).toHaveValue(
       "2026-12-01",
     );
     await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
 
     await waitFor(() => expect(toast).toHaveBeenCalledWith(t.offeredToast));
+    // The API picks whoever is first when it's sent.
     expect(sent[0]?.body).toEqual({ start_date: "2026-12-01" });
     expect(sent[0]?.key).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it("marks a waiting request that already has an open offer", async () => {
-    serveOffers([
-      [offer(1, { request_id: waitingAdult.id, rider_name: "Abebe Kebede" })],
-    ]);
-    serveWaiting([waitingAdult, waitingLater]);
+  it("shows the queue in the API's order, numbered, with those that can't be offered last", async () => {
+    serveOffers([[]]);
+    serveQueue([queue]);
     const user = userEvent.setup();
     renderOffers();
 
     const dialog = await openOfferDialog(user);
-    expect(
-      await within(dialog).findByRole("radio", { name: "Abebe Kebede" }),
-    ).toHaveAccessibleDescription(
-      // ICU may put a narrow no-break space before AM.
-      /^Asked Oct 1, 2026 · Already offered, open until Nov 13, 2026, 9:40\sAM$/,
+    const almazChoice = await within(dialog).findByRole("radio", {
+      name: fill(t.position, { position: 2, name: "Almaz Bekele" }),
+    });
+    expect(almazChoice).toHaveAccessibleDescription(
+      `${fill(t.askedOn, { date: "Sep 1, 2026" })} · ${t.offeredBefore}`,
     );
+    expect(almazChoice).toBeEnabled();
+    // Meron is next in line: not offered again as a choice ahead of the queue.
+    expect(
+      within(dialog).queryByRole("radio", { name: /Meron Tadesse/ }),
+    ).not.toBeInTheDocument();
+
+    const dawitChoice = within(dialog).getByRole("radio", {
+      name: "Dawit Haile",
+    });
+    expect(dawitChoice).toBeDisabled();
+    expect(dawitChoice).toHaveAccessibleDescription(
+      `${fill(t.askedOn, { date: "Sep 5, 2026" })} · ${t.notOfferable.open_offer}`,
+    );
+    const studentChoice = within(dialog).getByRole("radio", {
+      name: "Kidist Alemu",
+    });
+    expect(studentChoice).toBeDisabled();
+    expect(studentChoice).toHaveAccessibleDescription(
+      `${fill(t.askedOn, { date: "Sep 12, 2026" })} · ${t.notOfferable.student}`,
+    );
+
+    const order = within(dialog)
+      .getAllByRole("radio")
+      .map((radio) => radio.closest("label")?.textContent);
+    expect(order).toEqual([
+      t.nextInLine,
+      fill(t.position, { position: 2, name: "Almaz Bekele" }),
+      "Dawit Haile",
+      "Kidist Alemu",
+    ]);
+  });
+
+  it("says when next in line is someone who was offered a seat here before", async () => {
+    serveOffers([[]]);
+    serveQueue([[queued(almaz, 1, { offered_before: true })]]);
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("radio", { name: t.nextInLine }),
+      ).toHaveAccessibleDescription(
+        `${fill(t.nextInLineIs, { name: "Almaz Bekele", date: "Sep 1, 2026" })} · ${t.offeredBefore}`,
+      ),
+    );
+  });
+
+  it("asks for a reason as soon as someone ahead of the queue is chosen", async () => {
+    const sent: Sent[] = [];
+    serveOffers([[]]);
+    serveQueue([queue]);
+    serveCreate(() => HttpResponse.json(open, { status: 201 }), sent);
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    await user.click(
+      await within(dialog).findByRole("radio", {
+        name: fill(t.position, { position: 2, name: "Almaz Bekele" }),
+      }),
+    );
+    const reason = within(dialog).getByLabelText(t.reasonLabel);
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+    expect(await within(dialog).findByText(t.reasonRequired)).toBeVisible();
+    expect(reason).toHaveFocus();
+    expect(sent).toHaveLength(0);
+
+    await user.type(reason, "Works next to the stop");
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(t.offeredToast));
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.body).toEqual({
+      request_id: almaz.id,
+      skip_reason: "Works next to the stop",
+      start_date: "2026-12-01",
+    });
+  });
+
+  it("drops the reason when next in line is chosen again", async () => {
+    const sent: Sent[] = [];
+    serveOffers([[]]);
+    serveQueue([queue]);
+    serveCreate(() => HttpResponse.json(open, { status: 201 }), sent);
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    await user.click(
+      await within(dialog).findByRole("radio", {
+        name: fill(t.position, { position: 2, name: "Almaz Bekele" }),
+      }),
+    );
+    await user.type(within(dialog).getByLabelText(t.reasonLabel), "Nearby");
+    await user.click(within(dialog).getByRole("radio", { name: t.nextInLine }));
+    expect(
+      within(dialog).queryByLabelText(t.reasonLabel),
+    ).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+
+    await waitFor(() =>
+      expect(sent[0]?.body).toEqual({ start_date: "2026-12-01" }),
+    );
+  });
+
+  it("shows more of the queue, numbering on, without repeating anyone", async () => {
+    const third = routeRequest(15, {
+      kind: "route",
+      rider_name: "Hana Tesfaye",
+      created_at: "2026-09-20T07:00:00Z",
+    });
+    serveOffers([[]]);
+    const cursors = serveQueue([
+      [queued(meron, 1), queued(almaz, 2)],
+      // Read a moment later: Almaz again (the queue moved), then the next one.
+      [queued(almaz, 2), queued(third, 3)],
+    ]);
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    await within(dialog).findByRole("radio", { name: /Almaz Bekele/ });
+    await user.click(
+      within(dialog).getByRole("button", { name: t.showMoreQueue }),
+    );
+    expect(
+      await within(dialog).findByRole("radio", {
+        name: fill(t.position, { position: 3, name: "Hana Tesfaye" }),
+      }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getAllByRole("radio", { name: /Almaz Bekele/ }),
+    ).toHaveLength(1);
+    expect(cursors).toEqual([null, "1"]);
+    expect(
+      within(dialog).queryByRole("button", { name: t.showMoreQueue }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says when nobody can be offered the seat", async () => {
+    serveOffers([[]]);
+    serveQueue([[queued(dawit, null, { not_offerable: "open_offer" })]]);
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("radio", { name: t.nextInLine }),
+      ).toHaveAccessibleDescription(t.nextInLineNobody),
+    );
+  });
+
+  it("shows an error loading the queue, with a retry", async () => {
+    let fail = true;
+    serveOffers([[]]);
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offer-queue"), () => {
+        if (fail) {
+          fail = false;
+          return problemResponse(503, "SERVICE_UNAVAILABLE", "req-503");
+        }
+        return HttpResponse.json({ items: queue, next_cursor: null });
+      }),
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    expect(await within(dialog).findByText("req-503")).toBeVisible();
+    await user.click(
+      within(dialog).getByRole("button", { name: messages.ProblemAlert.retry }),
+    );
+    expect(
+      await within(dialog).findByRole("radio", { name: /Almaz Bekele/ }),
+    ).toBeVisible();
   });
 
   it("offers a forming route's seat as a reservation, with no month to choose", async () => {
     const sent: Sent[] = [];
     serveOffers([[]]);
-    serveWaiting([]);
+    serveQueue([[]]);
     serveCreate(() => HttpResponse.json(open, { status: 201 }), sent);
     const user = userEvent.setup();
     renderOffers(forming);
@@ -355,109 +572,18 @@ describe("SeatOffers: offering", () => {
     await waitFor(() => expect(sent[0]?.body).toEqual({}));
   });
 
-  it("asks for a reason to pass older requests, then sends it with the same key", async () => {
-    const sent: Sent[] = [];
-    serveOffers([[]]);
-    serveWaiting([waitingAdult, waitingLater]);
-    serveCreate(
-      (body) =>
-        body.skip_reason
-          ? HttpResponse.json(open, { status: 201 })
-          : problemResponse(409, "ROUTE_HAS_WAITING_REQUESTS"),
-      sent,
-    );
-    const user = userEvent.setup();
-    renderOffers();
-
-    const dialog = await openOfferDialog(user);
-    await user.click(
-      await within(dialog).findByRole("radio", { name: "Hana Tesfaye" }),
-    );
-    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
-    const reason = await within(dialog).findByLabelText(t.reasonLabel);
-    await waitFor(() => expect(reason).toHaveFocus());
-    expect(within(dialog).getByText(t.reasonNeeded)).toBeVisible();
-    await user.type(reason, "Works next to the stop");
-    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
-
-    await waitFor(() => expect(toast).toHaveBeenCalledWith(t.offeredToast));
-    expect(sent[1]?.body).toEqual({
-      request_id: waitingLater.id,
-      skip_reason: "Works next to the stop",
-      start_date: "2026-12-01",
-    });
-    expect(sent[1]?.key).toBe(sent[0]?.key);
-  });
-
-  it("drops the reason when whoever has waited longest is chosen again", async () => {
-    const sent: Sent[] = [];
-    serveOffers([[]]);
-    serveWaiting([waitingAdult, waitingLater]);
-    serveCreate(
-      (body) =>
-        body.request_id
-          ? problemResponse(409, "ROUTE_HAS_WAITING_REQUESTS")
-          : HttpResponse.json(open, { status: 201 }),
-      sent,
-    );
-    const user = userEvent.setup();
-    renderOffers();
-
-    const dialog = await openOfferDialog(user);
-    await user.click(
-      await within(dialog).findByRole("radio", { name: "Hana Tesfaye" }),
-    );
-    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
-    await within(dialog).findByLabelText(t.reasonLabel);
-    await user.click(within(dialog).getByRole("radio", { name: t.nextInLine }));
-    expect(
-      within(dialog).queryByLabelText(t.reasonLabel),
-    ).not.toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
-
-    await waitFor(() =>
-      expect(sent[1]?.body).toEqual({ start_date: "2026-12-01" }),
-    );
-  });
-
-  it("marks a request offered a seat here before: it goes after the others", async () => {
-    serveOffers([
-      [offer(5, { request_id: waitingAdult.id, status: "withdrawn" })],
-    ]);
-    serveWaiting([waitingAdult, waitingLater]);
-    const user = userEvent.setup();
-    renderOffers();
-
-    const dialog = await openOfferDialog(user);
-    expect(
-      await within(dialog).findByRole("radio", { name: "Abebe Kebede" }),
-    ).toHaveAccessibleDescription(
-      `${fill(t.askedOn, { date: "Oct 1, 2026" })} · ${t.offeredBefore}`,
-    );
-    expect(
-      within(dialog).getByRole("radio", { name: "Hana Tesfaye" }),
-    ).toHaveAccessibleDescription(fill(t.askedOn, { date: "Oct 20, 2026" }));
-  });
-
   it("explains a refused reason on its field", async () => {
     serveOffers([[]]);
-    serveWaiting([waitingAdult, waitingLater]);
-    serveCreate(
-      (body) =>
-        body.skip_reason
-          ? validationResponse("skip_reason")
-          : problemResponse(409, "ROUTE_HAS_WAITING_REQUESTS"),
-      [],
-    );
+    serveQueue([queue]);
+    serveCreate(() => validationResponse("skip_reason"), []);
     const user = userEvent.setup();
     renderOffers();
 
     const dialog = await openOfferDialog(user);
     await user.click(
-      await within(dialog).findByRole("radio", { name: "Hana Tesfaye" }),
+      await within(dialog).findByRole("radio", { name: /Almaz Bekele/ }),
     );
-    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
-    const reason = await within(dialog).findByLabelText(t.reasonLabel);
+    const reason = within(dialog).getByLabelText(t.reasonLabel);
     await user.type(reason, "x");
     await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
 
@@ -467,7 +593,7 @@ describe("SeatOffers: offering", () => {
 
   it("waits out Too many requests before offering again", async () => {
     serveOffers([[]]);
-    serveWaiting([]);
+    serveQueue([[]]);
     serveCreate(
       () =>
         problemResponse(429, "RATE_LIMITED", "req-429", {
@@ -489,7 +615,7 @@ describe("SeatOffers: offering", () => {
   it("uses a new Idempotency-Key each time the dialog opens", async () => {
     const sent: Sent[] = [];
     serveOffers([[]]);
-    serveWaiting([]);
+    serveQueue([[]]);
     serveCreate(() => HttpResponse.json(open, { status: 201 }), sent);
     const user = userEvent.setup();
     renderOffers();
@@ -512,7 +638,7 @@ describe("SeatOffers: offering", () => {
     ["ROUTE_FULL", fill(t.fullRunning, { month: "December 2026" })],
   ] as const)("explains %s", async (code, words) => {
     serveOffers([[]]);
-    serveWaiting([]);
+    serveQueue([[]]);
     serveCreate(() => problemResponse(409, code, "req-409"), []);
     const user = userEvent.setup();
     renderOffers();
@@ -523,22 +649,218 @@ describe("SeatOffers: offering", () => {
     expect(within(dialog).getByText("req-409")).toBeVisible();
   });
 
-  it("explains a request that no longer waits for the route on the choices", async () => {
+  it("explains a refused request on the choices, and reloads the queue", async () => {
     serveOffers([[]]);
-    serveWaiting([waitingAdult]);
+    const cursors = serveQueue([queue]);
     serveCreate(() => validationResponse("request_id"), []);
     const user = userEvent.setup();
     renderOffers();
 
     const dialog = await openOfferDialog(user);
-    await user.click(
-      await within(dialog).findByRole("radio", { name: "Abebe Kebede" }),
-    );
+    const almazChoice = await within(dialog).findByRole("radio", {
+      name: /Almaz Bekele/,
+    });
+    await user.click(almazChoice);
+    await user.type(within(dialog).getByLabelText(t.reasonLabel), "Nearby");
     await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
     expect(await within(dialog).findByText(t.requestRefused)).toBeVisible();
+    // Still waiting after the reload: still chosen, and focused once the queue is back.
+    await waitFor(() => expect(cursors).toHaveLength(2));
+    await waitFor(() => expect(almazChoice).toHaveFocus());
+    expect(almazChoice).toBeChecked();
+  });
+});
+
+describe("SeatOffers: the queue changing", () => {
+  it("asks to choose again when the chosen request leaves the queue", async () => {
+    const sent: Sent[] = [];
+    let reads = 0;
+    serveOffers([[]]);
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offer-queue"), () => {
+        reads += 1;
+        // Almaz took a seat elsewhere meanwhile.
+        const items = reads === 1 ? queue : [queue[0] as QueueItem];
+        return HttpResponse.json({ items, next_cursor: null });
+      }),
+    );
+    serveCreate(() => validationResponse("request_id"), sent);
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    await user.click(
+      await within(dialog).findByRole("radio", { name: /Almaz Bekele/ }),
+    );
+    await user.type(within(dialog).getByLabelText(t.reasonLabel), "Nearby");
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+
+    expect(await within(dialog).findByText(t.requestRefused)).toBeVisible();
+    await waitFor(() =>
+      expect(
+        within(dialog).queryByRole("radio", { name: /Almaz Bekele/ }),
+      ).not.toBeInTheDocument(),
+    );
+    // Nothing is chosen: no reason asked, focus on the choices, nothing sent until one is.
+    const next = within(dialog).getByRole("radio", { name: t.nextInLine });
+    expect(next).not.toBeChecked();
+    await waitFor(() => expect(next).toHaveFocus());
     expect(
-      within(dialog).getByRole("radio", { name: "Abebe Kebede" }),
-    ).toHaveFocus();
+      within(dialog).queryByLabelText(t.reasonLabel),
+    ).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+    expect(sent).toHaveLength(1);
+    expect(within(dialog).getByText(t.requestRefused)).toBeVisible();
+  });
+
+  it("treats a chosen request that is now first as next in line", async () => {
+    const sent: Sent[] = [];
+    let reads = 0;
+    serveOffers([[]]);
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offer-queue"), () => {
+        reads += 1;
+        // Meron accepted an offer elsewhere: Almaz is first now.
+        const items =
+          reads === 1 ? queue : [queued(almaz, 1, { offered_before: true })];
+        return HttpResponse.json({ items, next_cursor: null });
+      }),
+    );
+    serveCreate(
+      () =>
+        sent.length === 1
+          ? problemResponse(409, "OFFER_OPEN", "req-409")
+          : HttpResponse.json(open, { status: 201 }),
+      sent,
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    await user.click(
+      await within(dialog).findByRole("radio", { name: /Almaz Bekele/ }),
+    );
+    await user.type(within(dialog).getByLabelText(t.reasonLabel), "Nearby");
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+    // The refusal reloads the queue.
+    const next = within(dialog).getByRole("radio", { name: t.nextInLine });
+    await waitFor(() =>
+      expect(next).toHaveAccessibleDescription(
+        `${fill(t.nextInLineIs, { name: "Almaz Bekele", date: "Sep 1, 2026" })} · ${t.offeredBefore}`,
+      ),
+    );
+    expect(next).toBeChecked();
+    expect(
+      within(dialog).queryByLabelText(t.reasonLabel),
+    ).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(t.offeredToast));
+    expect(sent[1]?.body).toEqual({ start_date: "2026-12-01" });
+  });
+
+  it("keeps the queue when its next page fails, and Show more tries again", async () => {
+    // The Retry-After wait runs on the real clock.
+    vi.useRealTimers();
+    let failNext = true;
+    serveOffers([[]]);
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offer-queue"), ({ request }) => {
+        const cursor = new URL(request.url).searchParams.get("cursor");
+        if (cursor === null) {
+          return HttpResponse.json({
+            items: [queued(meron, 1), queued(almaz, 2)],
+            next_cursor: "1",
+          });
+        }
+        if (failNext) {
+          failNext = false;
+          return problemResponse(429, "RATE_LIMITED", "req-429", {
+            "Retry-After": "1",
+          });
+        }
+        return HttpResponse.json({
+          items: [queued(dawit, 3)],
+          next_cursor: null,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    const more = await within(dialog).findByRole("button", {
+      name: t.showMoreQueue,
+    });
+    await user.click(more);
+    expect(await within(dialog).findByText("req-429")).toBeVisible();
+    expect(
+      within(dialog).getByRole("radio", { name: /Almaz Bekele/ }),
+    ).toBeVisible();
+    // One way to try again: Show more, once Retry-After has passed.
+    expect(
+      within(dialog).queryByRole("button", {
+        name: messages.ProblemAlert.retry,
+      }),
+    ).not.toBeInTheDocument();
+    expect(more).toHaveAttribute("aria-disabled", "true");
+    await waitFor(
+      () => expect(more).not.toHaveAttribute("aria-disabled", "true"),
+      { timeout: 3000 },
+    );
+    await user.click(more);
+    const added = await within(dialog).findByRole("radio", {
+      name: fill(t.position, { position: 3, name: "Dawit Haile" }),
+    });
+    // The last page is in: the button goes, and focus moves to the first one added.
+    await waitFor(() => expect(added).toHaveFocus());
+    expect(within(dialog).queryByText("req-429")).not.toBeInTheDocument();
+  });
+
+  it("never shows a queue kept from an earlier opening", async () => {
+    let release: () => void = () => {};
+    let reads = 0;
+    serveOffers([[]]);
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offer-queue"), async () => {
+        reads += 1;
+        if (reads === 1) {
+          return HttpResponse.json({ items: queue, next_cursor: null });
+        }
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return HttpResponse.json({
+          items: [queued(almaz, 1)],
+          next_cursor: null,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    let dialog = await openOfferDialog(user);
+    await within(dialog).findByRole("radio", { name: /Almaz Bekele/ });
+    await user.click(
+      within(dialog).getByRole("button", { name: messages.Common.cancel }),
+    );
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    vi.setSystemTime(new Date("2026-11-11T09:10:00Z"));
+
+    dialog = await openOfferDialog(user);
+    await waitFor(() => expect(reads).toBe(2));
+    expect(
+      within(dialog).getByRole("radio", { name: t.nextInLine }),
+    ).toHaveAccessibleDescription(t.nextInLineHint);
+    expect(within(dialog).queryByText(/Meron Tadesse/)).not.toBeInTheDocument();
+    release();
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("radio", { name: t.nextInLine }),
+      ).toHaveAccessibleDescription(
+        fill(t.nextInLineIs, { name: "Almaz Bekele", date: "Sep 1, 2026" }),
+      ),
+    );
   });
 });
 
