@@ -2963,6 +2963,13 @@ const drivers = [
   ],
   ["Sara Mohammed", "+251911000302", "Megenagna", "AA 3-B12342", false],
   ["Fikru Hailu", "+251911000303", "Ayat, block 12", "AA 2-A54321", true],
+  [
+    "Yared Kebede",
+    "+251911000304",
+    "CMC, near the church",
+    "AA 2-A54322",
+    true,
+  ],
 ].map(([full_name, phone, address, plate, is_active], index) => {
   const at = new Date(Date.UTC(2026, 10, 5, 7, index)).toISOString();
   return {
@@ -3054,6 +3061,37 @@ function driverTaken(phone, plate, exceptId) {
 /** @param {string} driverId */
 const drivesARoute = (driverId) =>
   routes.some((route) => route.driverId === driverId);
+
+/**
+ * Whether two routes' runs overlap in time (GZ-053): each run is leave A → arrive B and leave B
+ * → arrive A; a run with no arrival time is its departure alone. Runs that only touch are fine.
+ * @param {FakeRoute} a @param {FakeRoute} b
+ */
+function runsOverlap(a, b) {
+  /** @param {string} time */
+  const minutes = (time) => {
+    const [hours, mins] = time.split(":").map(Number);
+    return (hours ?? 0) * 60 + (mins ?? 0);
+  };
+  /** @param {FakeRoute} route @returns {[number, number][]} */
+  const runs = (route) =>
+    [
+      [route.morning_time, route.morning_arrival_time],
+      [route.return_time, route.return_arrival_time],
+    ].map(([leave, arrive]) => [
+      minutes(String(leave)),
+      minutes(String(arrive ?? leave)),
+    ]);
+  return runs(a).some(([startA, endA]) =>
+    runs(b).some(([startB, endB]) =>
+      startA === endA || startB === endB
+        ? startA === startB ||
+          (startA === endA && startB < startA && startA < endB) ||
+          (startB === endB && startA < startB && startB < endA)
+        : startA < endB && startB < endA,
+    ),
+  );
+}
 
 // Bereket Tolosa drives B-07.
 const drivenRoute = routes.find((route) => route.code === "B-07");
@@ -3651,6 +3689,45 @@ const api = createServer(async (request, response) => {
       launchRetryKeys.set(`${user.email}|${key}`, { answer, fingerprint });
       return send(response, 202, answer);
     }
+  }
+
+  // A route's driver (GZ-053): any staff member; an active driver, or none.
+  const routeDriverMatch = /^\/v1\/routes\/([^/]+)\/driver$/.exec(url.pathname);
+  if (routeDriverMatch && request.method === "PUT") {
+    if (!UUID.test(routeDriverMatch[1] ?? "")) {
+      return validationProblem(response, "/route_id", "invalid_format", "path");
+    }
+    const body = (await readJson(request)) ?? {};
+    const driverId = body.driver_id;
+    if (
+      !("driver_id" in body) ||
+      (driverId !== null &&
+        (typeof driverId !== "string" || !UUID.test(driverId)))
+    ) {
+      return validationProblem(response, "/driver_id", "invalid");
+    }
+    const route = routes.find(
+      (candidate) => candidate.id === routeDriverMatch[1],
+    );
+    if (!route) return problem(response, 404, "NOT_FOUND");
+    if (driverId !== null) {
+      const chosen = drivers.find(
+        (d) => d.id === driverId && !d.deleted && d.is_active,
+      );
+      if (!chosen) return validationProblem(response, "/driver_id", "invalid");
+      const busy = routes.some(
+        (other) =>
+          other.id !== route.id &&
+          other.driverId === driverId &&
+          runsOverlap(route, other),
+      );
+      if (busy) return problem(response, 409, "DRIVER_BUSY");
+    }
+    if ((route.driverId ?? null) !== driverId) {
+      route.driverId = driverId;
+      route.updated_at = new Date().toISOString();
+    }
+    return send(response, 200, routeRead(route));
   }
 
   const monthsMatch = /^\/v1\/routes\/([^/]+)\/launch-months$/.exec(

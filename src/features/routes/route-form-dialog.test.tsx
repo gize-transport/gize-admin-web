@@ -303,6 +303,8 @@ describe("RouteFormDialog", () => {
       ["ROUTE_HAS_RIDERS", t.hasRiders],
       ["ROUTE_HAS_PRICES", t.hasPrices],
       ["ROUTE_HAS_REQUESTS", t.hasRequests],
+      // Here the school changes; the API answers this for new times that clash.
+      ["DRIVER_BUSY", t.driverBusyTimes],
     ];
     for (const [code, text] of answers) {
       server.use(

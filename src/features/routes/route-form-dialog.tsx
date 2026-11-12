@@ -336,6 +336,8 @@ export function RouteFormDialog({
       if (error.code === "ROUTE_HAS_RIDERS") return t("hasRiders");
       if (error.code === "ROUTE_HAS_PRICES") return t("hasPrices");
       if (error.code === "ROUTE_HAS_REQUESTS") return t("hasRequests");
+      // New times that clash with another route its driver drives.
+      if (error.code === "DRIVER_BUSY") return t("driverBusyTimes");
     }
     return message(error);
   }

@@ -27,6 +27,7 @@ import { useCurrentStaff } from "@/lib/auth/use-current-staff";
 import { useTimestampFormat } from "@/lib/time";
 import { refetchRoute, useDeleteRoute, useRoute } from "./queries";
 import { RouteCorridor } from "./route-corridor";
+import { RouteDriver } from "./route-driver";
 import { RouteAreasDialog } from "./route-areas-dialog";
 import { RouteFormDialog } from "./route-form-dialog";
 import { RoutePricesDialog } from "./route-prices-dialog";
@@ -195,6 +196,9 @@ function Loaded({
             <CopiedFrom id={route.copied_from_route_id} />
           </Fact>
         )}
+        <Fact label={t("driver")}>
+          <RouteDriver route={route} />
+        </Fact>
         <Fact label={t("added")}>{date(route.created_at)}</Fact>
       </Facts>
 

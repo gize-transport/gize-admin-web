@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { PickerResult } from "@/components/pickers/search-picker";
 import { api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
@@ -7,6 +8,10 @@ type DriverCreate = components["schemas"]["DriverCreate"];
 type DriverUpdate = components["schemas"]["DriverUpdate"];
 
 export const DRIVERS_PAGE_SIZE = 25;
+const PICKER_LIMIT = 20;
+
+/** A driver as DriverPicker offers them: "Name · Plate", and the name alone for sentences. */
+export type DriverOption = { id: string; name: string; fullName: string };
 
 export type DriverFilters = {
   /** The start of a name or plate; it stays on the page, never in its address. */
@@ -52,6 +57,31 @@ export function useDriver(id: string) {
         }),
       ),
   });
+}
+
+/** For DriverPicker: the first active drivers whose name or plate starts with `q`. */
+export async function searchDrivers(
+  q: string,
+): Promise<PickerResult<DriverOption>> {
+  const page = await unwrap(
+    api.GET("/v1/drivers", {
+      params: {
+        query: {
+          limit: PICKER_LIMIT,
+          is_active: true,
+          q: q.trim() || undefined,
+        },
+      },
+    }),
+  );
+  return {
+    items: page.items.map(({ id, full_name, plate }) => ({
+      id,
+      name: `${full_name} · ${plate}`,
+      fullName: full_name,
+    })),
+    hasMore: page.next_cursor !== null,
+  };
 }
 
 /**

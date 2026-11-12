@@ -80,8 +80,19 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("RoutesScreen", () => {
-  it("lists routes with corridor, type, times, seats and status", async () => {
-    serveRoutes([forming, student, corporate]);
+  it("lists routes with corridor, type, times, seats, driver and status", async () => {
+    serveRoutes([
+      forming,
+      student,
+      {
+        ...corporate,
+        driver: {
+          id: "00000000-0000-4000-9900-000000000001",
+          full_name: "Bereket Tolosa",
+          plate: "AA 3-B12341",
+        },
+      },
+    ]);
     renderWithProviders(<RoutesScreen />);
 
     const table = await screen.findByRole("table", { name: t.tableLabel });
@@ -135,6 +146,12 @@ describe("RoutesScreen", () => {
         fill(t.typeWithCompany, { company: "Addis Brewery" }),
       ),
     ).toBeVisible();
+    expect(within(row).getByText(t.notAssigned)).toBeVisible();
+    const corporateRow = within(table)
+      .getByRole("link", { name: "R-21" })
+      .closest("tr");
+    if (!corporateRow) throw new Error("no corporate row");
+    expect(within(corporateRow).getByText("Bereket Tolosa")).toBeVisible();
   });
 
   it("sends every filter from the URL and names the corridor and company", async () => {
