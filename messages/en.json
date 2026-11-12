@@ -1444,5 +1444,35 @@
     },
     "showMoreQueue": "Show more of the queue",
     "cantOffer": "Waiting, but can't be offered a seat now:"
+  },
+  "LaunchMessages": {
+    "title": "Launch messages",
+    "intro": "When the route launches, each rider on it is sent a text message with their first day. One not delivered, or not sent yet, can be sent again.",
+    "none": "This route has no launch messages.",
+    "launchedFor": "Launched for {date}",
+    "riders": "{count, plural, one {# rider} other {# riders}}",
+    "counts": {
+      "sent": "{count} sent",
+      "sending": "{count} sending",
+      "unconfirmed": "{count} may have arrived",
+      "failed": "{count} not delivered",
+      "pending": "{count} not sent yet"
+    },
+    "listLabel": "Launch messages by rider",
+    "firstDay": "First day {date}",
+    "status": {
+      "sent": "Sent",
+      "sending": "Sending…",
+      "unconfirmed": "May have arrived",
+      "failed": "Not delivered",
+      "pending": "Not sent yet"
+    },
+    "unconfirmedHint": "The SMS service didn't confirm it. It isn't sent again: call them if unsure.",
+    "attempts": "{count, plural, one {Tried once} other {Tried # times}}",
+    "retry": "Send again ({count})",
+    "retryTitle": "Send the launch text again?",
+    "retryDescription": "{count, plural, one {It goes to the rider whose text wasn't delivered or wasn't sent yet.} other {It goes to the # riders whose text wasn't delivered or wasn't sent yet.}} Texts that were sent, are sending or may have arrived aren't sent again.",
+    "retryConfirm": "Send again",
+    "retriedToast": "Sending the launch texts again"
   }
 }
