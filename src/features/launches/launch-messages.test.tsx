@@ -246,13 +246,17 @@ describe("LaunchMessages: keeping it current", () => {
     expect(reads).toHaveLength(2);
   }, 12000);
 
-  it("watches texts not sent yet just after a launch", async () => {
+  it("watches texts not sent yet just after a launch here", async () => {
     const reads = serveMessages(
       launch([kidus]),
       launch([{ ...kidus, status: "sent", attempts: 1 }]),
     );
-    // Launched a moment ago.
-    renderSection({ ...running, updated_at: "2026-11-11T08:59:50Z" });
+    const forming = { ...running, status: "forming" as const };
+    const { rerender } = renderSection(forming);
+    // Launched while the page shows it: the route comes back active.
+    rerender(
+      <LaunchMessages route={running} SectionHeading="h2" headingClass="" />,
+    );
 
     await screen.findByRole("link", { name: "Kidus Tadesse" });
     await waitFor(() => expect(reads).toHaveLength(2), { timeout: 5000 });
@@ -260,6 +264,69 @@ describe("LaunchMessages: keeping it current", () => {
       await screen.findByText(t.status.sent, { selector: "span" }),
     ).toBeVisible();
   }, 10000);
+
+  it("stops watching texts not sent yet a minute after the launch", async () => {
+    const reads = serveMessages(launch([kidus]));
+    const { rerender } = renderSection({ ...running, status: "forming" });
+    rerender(
+      <LaunchMessages route={running} SectionHeading="h2" headingClass="" />,
+    );
+
+    await screen.findByRole("link", { name: "Kidus Tadesse" });
+    vi.setSystemTime(new Date(NOW.getTime() + 61_000));
+    // The read already due still happens; none after it.
+    await waitFor(() => expect(reads).toHaveLength(2), { timeout: 5000 });
+    await new Promise((resolve) => setTimeout(resolve, 3500));
+    expect(reads).toHaveLength(2);
+  }, 12000);
+
+  it("stops reloading while a read is refused for too many requests", async () => {
+    let reads = 0;
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/launch-messages"), () => {
+        reads += 1;
+        return reads === 1
+          ? HttpResponse.json(
+              launch([abebe, message(5, "sending", { full_name: "Selam" })]),
+            )
+          : problemResponse(429, "RATE_LIMITED", "req-429", {
+              "Retry-After": "30",
+            });
+      }),
+    );
+    renderSection();
+
+    expect(
+      await screen.findByText("req-429", {}, { timeout: 5000 }),
+    ).toBeVisible();
+    // What was loaded stays; no read until Retry, after its 30 seconds.
+    expect(screen.getByRole("link", { name: "Abebe Kebede" })).toBeVisible();
+    await new Promise((resolve) => setTimeout(resolve, 3500));
+    expect(reads).toBe(2);
+  }, 10000);
+
+  it("explains a read that got no answer, with a retry", async () => {
+    let fail = true;
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/launch-messages"), () => {
+        if (fail) {
+          fail = false;
+          return HttpResponse.error();
+        }
+        return HttpResponse.json(mixed);
+      }),
+    );
+    const user = userEvent.setup();
+    renderSection();
+
+    expect(await screen.findByText(messages.Problems.network)).toBeVisible();
+    await user.click(
+      screen.getByRole("button", { name: messages.ProblemAlert.retry }),
+    );
+    expect(
+      await screen.findByRole("link", { name: "Abebe Kebede" }),
+    ).toBeVisible();
+  });
 
   it("doesn't keep reloading a launch long past whose texts weren't sent", async () => {
     const reads = serveMessages(mixed);
@@ -307,6 +374,9 @@ describe("LaunchMessages: sending again", () => {
         screen.queryByRole("button", { name: /Send again/ }),
       ).not.toBeInTheDocument(),
     );
+    // Focus was back on "Send again" when it went: it moves to the summary.
+    await waitFor(() => expect(screen.getByRole("status")).toHaveFocus());
+    expect(screen.getByRole("status")).toHaveTextContent("3 sent");
   }, 10000);
 
   it("says it goes to one rider when only one is left", async () => {

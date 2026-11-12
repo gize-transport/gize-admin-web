@@ -1447,7 +1447,7 @@
   },
   "LaunchMessages": {
     "title": "Launch messages",
-    "intro": "When the route launched, each rider on it got a text message with their first day. One not delivered, or not sent yet, can be sent again.",
+    "intro": "When the route launches, each rider on it is sent a text message with their first day. One not delivered, or not sent yet, can be sent again.",
     "none": "This route has no launch messages.",
     "launchedFor": "Launched for {date}",
     "riders": "{count, plural, one {# rider} other {# riders}}",

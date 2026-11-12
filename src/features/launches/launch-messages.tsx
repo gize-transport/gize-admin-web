@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useState, type ElementType } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ElementType,
+  type RefObject,
+} from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ProblemAlert } from "@/components/problem-alert";
 import { StatusPill, type StatusTone } from "@/components/status-pill";
@@ -19,9 +25,6 @@ import { useLaunchMessages, useRetryLaunchMessages } from "./queries";
 type RouteRead = components["schemas"]["RouteRead"];
 type LaunchMessage = components["schemas"]["LaunchMessage"];
 type LaunchMessageStatus = components["schemas"]["LaunchMessageStatus"];
-
-/** After a launch or a resend, how long texts still to go are watched. */
-const WATCH_MS = 60_000;
 
 const tones: Record<LaunchMessageStatus, StatusTone> = {
   sent: "success",
@@ -54,6 +57,16 @@ export function LaunchMessages({
   SectionHeading: ElementType;
   headingClass: string;
 }) {
+  // A launch made while this page shows the route (forming → active): its texts go out after
+  // the answer, so they're watched from then, by this browser's clock.
+  const launchedAt = useRef(0);
+  const lastStatus = useRef(route.status);
+  useEffect(() => {
+    if (lastStatus.current === "forming" && route.status === "active") {
+      launchedAt.current = Date.now();
+    }
+    lastStatus.current = route.status;
+  }, [route.status]);
   const launched =
     route.route_type !== "corporate" &&
     (route.status === "active" || route.status === "paused");
@@ -61,6 +74,7 @@ export function LaunchMessages({
   return (
     <LaunchSection
       route={route}
+      launchedAt={launchedAt}
       SectionHeading={SectionHeading}
       headingClass={headingClass}
     />
@@ -69,27 +83,41 @@ export function LaunchMessages({
 
 function LaunchSection({
   route,
+  launchedAt,
   SectionHeading,
   headingClass,
 }: {
   route: RouteRead;
+  /** When this page launched the route (0: not here); read only while polling. */
+  launchedAt: RefObject<number>;
   SectionHeading: ElementType;
   headingClass: string;
 }) {
   const t = useTranslations("LaunchMessages");
   const { message } = useApiErrorMessages();
   const { day } = useTimestampFormat();
-  // A launch is the route's latest change just after it: its texts are watched for a minute,
-  // as they are after a resend.
   const [resentAt, setResentAt] = useState(0);
-  const watchUntil =
-    Math.max(Date.parse(route.updated_at) || 0, resentAt) + WATCH_MS;
-  const messages = useLaunchMessages(route.id, { enabled: true, watchUntil });
+  const messages = useLaunchMessages(route.id, {
+    enabled: true,
+    launchedAt,
+    resentAt,
+  });
   const [dialog, setDialog] = useState<{ key: number } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const data = messages.data;
   const toSend = data ? data.failed + data.pending : 0;
+
+  // "Send again" goes once nothing is left to send (the texts went out after a resend): focus
+  // that was on it moves to the summary rather than falling to the page.
+  const summary = useRef<HTMLParagraphElement>(null);
+  const resendFocused = useRef(false);
+  useEffect(() => {
+    if (toSend > 0 || !resendFocused.current) return;
+    resendFocused.current = false;
+    const active = document.activeElement;
+    if (!active || active === document.body) summary.current?.focus();
+  }, [toSend]);
 
   return (
     <section className="grid gap-3">
@@ -118,7 +146,13 @@ function LaunchSection({
         <p className="text-body text-muted">{t("none")}</p>
       ) : (
         <>
-          <p className="text-body font-semibold text-ink">
+          {/* Read out as it changes while texts go out. */}
+          <p
+            ref={summary}
+            tabIndex={-1}
+            role="status"
+            className="text-body font-semibold text-ink outline-none"
+          >
             {[
               ...(data.launch_date
                 ? [t("launchedFor", { date: day(data.launch_date) })]
@@ -138,6 +172,13 @@ function LaunchSection({
             <Button
               variant="secondary"
               className="w-fit"
+              onFocus={() => {
+                resendFocused.current = true;
+              }}
+              onBlur={(event) => {
+                // Still "focused" when it's removed while focused (nothing else took focus).
+                resendFocused.current = event.relatedTarget === null;
+              }}
               onClick={() => {
                 setDialog((current) => ({ key: (current?.key ?? 0) + 1 }));
                 setDialogOpen(true);

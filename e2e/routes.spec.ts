@@ -527,7 +527,7 @@ test.describe("routes", () => {
       });
       await expect(texts.getByRole("listitem")).toHaveCount(6);
       await expect(
-        texts.getByText(messages.LaunchMessages.status.sent),
+        texts.getByText(messages.LaunchMessages.status.sent, { exact: true }),
       ).toHaveCount(6, { timeout: 15_000 });
     }
 

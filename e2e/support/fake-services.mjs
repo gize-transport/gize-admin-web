@@ -2829,21 +2829,26 @@ function offerQueue(route) {
 
 // Launch messages, like GZ-041: a launch texts each rider it started, in the background after it
 // answers; staff see how each went and send the failed and not-yet-sent ones again. Here a text
-// is "sending" for a moment after it's tried, then "sent".
+// waits a moment as it was (a launch's "not sent yet"), is "sending" for a moment, then "sent".
 /**
  * @typedef {{
  *   rider_id: string; full_name: string; start_date: string;
  *   status: Schemas["LaunchMessageStatus"]; attempts: number; sentAt: number;
+ *   waiting: { until: number; status: Schemas["LaunchMessageStatus"]; attempts: number } | null;
  * }} FakeLaunchMessage
  */
 /** @type {Map<string, { launch_date: string; riders: FakeLaunchMessage[] }>} */
 const launchMessages = new Map();
 /** @type {Map<string, { answer: Schemas["LaunchMessages"]; fingerprint: string }>} */
 const launchRetryKeys = new Map();
+const WAITING_MS = 1000;
 const SENDING_MS = 2000;
 
 /** @param {FakeLaunchMessage} message @returns {Schemas["LaunchMessageStatus"]} */
 function launchStatus(message) {
+  if (message.waiting && Date.now() < message.waiting.until) {
+    return message.waiting.status;
+  }
   return message.status === "sending" && Date.now() >= message.sentAt
     ? "sent"
     : message.status;
@@ -2857,7 +2862,10 @@ function launchMessagesRead(routeId) {
     full_name: message.full_name,
     start_date: message.start_date,
     status: launchStatus(message),
-    attempts: message.attempts,
+    attempts:
+      message.waiting && Date.now() < message.waiting.until
+        ? message.waiting.attempts
+        : message.attempts,
   }));
   /** @param {Schemas["LaunchMessageStatus"]} status */
   const count = (status) => riders.filter((r) => r.status === status).length;
@@ -2892,7 +2900,12 @@ function sendLaunchMessages(routeId, launchDate, count) {
       start_date: launchDate,
       status: /** @type {const} */ ("sending"),
       attempts: 1,
-      sentAt: Date.now() + SENDING_MS,
+      sentAt: Date.now() + WAITING_MS + SENDING_MS,
+      waiting: {
+        until: Date.now() + WAITING_MS,
+        status: /** @type {const} */ ("pending"),
+        attempts: 0,
+      },
     })),
   });
 }
@@ -2919,6 +2932,7 @@ for (const [index, routeId] of [
       status,
       attempts,
       sentAt: 0,
+      waiting: null,
     })),
   });
 }
@@ -3500,10 +3514,16 @@ const api = createServer(async (request, response) => {
       // The texts as they were; the failed and not-yet-sent ones go out after the answer.
       const answer = launchMessagesRead(routeId);
       for (const message of launchMessages.get(routeId)?.riders ?? []) {
-        if (["failed", "pending"].includes(message.status)) {
+        const status = launchStatus(message);
+        if (status === "failed" || status === "pending") {
+          message.waiting = {
+            until: Date.now() + WAITING_MS,
+            status,
+            attempts: message.attempts,
+          };
           message.status = "sending";
           message.attempts += 1;
-          message.sentAt = Date.now() + SENDING_MS;
+          message.sentAt = Date.now() + WAITING_MS + SENDING_MS;
         }
       }
       launchRetryKeys.set(`${user.email}|${key}`, { answer, fingerprint });

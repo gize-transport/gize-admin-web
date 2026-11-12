@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { RefObject } from "react";
 import { api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/problem";
 
 /** How often the list reloads while texts are going out. */
 const WATCH_EVERY_MS = 3000;
+/** After a launch or a resend, how long texts still to go are watched. */
+const WATCH_MS = 60_000;
 
 export const launchKeys = {
   route: (routeId: string) => ["launch-messages", routeId] as const,
@@ -12,12 +15,24 @@ export const launchKeys = {
 /**
  * The texts a route's latest launch sent its riders (`routes_launch_messages`). The API sends them
  * in the background after the launch (or a resend) answers, so the list reloads every few seconds
- * while one is sending, and until `watchUntil` (just after a launch or resend) while any is still
- * to go. Never forever: a restart midway leaves texts "not sent yet" until staff send them again.
+ * while one is sending; for a minute after a launch here while any is not sent yet; and for a
+ * minute after a resend while any is not delivered or not sent yet (the answer shows them as they
+ * were). Never forever: a restart midway leaves texts "not sent yet" until staff send them again.
+ * Both times are this browser's own clock. A failed read stops it (Retry starts it again), so a
+ * 429's Retry-After is respected.
  */
 export function useLaunchMessages(
   routeId: string,
-  { enabled, watchUntil }: { enabled: boolean; watchUntil: number },
+  {
+    enabled,
+    launchedAt,
+    resentAt,
+  }: {
+    enabled: boolean;
+    /** When this page launched the route (0: not here), read as it polls. */
+    launchedAt: RefObject<number>;
+    resentAt: number;
+  },
 ) {
   return useQuery({
     queryKey: launchKeys.route(routeId),
@@ -30,11 +45,13 @@ export function useLaunchMessages(
     enabled,
     refetchInterval: (query) => {
       const data = query.state.data;
-      if (!data) return false;
-      if (data.sending > 0) return WATCH_EVERY_MS;
-      return data.failed + data.pending > 0 && Date.now() < watchUntil
-        ? WATCH_EVERY_MS
-        : false;
+      if (!data || query.state.status === "error") return false;
+      const now = Date.now();
+      const watched =
+        data.sending > 0 ||
+        (data.pending > 0 && now < launchedAt.current + WATCH_MS) ||
+        (data.failed + data.pending > 0 && now < resentAt + WATCH_MS);
+      return watched ? WATCH_EVERY_MS : false;
     },
   });
 }
