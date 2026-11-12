@@ -2827,6 +2827,102 @@ function offerQueue(route) {
   ];
 }
 
+// Launch messages, like GZ-041: a launch texts each rider it started, in the background after it
+// answers; staff see how each went and send the failed and not-yet-sent ones again. Here a text
+// is "sending" for a moment after it's tried, then "sent".
+/**
+ * @typedef {{
+ *   rider_id: string; full_name: string; start_date: string;
+ *   status: Schemas["LaunchMessageStatus"]; attempts: number; sentAt: number;
+ * }} FakeLaunchMessage
+ */
+/** @type {Map<string, { launch_date: string; riders: FakeLaunchMessage[] }>} */
+const launchMessages = new Map();
+/** @type {Map<string, { answer: Schemas["LaunchMessages"]; fingerprint: string }>} */
+const launchRetryKeys = new Map();
+const SENDING_MS = 2000;
+
+/** @param {FakeLaunchMessage} message @returns {Schemas["LaunchMessageStatus"]} */
+function launchStatus(message) {
+  return message.status === "sending" && Date.now() >= message.sentAt
+    ? "sent"
+    : message.status;
+}
+
+/** @param {string} routeId @returns {Schemas["LaunchMessages"]} */
+function launchMessagesRead(routeId) {
+  const launch = launchMessages.get(routeId);
+  const riders = (launch?.riders ?? []).map((message) => ({
+    rider_id: message.rider_id,
+    full_name: message.full_name,
+    start_date: message.start_date,
+    status: launchStatus(message),
+    attempts: message.attempts,
+  }));
+  /** @param {Schemas["LaunchMessageStatus"]} status */
+  const count = (status) => riders.filter((r) => r.status === status).length;
+  return {
+    launch_date: launch?.launch_date ?? null,
+    total: riders.length,
+    sent: count("sent"),
+    sending: count("sending"),
+    unconfirmed: count("unconfirmed"),
+    failed: count("failed"),
+    pending: count("pending"),
+    riders,
+  };
+}
+
+/**
+ * A launch's texts, one per rider it started (made-up riders: the fake keeps counts, not seats).
+ * @param {string} routeId @param {string} launchDate @param {number} count
+ */
+function sendLaunchMessages(routeId, launchDate, count) {
+  const names = [
+    "Tigist Haile",
+    "Yonas Desta",
+    "Meseret Ayele",
+    "Bereket Lemma",
+  ];
+  launchMessages.set(routeId, {
+    launch_date: launchDate,
+    riders: Array.from({ length: count }, (_, index) => ({
+      rider_id: `00000000-0000-4000-9800-${String(index + 1).padStart(12, "0")}`,
+      full_name: `${names[index % names.length]} ${index + 1}`,
+      start_date: launchDate,
+      status: /** @type {const} */ ("sending"),
+      attempts: 1,
+      sentAt: Date.now() + SENDING_MS,
+    })),
+  });
+}
+
+// B-31 and B-32 (the running offer-test routes, one per Playwright project) launched on 1 November:
+// one text sent, one not delivered (tried twice), one that may have arrived, one not sent yet.
+for (const [index, routeId] of [
+  "00000000-0000-4000-d000-000000000010",
+  "00000000-0000-4000-d000-000000000011",
+].entries()) {
+  /** @type {[string, Schemas["LaunchMessageStatus"], number][]} */
+  const seeded = [
+    ["Abebe Worku", "sent", 1],
+    ["Hana Girma", "failed", 2],
+    ["Liya Tadesse", "unconfirmed", 1],
+    ["Kidus Mekonnen", "pending", 0],
+  ];
+  launchMessages.set(routeId, {
+    launch_date: "2026-11-01",
+    riders: seeded.map(([full_name, status, attempts], rider) => ({
+      rider_id: `00000000-0000-4000-9810-${String(index * 10 + rider + 1).padStart(12, "0")}`,
+      full_name,
+      start_date: "2026-11-01",
+      status,
+      attempts,
+      sentAt: 0,
+    })),
+  });
+}
+
 /** @type {Map<string, { route: FakeRoute; fingerprint: string }>} */
 const routeKeys = new Map();
 
@@ -3364,12 +3460,55 @@ const api = createServer(async (request, response) => {
       return problem(response, 409, "NOT_ENOUGH_RIDERS");
     }
     if (launching) {
+      if (route.route_type !== "corporate" && launchDate !== null) {
+        sendLaunchMessages(route.id, launchDate, route.reserved);
+      }
       route.taken += route.reserved;
       route.reserved = 0;
     }
     route.status = to;
     route.updated_at = new Date().toISOString();
     return send(response, 200, routeRead(route));
+  }
+
+  // Launch messages (GZ-041): any staff member.
+  const launchMatch = /^\/v1\/routes\/([^/]+)\/launch-messages(\/retry)?$/.exec(
+    url.pathname,
+  );
+  if (launchMatch) {
+    const routeId = launchMatch[1] ?? "";
+    if (!UUID.test(routeId)) {
+      return validationProblem(response, "/route_id", "invalid_format", "path");
+    }
+    const route = routes.find((candidate) => candidate.id === routeId);
+    if (!launchMatch[2] && request.method === "GET") {
+      if (!route) return problem(response, 404, "NOT_FOUND");
+      return send(response, 200, launchMessagesRead(routeId));
+    }
+    if (launchMatch[2] && request.method === "POST") {
+      const key = idempotencyKey(request, response);
+      if (key === undefined) return;
+      const fingerprint = url.pathname;
+      const replay = launchRetryKeys.get(`${user.email}|${key}`);
+      if (replay) {
+        if (replay.fingerprint !== fingerprint) {
+          return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+        }
+        return send(response, 202, replay.answer);
+      }
+      if (!route) return problem(response, 404, "NOT_FOUND");
+      // The texts as they were; the failed and not-yet-sent ones go out after the answer.
+      const answer = launchMessagesRead(routeId);
+      for (const message of launchMessages.get(routeId)?.riders ?? []) {
+        if (["failed", "pending"].includes(message.status)) {
+          message.status = "sending";
+          message.attempts += 1;
+          message.sentAt = Date.now() + SENDING_MS;
+        }
+      }
+      launchRetryKeys.set(`${user.email}|${key}`, { answer, fingerprint });
+      return send(response, 202, answer);
+    }
   }
 
   const monthsMatch = /^\/v1\/routes\/([^/]+)\/launch-months$/.exec(

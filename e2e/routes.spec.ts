@@ -521,6 +521,14 @@ test.describe("routes", () => {
         page.getByText(new RegExp(`^${code} launched`)),
       ).toBeVisible();
       await expect(launch).toBeHidden();
+      // Its riders are texted after the launch: the page follows them until they're sent.
+      const texts = details.getByRole("list", {
+        name: messages.LaunchMessages.listLabel,
+      });
+      await expect(texts.getByRole("listitem")).toHaveCount(6);
+      await expect(
+        texts.getByText(messages.LaunchMessages.status.sent),
+      ).toHaveCount(6, { timeout: 15_000 });
     }
 
     await details.getByRole("button", { name: t.movePause }).click();

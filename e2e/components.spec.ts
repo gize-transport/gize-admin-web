@@ -90,6 +90,9 @@ test.describe("data table", () => {
     await expect(firstRoute.getByRole("button")).toHaveText(page1First);
 
     await page.getByRole("link", { name: dt.nextPage }).click();
+    // Page 2 first: a second press before it renders would follow page 1's Next link again.
+    await expect(page).toHaveURL(/cursor=5/);
+    await expect(firstRoute.getByRole("button")).not.toHaveText(page1First);
     await page.getByRole("link", { name: dt.nextPage }).click();
     await expect(page).toHaveURL(/cursor=10/);
     await expect(page.getByRole("link", { name: dt.nextPage })).toHaveCount(0);
