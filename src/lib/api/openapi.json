@@ -1224,6 +1224,15 @@
         "title": "MonthSeats",
         "type": "object"
       },
+      "NotOfferable": {
+        "description": "Why a request waiting for a route can't be offered its seat (GZ-075): it has an open\noffer (on any route), or it's a student's (seats are offered to adults).",
+        "enum": [
+          "open_offer",
+          "student"
+        ],
+        "title": "NotOfferable",
+        "type": "string"
+      },
       "OfferCreate": {
         "additionalProperties": false,
         "description": "Offer the route's free seat. Leave `request_id` out for the oldest request waiting\nfor the route; another one ahead of older ones needs `skip_reason` (audited).\n`start_date`: on an active route, the 1st the seat is free from (the next by default);\na forming route's offer is a reservation from the next 1st.",
@@ -1297,6 +1306,80 @@
           "next_cursor"
         ],
         "title": "OfferPage",
+        "type": "object"
+      },
+      "OfferQueueItem": {
+        "additionalProperties": false,
+        "properties": {
+          "not_offerable": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotOfferable"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it can't be offered: `open_offer` (on any route) or `student` (seats are offered to adults)."
+          },
+          "offered_before": {
+            "description": "Offered a seat on this route before that expired or was withdrawn. Among requests that can be offered a seat, these come after the others.",
+            "title": "Offered Before",
+            "type": "boolean"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1 is whom \"Offer a free seat\" picks; another needs a `skip_reason`. `null` when the request can't be offered a seat (`not_offerable`).",
+            "title": "Position"
+          },
+          "request": {
+            "$ref": "#/components/schemas/RouteRequestRead"
+          }
+        },
+        "required": [
+          "position",
+          "offered_before",
+          "not_offerable",
+          "request"
+        ],
+        "title": "OfferQueueItem",
+        "type": "object"
+      },
+      "OfferQueuePage": {
+        "description": "A page of a route's offer queue (a named schema: generated clients keep the name).",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OfferQueueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "OfferQueuePage",
         "type": "object"
       },
       "OfferRead": {
@@ -20128,6 +20211,311 @@
         "summary": "The months a route can launch",
         "tags": [
           "routes"
+        ]
+      }
+    },
+    "/v1/routes/{route_id}/offer-queue": {
+      "get": {
+        "description": "The open requests waiting for the route (asked for it, or matched to it), in the\norder `offers_create` picks: `position` 1 is whom it offers the seat to by default.\nOldest first, but requests offered a seat on this route before (`offered_before`: it\nexpired or was withdrawn) after the others. Then those that can't be offered a seat,\noldest first, with the reason (`not_offerable`): an open offer on any route, or a\nstudent's request. Positions continue from page to page, as of each page's read. Any\nroute, even one that can't be offered from (only forming and active public ones can).",
+        "operationId": "offers_queue",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Route Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "items": [
+                    {
+                      "not_offerable": null,
+                      "offered_before": false,
+                      "position": 1,
+                      "request": {
+                        "contact_name": "Meron Haile",
+                        "contact_phone": "+251911000124",
+                        "created_at": "2026-10-01T06:30:00Z",
+                        "decline_reason": null,
+                        "from_area": null,
+                        "from_area_name": null,
+                        "id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                        "kind": "route",
+                        "matched_route": null,
+                        "notes": null,
+                        "preferred_morning_time": null,
+                        "preferred_return_time": null,
+                        "rider_name": "Meron Haile",
+                        "rider_type": "adult",
+                        "route": {
+                          "code": "CMC-BOLE-1",
+                          "id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01"
+                        },
+                        "school_name": null,
+                        "source": "app",
+                        "status": "new",
+                        "to_area": null,
+                        "to_area_name": null,
+                        "updated_at": "2026-11-14T09:15:00Z"
+                      }
+                    }
+                  ],
+                  "next_cursor": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/OfferQueuePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "UNAUTHENTICATED": {
+                    "summary": "Unauthenticated",
+                    "value": {
+                      "code": "UNAUTHENTICATED",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 401,
+                      "title": "Unauthenticated",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthenticated",
+            "x-error-codes": [
+              "UNAUTHENTICATED"
+            ]
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "Forbidden",
+                    "value": {
+                      "code": "FORBIDDEN",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 403,
+                      "title": "Forbidden",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "x-error-codes": [
+              "FORBIDDEN"
+            ]
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "NOT_FOUND": {
+                    "summary": "Not Found",
+                    "value": {
+                      "code": "NOT_FOUND",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 404,
+                      "title": "Not Found",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found",
+            "x-error-codes": [
+              "NOT_FOUND"
+            ]
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "INVALID_CURSOR": {
+                    "summary": "Invalid Cursor",
+                    "value": {
+                      "code": "INVALID_CURSOR",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 422,
+                      "title": "Invalid Cursor",
+                      "type": "about:blank"
+                    }
+                  },
+                  "VALIDATION_FAILED": {
+                    "summary": "Validation Failed",
+                    "value": {
+                      "code": "VALIDATION_FAILED",
+                      "errors": [
+                        {
+                          "field": "/route_id",
+                          "location": "path",
+                          "reason": "invalid_format"
+                        }
+                      ],
+                      "errors_truncated": false,
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 422,
+                      "title": "Validation Failed",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ValidationProblem"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Invalid Cursor, Validation Failed",
+            "x-error-codes": [
+              "INVALID_CURSOR",
+              "VALIDATION_FAILED"
+            ]
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "Too Many Requests",
+                    "value": {
+                      "code": "RATE_LIMITED",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 429,
+                      "title": "Too Many Requests",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "summary": "Internal Server Error",
+                    "value": {
+                      "code": "INTERNAL_ERROR",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 500,
+                      "title": "Internal Server Error",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "SERVICE_UNAVAILABLE": {
+                    "summary": "Service Unavailable",
+                    "value": {
+                      "code": "SERVICE_UNAVAILABLE",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 503,
+                      "title": "Service Unavailable",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable",
+            "x-error-codes": [
+              "SERVICE_UNAVAILABLE"
+            ]
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Who a route's free seat goes to, in order",
+        "tags": [
+          "offers"
         ]
       }
     },
