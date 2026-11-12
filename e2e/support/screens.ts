@@ -125,6 +125,28 @@ export const screens: readonly Screen[] = [
     readyText: "+251911000208",
   },
   {
+    name: "drivers",
+    path: "/drivers",
+    signInAs: "staff",
+    // A sample driver no e2e test changes (they add their own).
+    readyText: "Fikru Hailu",
+  },
+  {
+    name: "driver",
+    // Fikru Hailu, as an admin (Delete shows).
+    path: "/drivers/00000000-0000-4000-9900-000000000003",
+    signInAs: "admin",
+    readyText: "+251911000303",
+  },
+  {
+    name: "driver-panel",
+    // From 1280 px the details open beside the list; narrower, this opens the driver's page.
+    path: "/drivers?driver=00000000-0000-4000-9900-000000000003",
+    signInAs: "staff",
+    // The address shows only in the details (the phone is in the list too).
+    readyText: "Ayat, block 12",
+  },
+  {
     name: "demand",
     path: "/demand",
     signInAs: "staff",

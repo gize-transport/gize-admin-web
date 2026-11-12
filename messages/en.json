@@ -965,6 +965,7 @@
       "staff": "staff member",
       "rider": "rider",
       "route_assignment": "seat",
+      "driver": "driver",
       "other": "record"
     },
     "entityTitle": {
@@ -976,6 +977,7 @@
       "staff": "Staff member",
       "rider": "Rider",
       "route_assignment": "Seat",
+      "driver": "Driver",
       "other": "Record"
     },
     "actions": {
@@ -1004,6 +1006,7 @@
         "areas_changed": "Areas served changed",
         "status_changed": "Route status changed",
         "launched": "Route launched",
+        "driver_changed": "Route driver changed",
         "deleted": "Route deleted"
       },
       "route_request": {
@@ -1028,6 +1031,11 @@
       "route_assignment": {
         "created": "Rider placed on a route",
         "changed": "Seat changed"
+      },
+      "driver": {
+        "created": "Driver added",
+        "updated": "Driver changed",
+        "deleted": "Driver deleted"
       }
     },
     "fields": {
@@ -1084,7 +1092,10 @@
       "rider_id": "Rider",
       "start_date": "Starts",
       "end_date": "Ends",
-      "skip_reason": "Skip reason"
+      "skip_reason": "Skip reason",
+      "address": "Address",
+      "plate": "Plate",
+      "driver_id": "Driver"
     },
     "nameUnavailable": "Name unavailable",
     "noValue": "No value",
@@ -1474,5 +1485,78 @@
     "retryDescription": "{count, plural, one {It goes to the rider whose text wasn't delivered or wasn't sent yet.} other {It goes to the # riders whose text wasn't delivered or wasn't sent yet.}} Texts that were sent, are sending or may have arrived aren't sent again.",
     "retryConfirm": "Send again",
     "retriedToast": "Sending the launch texts again"
+  },
+  "Drivers": {
+    "metaTitle": "Drivers",
+    "title": "Drivers",
+    "description": "The people who drive Gize's vans: their phone, address and the plate of the van they drive. Only active drivers can be given a route.",
+    "add": "Add driver",
+    "searchLabel": "Search drivers",
+    "searchPlaceholder": "Name or plate",
+    "searchHint": "Names or plates starting with what you type. A plate in any case, with its spaces and dashes: aa 3-b finds AA 3-B12345.",
+    "statusFilter": "Status",
+    "filterActive": "Active",
+    "filterInactive": "Inactive",
+    "tableLabel": "Drivers",
+    "colName": "Name",
+    "colPlate": "Plate",
+    "colPhone": "Phone",
+    "colStatus": "Status",
+    "colAdded": "Added",
+    "active": "Active",
+    "inactive": "Inactive",
+    "emptyTitle": "No drivers yet",
+    "emptyDescription": "Add the drivers of Gize's vans, so routes can be given a driver.",
+    "noMatchesTitle": "No drivers match",
+    "noMatchesSearchDescription": "Search from the start of their first name, or type the plate with its spaces and dashes.",
+    "noMatchesDescription": "No driver has this status.",
+    "clearFilters": "Clear the filter",
+    "detailLabel": "Driver details",
+    "closeDetail": "Close details",
+    "backToList": "All drivers",
+    "phone": "Phone",
+    "address": "Address",
+    "plate": "Plate",
+    "status": "Status",
+    "added": "Added",
+    "updated": "Last changed",
+    "edit": "Edit",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "delete": "Delete driver",
+    "dangerZone": "Delete",
+    "deactivateTitle": "Deactivate {name}?",
+    "deactivateDescription": "They stay on record but can't be given a route. You can reactivate them later.",
+    "reactivateTitle": "Reactivate {name}?",
+    "reactivateDescription": "They can be given routes again.",
+    "deactivatedToast": "Driver deactivated",
+    "reactivatedToast": "Driver reactivated",
+    "assignedDeactivate": "They still drive a route, so they can't be deactivated. Give that route another driver, or none, first: find it in Routes.",
+    "deleteTitle": "Delete {name}?",
+    "deleteDescription": "They disappear from the list, and their phone and plate can be used for another driver. To stop working with them for now, deactivate them instead.",
+    "assignedDelete": "They still drive a route, so they can't be deleted. Give that route another driver, or none, first: find it in Routes.",
+    "deletedToast": "Driver deleted",
+    "notFoundTitle": "Driver not found",
+    "notFoundDescription": "They may have been deleted. Go back to the list to find another driver.",
+    "addTitle": "Add a driver",
+    "editTitle": "Edit {name}",
+    "formHint": "Their details are only shown to Gize staff.",
+    "nameLabel": "Full name",
+    "phoneLabel": "Phone",
+    "phoneHint": "An Ethiopian mobile, e.g. 0911 23 45 67.",
+    "addressLabel": "Address",
+    "addressHint": "Where they live, e.g. Bole, near Edna Mall.",
+    "plateLabel": "Plate number",
+    "plateHint": "The van they drive, e.g. AA 3-B12345: letters A–Z, digits, spaces and dashes.",
+    "nameRequired": "Enter the driver's name.",
+    "nameTooLong": "Use at most 100 characters.",
+    "phoneInvalid": "Enter an Ethiopian mobile number (09… or 07…).",
+    "addressRequired": "Enter their address.",
+    "addressTooLong": "Use at most 200 characters.",
+    "plateInvalid": "Enter the plate number, at least 2 characters.",
+    "save": "Save",
+    "addedToast": "Driver added",
+    "savedToast": "Driver saved",
+    "plateRefused": "Use letters A–Z, digits, spaces and dashes (up to 20), starting and ending with a letter or digit, e.g. AA 3-B12345."
   }
 }

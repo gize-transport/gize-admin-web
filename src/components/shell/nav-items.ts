@@ -32,7 +32,7 @@ export const navItems: readonly NavItem[] = [
   { key: "demand", href: "/demand", available: true },
   { key: "companies", href: "/companies", available: true },
   { key: "riders", href: "/riders", available: true },
-  { key: "drivers", href: "/drivers", available: false },
+  { key: "drivers", href: "/drivers", available: true },
   { key: "areas", href: "/areas", group: "places", available: true },
   { key: "corridors", href: "/corridors", group: "places", available: true },
   { key: "staff", href: "/staff", adminOnly: true, available: true },

@@ -765,7 +765,7 @@ function companyId(name) {
  *   prices: Schemas["Prices"] | null; status: Schemas["RouteStatus"];
  *   copied_from_route_id: string | null; taken: number; reserved: number;
  *   hasRiders: boolean; hasRequests: boolean; created_at: string; updated_at: string;
- *   laterReserved?: number;
+ *   laterReserved?: number; driverId?: string | null;
  * }} FakeRoute
  */
 /** @param {string} origin @param {string} destination */
@@ -1035,6 +1035,12 @@ function routeRead(route) {
     route_type: route.route_type,
     school_name: route.school_name,
     company: company ? { id: company.id, name: company.name } : null,
+    driver: (() => {
+      const found = drivers.find((d) => d.id === route.driverId && !d.deleted);
+      return found
+        ? { id: found.id, full_name: found.full_name, plate: found.plate }
+        : null;
+    })(),
     morning_time: route.morning_time,
     morning_arrival_time: route.morning_arrival_time,
     return_time: route.return_time,
@@ -2937,6 +2943,122 @@ for (const [index, routeId] of [
   });
 }
 
+// Drivers, like GZ-050: name, phone (stored +2519…), address and plate (capitals, single spaces),
+// active or not; a live phone or plate belongs to one driver. One drives B-07 (GZ-053), so they
+// can't be deactivated or deleted.
+/**
+ * @typedef {{
+ *   id: string; full_name: string; phone: string; address: string; plate: string;
+ *   is_active: boolean; deleted: boolean; created_at: string; updated_at: string;
+ * }} FakeDriver
+ */
+/** @type {FakeDriver[]} */
+const drivers = [
+  [
+    "Bereket Tolosa",
+    "+251911000301",
+    "Bole, near Edna Mall",
+    "AA 3-B12341",
+    true,
+  ],
+  ["Sara Mohammed", "+251911000302", "Megenagna", "AA 3-B12342", false],
+  ["Fikru Hailu", "+251911000303", "Ayat, block 12", "AA 2-A54321", true],
+].map(([full_name, phone, address, plate, is_active], index) => {
+  const at = new Date(Date.UTC(2026, 10, 5, 7, index)).toISOString();
+  return {
+    id: `00000000-0000-4000-9900-${String(index + 1).padStart(12, "0")}`,
+    full_name: String(full_name),
+    phone: String(phone),
+    address: String(address),
+    plate: String(plate),
+    is_active: Boolean(is_active),
+    deleted: false,
+    created_at: at,
+    updated_at: at,
+  };
+});
+/** @type {Map<string, { driver: FakeDriver; fingerprint: string }>} */
+const driverKeys = new Map();
+const PLATE = /^[A-Z0-9][A-Z0-9 -]{0,18}[A-Z0-9]$/;
+
+/** @param {FakeDriver} driver @returns {Schemas["DriverRead"]} */
+function driverRead(driver) {
+  return {
+    id: driver.id,
+    full_name: driver.full_name,
+    phone: driver.phone,
+    address: driver.address,
+    plate: driver.plate,
+    is_active: driver.is_active,
+    created_at: driver.created_at,
+    updated_at: driver.updated_at,
+  };
+}
+
+/** A plate in its one spelling, or undefined after a 422 (ASCII, the API's shape). */
+/** @param {ServerResponse} response @param {unknown} value */
+function plateOf(response, value) {
+  if (typeof value !== "string") {
+    validationProblem(
+      response,
+      "/plate",
+      value === undefined ? "missing" : "invalid_type",
+    );
+    return undefined;
+  }
+  const plate = value.trim().replace(/ +/g, " ").toUpperCase();
+  // ASCII as typed: other letters are refused, never rewritten ("ß" isn't "SS").
+  if (!/^[\x00-\x7F]*$/.test(value) || !PLATE.test(plate)) {
+    validationProblem(response, "/plate", "invalid");
+    return undefined;
+  }
+  return plate;
+}
+
+/** An address, or undefined after a 422. */
+/** @param {ServerResponse} response @param {unknown} value */
+function addressOf(response, value) {
+  if (typeof value !== "string") {
+    validationProblem(
+      response,
+      "/address",
+      value === undefined ? "missing" : "invalid_type",
+    );
+    return undefined;
+  }
+  const address = sameLooking(value);
+  if (address === "" || address.length > 200) {
+    validationProblem(
+      response,
+      "/address",
+      address === "" ? "too_short" : "too_long",
+    );
+    return undefined;
+  }
+  return address;
+}
+
+/** Another live driver with this phone or plate: the code the API answers. */
+/** @param {string | undefined} phone @param {string | undefined} plate @param {string | null} exceptId */
+function driverTaken(phone, plate, exceptId) {
+  const others = drivers.filter((d) => !d.deleted && d.id !== exceptId);
+  if (phone !== undefined && others.some((d) => d.phone === phone)) {
+    return "DRIVER_EXISTS";
+  }
+  if (plate !== undefined && others.some((d) => d.plate === plate)) {
+    return "PLATE_TAKEN";
+  }
+  return null;
+}
+
+/** @param {string} driverId */
+const drivesARoute = (driverId) =>
+  routes.some((route) => route.driverId === driverId);
+
+// Bereket Tolosa drives B-07.
+const drivenRoute = routes.find((route) => route.code === "B-07");
+if (drivenRoute) drivenRoute.driverId = drivers[0]?.id ?? null;
+
 /** @type {Map<string, { route: FakeRoute; fingerprint: string }>} */
 const routeKeys = new Map();
 
@@ -4199,6 +4321,160 @@ const api = createServer(async (request, response) => {
         .map(riderListItem),
     };
     return send(response, 200, matches);
+  }
+
+  // Drivers (GZ-050): any staff member; delete is admin-only.
+  if (url.pathname === "/v1/drivers") {
+    if (request.method === "GET") {
+      const limit = Number(url.searchParams.get("limit") ?? 25);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+        return validationProblem(response, "/limit", "out_of_range", "query");
+      }
+      const cursor = url.searchParams.get("cursor");
+      const from = cursor === null ? 0 : Number(cursor);
+      if (cursor !== null && (!Number.isInteger(from) || from < 1)) {
+        return problem(response, 422, "INVALID_CURSOR");
+      }
+      const q = url.searchParams.get("q")?.trim() || null;
+      const active = url.searchParams.get("is_active");
+      const items = drivers
+        .filter((d) => !d.deleted)
+        .filter(
+          (d) =>
+            !q ||
+            d.full_name.toLowerCase().startsWith(q.toLowerCase()) ||
+            d.plate.startsWith(q.trim().replace(/ +/g, " ").toUpperCase()),
+        )
+        .filter((d) => active === null || String(d.is_active) === active)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      /** @type {Schemas["DriverPage"]} */
+      const page = {
+        items: items.slice(from, from + limit).map(driverRead),
+        next_cursor: from + limit < items.length ? String(from + limit) : null,
+      };
+      return send(response, 200, page);
+    }
+    if (request.method === "POST") {
+      const key = idempotencyKey(request, response);
+      if (key === undefined) return;
+      const body = (await readJson(request)) ?? {};
+      const fingerprint = JSON.stringify(body);
+      const replay = driverKeys.get(`${user.email}|${key}`);
+      if (replay) {
+        if (replay.fingerprint !== fingerprint) {
+          return problem(response, 422, "IDEMPOTENCY_KEY_MISMATCH");
+        }
+        return send(response, 201, driverRead(replay.driver), {
+          "Idempotent-Replayed": "true",
+        });
+      }
+      const fullName = shortText(response, body.full_name, "full_name");
+      if (fullName === undefined) return;
+      const phone = riderPhone(response, body.phone);
+      if (phone === undefined) return;
+      const address = addressOf(response, body.address);
+      if (address === undefined) return;
+      const plate = plateOf(response, body.plate);
+      if (plate === undefined) return;
+      const taken = driverTaken(phone, plate, null);
+      if (taken) return problem(response, 409, taken);
+      const now = new Date().toISOString();
+      /** @type {FakeDriver} */
+      const added = {
+        id: randomUUID(),
+        full_name: fullName,
+        phone,
+        address,
+        plate,
+        is_active: true,
+        deleted: false,
+        created_at: now,
+        updated_at: now,
+      };
+      drivers.push(added);
+      driverKeys.set(`${user.email}|${key}`, { driver: added, fingerprint });
+      return send(response, 201, driverRead(added), {
+        Location: `/v1/drivers/${added.id}`,
+      });
+    }
+  }
+
+  const driverMatch = /^\/v1\/drivers\/([^/]+)$/.exec(url.pathname);
+  if (driverMatch) {
+    if (request.method === "DELETE" && !isAdmin) {
+      return problem(response, 403, "FORBIDDEN");
+    }
+    if (!UUID.test(driverMatch[1] ?? "")) {
+      return validationProblem(
+        response,
+        "/driver_id",
+        "invalid_format",
+        "path",
+      );
+    }
+    // A PATCH body is checked before the lookup (422 before 404), like the API's models.
+    /** @type {Partial<FakeDriver>} */
+    const change = {};
+    if (request.method === "PATCH") {
+      const body = (await readJson(request)) ?? {};
+      if (Object.keys(body).length === 0) {
+        return validationProblem(response, "", "invalid");
+      }
+      if (body.full_name !== undefined) {
+        const fullName = shortText(response, body.full_name, "full_name");
+        if (fullName === undefined) return;
+        change.full_name = fullName;
+      }
+      if (body.phone !== undefined) {
+        const phone = riderPhone(response, body.phone);
+        if (phone === undefined) return;
+        change.phone = phone;
+      }
+      if (body.address !== undefined) {
+        const address = addressOf(response, body.address);
+        if (address === undefined) return;
+        change.address = address;
+      }
+      if (body.plate !== undefined) {
+        const plate = plateOf(response, body.plate);
+        if (plate === undefined) return;
+        change.plate = plate;
+      }
+      if (body.is_active !== undefined) {
+        if (typeof body.is_active !== "boolean") {
+          return validationProblem(response, "/is_active", "invalid_type");
+        }
+        change.is_active = body.is_active;
+      }
+    }
+    const found = drivers.find((d) => d.id === driverMatch[1] && !d.deleted);
+    if (!found) return problem(response, 404, "NOT_FOUND");
+    if (request.method === "GET") return send(response, 200, driverRead(found));
+    if (request.method === "DELETE") {
+      if (drivesARoute(found.id)) {
+        return problem(response, 409, "DRIVER_ASSIGNED");
+      }
+      found.deleted = true;
+      return send(response, 204);
+    }
+    if (request.method === "PATCH") {
+      if (
+        change.is_active === false &&
+        found.is_active &&
+        drivesARoute(found.id)
+      ) {
+        return problem(response, 409, "DRIVER_ASSIGNED");
+      }
+      const taken = driverTaken(change.phone, change.plate, found.id);
+      if (taken) return problem(response, 409, taken);
+      const changed = Object.entries(change).some(
+        ([field, value]) =>
+          found[/** @type {keyof FakeDriver} */ (field)] !== value,
+      );
+      Object.assign(found, change);
+      if (changed) found.updated_at = new Date().toISOString();
+      return send(response, 200, driverRead(found));
+    }
   }
 
   if (url.pathname === "/v1/riders") {

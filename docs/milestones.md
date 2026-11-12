@@ -46,7 +46,7 @@ Status: done · Needs backend: GZ-025
 
 ## Build order
 
-Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.18.0`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`), staff name corrections (`api-v2.6.0`), rider management (`api-v2.10.0`), assign rider to route (`api-v2.11.0`), seat offers (`api-v2.13.0`), drivers (`api-v2.14.0`), assign driver to route (`api-v2.15.0`), the overview summary (`api-v2.16.0`), a route's offer queue (`api-v2.18.0`). So GZW-025, GZW-030, GZW-031, GZW-042, GZW-044, GZW-050, GZW-053 and GZW-070 can be built; GZW-043 waits for GZ-042, GZW-051 and GZW-052 for GZ-051 and GZ-052, and a student's guardian for GZ-033.
+Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.18.0`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`), staff name corrections (`api-v2.6.0`), rider management (`api-v2.10.0`), assign rider to route (`api-v2.11.0`), seat offers (`api-v2.13.0`), drivers (`api-v2.14.0`), assign driver to route (`api-v2.15.0`), the overview summary (`api-v2.16.0`), a route's offer queue (`api-v2.18.0`). So GZW-025, GZW-030, GZW-031, GZW-042, GZW-044, GZW-050, GZW-053 and GZW-070 can be built; GZW-043 waits for GZ-042 and a student's guardian for GZ-033; GZW-051 and GZW-052 are deferred with GZ-051 and GZ-052.
 
 ### Questions for the backend
 
@@ -63,6 +63,10 @@ Open (not blocking):
 7. **Requests per area pair** (GZW-041): the demand summary counts open new-areas requests per area pair, but `route_requests_list` can't list them (it filters by `status`, `kind`, `open` and `route_id` only). Could it also filter by each end – `from_area_id` / `from_area_name` and `to_area_id` / `to_area_name`, a name compared as the summary groups it (ignoring case)? Until then (owner decision 2026-11-04) an area pair's card links to all new new-areas requests (`?kind=new_areas&status=new`); the link narrows to the pair once the filter is tagged.
 8. **Requests naming an area not listed yet** (GZW-041): when staff add that area, the requests keep the typed name (`from_area_name` / `to_area_name`), so the demand summary still shows the pair as "not listed" and its corridor or route can't be started from it. Could adding an area (or a separate call) link open requests whose name matches it, ignoring case, so they count under the listed area? Until then (owner decision 2026-11-04) Demand offers no "Add area"; staff add areas from Areas, and such a card only links to the requests.
 9. **A company rider on a draft or paused route** (GZW-031): `riders_place` doesn't check the route's status for company riders (`_takes`), so one can be placed on their company's draft route and gets an `active` seat. Is that intended (a company route runs from the agreement), or should only `active` routes (or `active` and `paused`) take them, like adults on `forming`/`active`? Until then the portal lists all of the company's routes with their status and lets the API decide.
+
+<!-- Question 10 was answered (above): 11 keeps its number. -->
+
+11. **A driver's routes** (GZW-050): `routes_list` can't filter by driver, so a driver's page can't say which routes they drive, and `DRIVER_ASSIGNED` (deactivating or deleting them) can't name the route to change. Could `routes_list` take `driver_id`? Until then the refusal sends staff to Routes, and GZW-053 shows each route's driver.
 
 ---
 
@@ -169,13 +173,14 @@ Status: done · Needs backend: – (Supabase Auth settings, README "Supabase Aut
 
 ## W5 – Drivers
 
-### GZW-050 · Drivers and vehicles · Needs backend: GZ-050 · Status: todo
-Applications list with status tabs, create/edit driver and vehicle.
+### GZW-050 · Drivers · Needs backend: GZ-050 (in `api-v2.14.0`) · Status: done
+- Rescoped (owner decision 2026-11-05, GZ-050): basic information only in the MVP: full name, phone, address and the plate of the van they drive; a driver is active or inactive. No applications, documents, inspection or approval (GZW-051, GZW-052 deferred); `AdminDrivers.png` shows the later design.
+- Built (owner decisions 2026-11-12): Drivers in the navigation. The list newest first (`drivers_list`): name, plate, phone, status, added; a status filter (in the address) and one search box for the start of a name or plate (`q`, plates in any case), kept on the page and never in its address (a name is personal data; the address only says `searched=1`). A driver's details (`drivers_get`) as their own page or, from 1280 px, beside the list: phone, plate, address, status, added and last changed. Add and edit (`drivers_create` with an Idempotency-Key, `drivers_update` with only what changed: a phone or plate written another way is no change); `DRIVER_EXISTS` on the phone field, `PLATE_TAKEN` on the plate, a refused plate explains the API's rule. Deactivate and reactivate (confirmed), Delete for admins (confirmed); `DRIVER_ASSIGNED` explained. Toasts never name the driver. Audit log: driver entries named and linked, `route.driver_changed` named.
 
-### GZW-051 · Driver documents · Needs backend: GZ-051 · Status: todo
+### GZW-051 · Driver documents · Needs backend: GZ-051 · Status: deferred (owner decision 2026-11-05: not in the MVP)
 Upload via signed URLs (type/size checked first, progress), view via short-lived links.
 
-### GZW-052 · Inspection and approval · Needs backend: GZ-052 · Status: todo
+### GZW-052 · Inspection and approval · Needs backend: GZ-052 · Status: deferred (owner decision 2026-11-05: not in the MVP)
 Record inspection; approve/reject enabled only when the API allows; missing requirements listed.
 
 ### GZW-053 · Assign driver to route · Needs backend: GZ-053 · Status: todo
