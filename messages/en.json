@@ -1493,7 +1493,7 @@
     "add": "Add driver",
     "searchLabel": "Search drivers",
     "searchPlaceholder": "Name or plate",
-    "searchHint": "Names or plates starting with what you type. A plate in any case: aa 3-b finds AA 3-B12345.",
+    "searchHint": "Names or plates starting with what you type. A plate in any case, with its spaces and dashes: aa 3-b finds AA 3-B12345.",
     "statusFilter": "Status",
     "filterActive": "Active",
     "filterInactive": "Inactive",
@@ -1508,7 +1508,7 @@
     "emptyTitle": "No drivers yet",
     "emptyDescription": "Add the drivers of Gize's vans, so routes can be given a driver.",
     "noMatchesTitle": "No drivers match",
-    "noMatchesSearchDescription": "Check the spelling, or search by their plate instead.",
+    "noMatchesSearchDescription": "Search from the start of their first name, or type the plate with its spaces and dashes.",
     "noMatchesDescription": "No driver has this status.",
     "clearFilters": "Clear the filter",
     "detailLabel": "Driver details",
@@ -1547,16 +1547,16 @@
     "addressLabel": "Address",
     "addressHint": "Where they live, e.g. Bole, near Edna Mall.",
     "plateLabel": "Plate number",
-    "plateHint": "The van they drive, e.g. AA 3-B12345: letters, digits, spaces and dashes.",
+    "plateHint": "The van they drive, e.g. AA 3-B12345: letters A–Z, digits, spaces and dashes.",
     "nameRequired": "Enter the driver's name.",
     "nameTooLong": "Use at most 100 characters.",
     "phoneInvalid": "Enter an Ethiopian mobile number (09… or 07…).",
     "addressRequired": "Enter their address.",
     "addressTooLong": "Use at most 200 characters.",
-    "plateInvalid": "Enter the plate number, 2 to 40 characters.",
+    "plateInvalid": "Enter the plate number, at least 2 characters.",
     "save": "Save",
     "addedToast": "Driver added",
     "savedToast": "Driver saved",
-    "plateRefused": "Use letters, digits, spaces and dashes (up to 20), starting and ending with a letter or digit, e.g. AA 3-B12345."
+    "plateRefused": "Use letters A–Z, digits, spaces and dashes (up to 20), starting and ending with a letter or digit, e.g. AA 3-B12345."
   }
 }

@@ -172,6 +172,22 @@ describe("DriverFormDialog: adding", () => {
     );
   });
 
+  it("puts the API's reason on another field as it gives it", async () => {
+    server.use(http.post(apiUrl("/v1/drivers"), () => validation("full_name")));
+    const user = userEvent.setup();
+    const { dialog } = renderForm();
+
+    await fillNew(user, dialog);
+    await user.click(save(dialog));
+
+    const name = field(dialog, t.nameLabel);
+    await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
+    expect(name).toHaveFocus();
+    expect(name).toHaveAccessibleDescription(
+      expect.stringContaining(messages.ValidationReasons.invalid),
+    );
+  });
+
   it("keeps Save disabled until Retry-After has passed", async () => {
     server.use(
       http.post(apiUrl("/v1/drivers"), () =>

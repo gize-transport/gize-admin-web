@@ -4335,7 +4335,7 @@ const api = createServer(async (request, response) => {
       if (cursor !== null && (!Number.isInteger(from) || from < 1)) {
         return problem(response, 422, "INVALID_CURSOR");
       }
-      const q = url.searchParams.get("q");
+      const q = url.searchParams.get("q")?.trim() || null;
       const active = url.searchParams.get("is_active");
       const items = drivers
         .filter((d) => !d.deleted)
@@ -4412,23 +4412,14 @@ const api = createServer(async (request, response) => {
         "path",
       );
     }
-    const body =
-      request.method === "PATCH" ? ((await readJson(request)) ?? {}) : {};
-    const found = drivers.find((d) => d.id === driverMatch[1] && !d.deleted);
-    if (!found) return problem(response, 404, "NOT_FOUND");
-    if (request.method === "GET") return send(response, 200, driverRead(found));
-    if (request.method === "DELETE") {
-      if (drivesARoute(found.id))
-        return problem(response, 409, "DRIVER_ASSIGNED");
-      found.deleted = true;
-      return send(response, 204);
-    }
+    // A PATCH body is checked before the lookup (422 before 404), like the API's models.
+    /** @type {Partial<FakeDriver>} */
+    const change = {};
     if (request.method === "PATCH") {
+      const body = (await readJson(request)) ?? {};
       if (Object.keys(body).length === 0) {
         return validationProblem(response, "", "invalid");
       }
-      /** @type {Partial<FakeDriver>} */
-      const change = {};
       if (body.full_name !== undefined) {
         const fullName = shortText(response, body.full_name, "full_name");
         if (fullName === undefined) return;
@@ -4455,8 +4446,18 @@ const api = createServer(async (request, response) => {
         }
         change.is_active = body.is_active;
       }
-      const taken = driverTaken(change.phone, change.plate, found.id);
-      if (taken) return problem(response, 409, taken);
+    }
+    const found = drivers.find((d) => d.id === driverMatch[1] && !d.deleted);
+    if (!found) return problem(response, 404, "NOT_FOUND");
+    if (request.method === "GET") return send(response, 200, driverRead(found));
+    if (request.method === "DELETE") {
+      if (drivesARoute(found.id)) {
+        return problem(response, 409, "DRIVER_ASSIGNED");
+      }
+      found.deleted = true;
+      return send(response, 204);
+    }
+    if (request.method === "PATCH") {
       if (
         change.is_active === false &&
         found.is_active &&
@@ -4464,6 +4465,8 @@ const api = createServer(async (request, response) => {
       ) {
         return problem(response, 409, "DRIVER_ASSIGNED");
       }
+      const taken = driverTaken(change.phone, change.plate, found.id);
+      if (taken) return problem(response, 409, taken);
       const changed = Object.entries(change).some(
         ([field, value]) =>
           found[/** @type {keyof FakeDriver} */ (field)] !== value,

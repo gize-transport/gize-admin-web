@@ -66,13 +66,17 @@ test.describe("drivers", () => {
     // Found by the start of their plate, in any case; nothing typed goes in the address.
     await page.goto("/drivers");
     const box = page.getByLabel(t.searchLabel);
-    await box.fill(who.plate.slice(0, 7).toLowerCase());
+    const typed = who.plate.slice(0, 7).toLowerCase();
+    await box.fill(typed);
     await box.press("Tab");
     await expect(table.getByRole("link", { name: who.name })).toBeVisible();
     await expect(
       table.getByRole("link", { name: "Bereket Tolosa" }),
     ).toHaveCount(0);
-    expect(page.url()).not.toContain(who.plate.slice(4, 7));
+    expect(page.url()).toContain("searched=1");
+    expect(decodeURIComponent(page.url()).toLowerCase()).not.toContain(
+      typed.slice(4),
+    );
     await table.getByRole("link", { name: who.name }).click();
     driver = await opened(page, who.name);
 

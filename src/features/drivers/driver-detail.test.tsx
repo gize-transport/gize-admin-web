@@ -139,6 +139,12 @@ describe("DriverDetail", () => {
 
     await waitFor(() => expect(toast).toHaveBeenCalledWith(t.deactivatedToast));
     expect(sent).toEqual([{ is_active: false }]);
+    // Now inactive: the closing dialog keeps saying what it did, never the opposite move.
+    expect(
+      screen.queryByRole("alertdialog", {
+        name: fill(t.reactivateTitle, { name: "Bereket Tolosa" }),
+      }),
+    ).toBeNull();
   });
 
   it("explains why a driver who drives a route can't be deactivated", async () => {

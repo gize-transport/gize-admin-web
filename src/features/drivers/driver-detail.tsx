@@ -89,6 +89,9 @@ function Loaded({
   const [formKey, setFormKey] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [confirm, setConfirm] = useState<"status" | "delete" | null>(null);
+  // The status move as it was when its button was pressed: kept while the dialog closes, after
+  // the driver has changed.
+  const [deactivating, setDeactivating] = useState(driver.is_active);
 
   return (
     <>
@@ -131,7 +134,13 @@ function Loaded({
           >
             {t("edit")}
           </Button>
-          <Button variant="secondary" onClick={() => setConfirm("status")}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setDeactivating(driver.is_active);
+              setConfirm("status");
+            }}
+          >
             {driver.is_active ? t("deactivate") : t("reactivate")}
           </Button>
         </div>
@@ -161,6 +170,7 @@ function Loaded({
       )}
       <StatusDialog
         driver={driver}
+        deactivating={deactivating}
         open={confirm === "status"}
         onClose={() => setConfirm(null)}
       />
@@ -177,10 +187,13 @@ function Loaded({
 /** Deactivate an active driver, or reactivate an inactive one (`drivers_update`, `is_active`). */
 function StatusDialog({
   driver,
+  deactivating,
   open,
   onClose,
 }: {
   driver: DriverRead;
+  /** Deactivate (true) or reactivate (false), as when the dialog opened. */
+  deactivating: boolean;
   open: boolean;
   onClose: () => void;
 }) {
@@ -188,11 +201,6 @@ function StatusDialog({
   const { message } = useApiErrorMessages();
   const queryClient = useQueryClient();
   const update = useUpdateDriver();
-  // The move as it was when the dialog opened: a success changes the driver while it closes.
-  const [deactivating, setDeactivating] = useState(driver.is_active);
-  if (!open && deactivating !== driver.is_active) {
-    setDeactivating(driver.is_active);
-  }
   const error = update.error;
   const waiting = useRetryWait(error);
   const action = deactivating ? t("deactivate") : t("reactivate");

@@ -38,9 +38,14 @@ const PLATE_MAX = 40;
 /** In the order shown: the first one refused gets focus. */
 const fields = ["full_name", "phone", "address", "plate"] as const;
 
-/** A plate as the API stores it: capitals, single spaces. */
+/**
+ * A plate as the API stores it (capitals, single spaces), or null when the API would refuse it
+ * rather than rewrite it (not ASCII: "ß" isn't "SS").
+ */
 const storedPlate = (typed: string) =>
-  typed.trim().replace(/\s+/g, " ").toUpperCase();
+  /^[\x20-\x7E]*$/.test(typed)
+    ? typed.trim().replace(/ +/g, " ").toUpperCase()
+    : null;
 
 type DriverFormDialogProps = {
   open: boolean;
