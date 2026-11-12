@@ -3693,7 +3693,14 @@ const api = createServer(async (request, response) => {
     const route = routes.find((r) => r.id === queueMatch[1]);
     if (!route) return problem(response, 404, "NOT_FOUND");
     const limit = Number(url.searchParams.get("limit") ?? 25);
-    const from = Number(url.searchParams.get("cursor") ?? 0);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return validationProblem(response, "/limit", "out_of_range", "query");
+    }
+    const cursor = url.searchParams.get("cursor");
+    const from = cursor === null ? 0 : Number(cursor);
+    if (cursor !== null && (!Number.isInteger(from) || from < 1)) {
+      return problem(response, 422, "INVALID_CURSOR");
+    }
     const items = offerQueue(route);
     /** @type {Schemas["OfferQueuePage"]} */
     const page = {

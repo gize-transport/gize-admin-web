@@ -330,11 +330,15 @@ function OfferDialog({
   const months = startMonths(today);
   const running = route.status === "active";
   const queue = useOfferQueue(route.id, open);
+  // Only this opening's own read: a queue kept from an earlier opening may be out of order now.
+  const [openedAt] = useState(() => Date.now());
+  const data =
+    queue.data && queue.dataUpdatedAt >= openedAt ? queue.data : undefined;
   // Pages are read at different moments: a request the queue moved shows once, where first read.
   const queued = useMemo(() => {
     const seen = new Set<string>();
     const items: OfferQueueItem[] = [];
-    for (const page of queue.data?.pages ?? []) {
+    for (const page of data?.pages ?? []) {
       for (const item of page.items) {
         if (seen.has(item.request.id)) continue;
         seen.add(item.request.id);
@@ -342,7 +346,7 @@ function OfferDialog({
       }
     }
     return items;
-  }, [queue.data]);
+  }, [data]);
   const first = queued.find((item) => item.position === 1);
   const ahead = queued.filter(
     (item) => item.position !== null && item !== first,
@@ -351,10 +355,15 @@ function OfferDialog({
 
   /** null: next in line (the API picks when it's sent). */
   const [requestId, setRequestId] = useState<string | null>(null);
+  // The choice as the queue shows it now (it reloads after a refusal): a request that is now
+  // first is next in line; one no longer offerable is lost, and staff choose again.
+  const chosen = requestId === first?.request.id ? null : requestId;
+  const lost =
+    chosen !== null && !ahead.some((item) => item.request.id === chosen);
   const [start, setStart] = useState(months[0] ?? "");
   const [reason, setReason] = useState("");
   // Anyone but next in line is offered the seat ahead of the queue: that needs a reason.
-  const needsReason = requestId !== null;
+  const needsReason = chosen !== null && !lost;
   const [errors, setErrors] = useState<{
     request?: string;
     start?: string;
@@ -368,14 +377,64 @@ function OfferDialog({
   const group = useRef<HTMLFieldSetElement>(null);
   const startField = useRef<HTMLSelectElement>(null);
   const reasonField = useRef<HTMLInputElement>(null);
+  const requestError = errors.request ?? (lost ? t("requestRefused") : null);
+  const moreButton = useRef<HTMLButtonElement>(null);
+  const moreWait = useRetryWait(
+    queue.isFetchNextPageError ? queue.error : null,
+  );
+
+  // Focus moves after the render that shows the field's error (or the new choices), so it's read
+  // with them.
+  const [focusOn, setFocusOn] = useState<{
+    field: "reason" | "start" | "choice";
+    /** After "Show more": the first of these that can be chosen. */
+    ids?: string[];
+    count: number;
+  } | null>(null);
+  function focus(field: "reason" | "start" | "choice", ids?: string[]) {
+    setFocusOn((current) => ({ field, ids, count: (current?.count ?? 0) + 1 }));
+  }
+  useEffect(() => {
+    if (!focusOn) return;
+    if (focusOn.field === "reason") reasonField.current?.focus();
+    else if (focusOn.field === "start") startField.current?.focus();
+    else {
+      const choices = Array.from(
+        group.current?.querySelectorAll<HTMLInputElement>(
+          'input[type="radio"]:not(:disabled)',
+        ) ?? [],
+      );
+      const added = focusOn.ids
+        ? choices.find((input) => focusOn.ids?.includes(input.value))
+        : undefined;
+      // After "Show more": a new choice, or (none) focus stays on the button while it's there.
+      if (focusOn.ids && !added && moreButton.current?.isConnected) return;
+      (added ?? choices.find((input) => input.checked) ?? choices[0])?.focus();
+    }
+  }, [focusOn]);
+  function showMore() {
+    void queue.fetchNextPage().then((result) => {
+      if (result.isError) return;
+      const page = result.data?.pages.at(-1);
+      focus(
+        "choice",
+        page?.items.map((item) => item.request.id),
+      );
+    });
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
     if (create.isPending) return;
+    if (lost) {
+      setErrors({ request: t("requestRefused") });
+      focus("choice");
+      return;
+    }
     const trimmed = reason.trim();
     if (needsReason && !trimmed) {
       setErrors({ reason: t("reasonRequired") });
-      reasonField.current?.focus();
+      focus("reason");
       return;
     }
     setErrors({});
@@ -386,7 +445,7 @@ function OfferDialog({
         routeId: route.id,
         idempotencyKey,
         offer: {
-          ...(requestId ? { request_id: requestId } : {}),
+          ...(chosen !== null ? { request_id: chosen } : {}),
           ...(needsReason ? { skip_reason: trimmed } : {}),
           ...(running ? { start_date: start } : {}),
         },
@@ -400,21 +459,18 @@ function OfferDialog({
           const fields = fieldMessages(error);
           if (fields.skip_reason) {
             setErrors({ reason: t("reasonInvalid") });
-            reasonField.current?.focus();
+            focus("reason");
             return;
           }
           if (fields.request_id) {
-            // The queue has changed: show it again.
-            void queue.refetch();
+            // The queue has changed: show it again, then the choices.
             setErrors({ request: t("requestRefused") });
-            group.current
-              ?.querySelector<HTMLInputElement>("input:checked")
-              ?.focus();
+            void queue.refetch().then(() => focus("choice"));
             return;
           }
           if (fields.start_date) {
             setErrors({ start: t("startRefused") });
-            startField.current?.focus();
+            focus("start");
             return;
           }
           setProblem(error);
@@ -477,14 +533,14 @@ function OfferDialog({
             </legend>
             <Choice
               name={`${uid}-request`}
-              checked={requestId === null}
+              checked={chosen === null}
               onChoose={() => {
                 setRequestId(null);
                 setErrors({});
               }}
               label={t("nextInLine")}
               detail={
-                !queue.data
+                queued.length === 0
                   ? t("nextInLineHint")
                   : first
                     ? [
@@ -498,9 +554,9 @@ function OfferDialog({
               }
               strong
             />
-            {queue.isPending ? (
+            {!data && !queue.isError ? (
               <Skeleton className="h-12" />
-            ) : !queue.data ? (
+            ) : !data ? (
               <QueueProblem error={queue.error} onRetry={queue.refetch} />
             ) : queued.length === 0 ? (
               <p className="text-table text-muted">{t("waitingNone")}</p>
@@ -513,7 +569,8 @@ function OfferDialog({
                   <Choice
                     key={item.request.id}
                     name={`${uid}-request`}
-                    checked={requestId === item.request.id}
+                    value={item.request.id}
+                    checked={chosen === item.request.id}
                     onChoose={() => {
                       setRequestId(item.request.id);
                       setErrors({});
@@ -526,7 +583,7 @@ function OfferDialog({
                       t("askedOn", { date: date(item.request.created_at) }),
                       ...(item.offered_before ? [t("offeredBefore")] : []),
                     ].join(" · ")}
-                    describedBy={errors.request ? `${uid}-to-error` : undefined}
+                    describedBy={requestError ? `${uid}-to-error` : undefined}
                   />
                 ))}
                 {blocked.length > 0 && (
@@ -550,31 +607,32 @@ function OfferDialog({
                 ))}
               </>
             )}
-            {/* The next page or a reload failed: the queue loaded so far stays. */}
-            {queue.data && queue.isError && (
+            {/* A reload or the next page failed: the queue loaded so far stays. "Show more"
+                tries the next page again. */}
+            {data && queue.isError && (
               <QueueProblem
                 error={queue.error}
-                onRetry={
-                  queue.isFetchNextPageError
-                    ? queue.fetchNextPage
-                    : queue.refetch
-                }
+                onRetry={queue.isFetchNextPageError ? undefined : queue.refetch}
               />
             )}
-            {queue.hasNextPage && (
+            {data && queue.hasNextPage && (
               <Button
+                ref={moreButton}
                 type="button"
                 variant="secondary"
                 className="w-fit"
                 pending={queue.isFetchingNextPage}
-                onClick={() => void queue.fetchNextPage()}
+                aria-disabled={moreWait || undefined}
+                onClick={() => {
+                  if (!moreWait) showMore();
+                }}
               >
                 {t("showMoreQueue")}
               </Button>
             )}
-            {errors.request && (
+            {requestError && (
               <p id={`${uid}-to-error`} className="text-table text-danger">
-                {errors.request}
+                {requestError}
               </p>
             )}
           </fieldset>
@@ -668,6 +726,7 @@ function OfferDialog({
 /** One radio choice in a card: its name, and a detail line read as its description. */
 function Choice({
   name,
+  value,
   checked,
   onChoose,
   label,
@@ -677,6 +736,8 @@ function Choice({
   describedBy,
 }: {
   name: string;
+  /** The request it stands for. */
+  value?: string;
   checked: boolean;
   onChoose: () => void;
   label: string;
@@ -705,6 +766,7 @@ function Choice({
         <input
           type="radio"
           name={name}
+          value={value}
           checked={checked}
           disabled={disabled}
           onChange={onChoose}
@@ -730,7 +792,8 @@ function QueueProblem({
   onRetry,
 }: {
   error: unknown;
-  onRetry: () => unknown;
+  /** None: another control tries again ("Show more"). */
+  onRetry?: () => unknown;
 }) {
   const { message } = useApiErrorMessages();
   return (
@@ -740,7 +803,7 @@ function QueueProblem({
       retryAfterSeconds={
         error instanceof ApiError ? error.retryAfterSeconds : null
       }
-      onRetry={() => void onRetry()}
+      onRetry={onRetry ? () => void onRetry() : undefined}
     />
   );
 }

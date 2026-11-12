@@ -649,7 +649,7 @@ describe("SeatOffers: offering", () => {
     expect(within(dialog).getByText("req-409")).toBeVisible();
   });
 
-  it("explains a request that can no longer be offered, and reloads the queue", async () => {
+  it("explains a refused request on the choices, and reloads the queue", async () => {
     serveOffers([[]]);
     const cursors = serveQueue([queue]);
     serveCreate(() => validationResponse("request_id"), []);
@@ -664,8 +664,203 @@ describe("SeatOffers: offering", () => {
     await user.type(within(dialog).getByLabelText(t.reasonLabel), "Nearby");
     await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
     expect(await within(dialog).findByText(t.requestRefused)).toBeVisible();
-    expect(almazChoice).toHaveFocus();
+    // Still waiting after the reload: still chosen, and focused once the queue is back.
     await waitFor(() => expect(cursors).toHaveLength(2));
+    await waitFor(() => expect(almazChoice).toHaveFocus());
+    expect(almazChoice).toBeChecked();
+  });
+});
+
+describe("SeatOffers: the queue changing", () => {
+  it("asks to choose again when the chosen request leaves the queue", async () => {
+    const sent: Sent[] = [];
+    let reads = 0;
+    serveOffers([[]]);
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offer-queue"), () => {
+        reads += 1;
+        // Almaz took a seat elsewhere meanwhile.
+        const items = reads === 1 ? queue : [queue[0] as QueueItem];
+        return HttpResponse.json({ items, next_cursor: null });
+      }),
+    );
+    serveCreate(() => validationResponse("request_id"), sent);
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    await user.click(
+      await within(dialog).findByRole("radio", { name: /Almaz Bekele/ }),
+    );
+    await user.type(within(dialog).getByLabelText(t.reasonLabel), "Nearby");
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+
+    expect(await within(dialog).findByText(t.requestRefused)).toBeVisible();
+    await waitFor(() =>
+      expect(
+        within(dialog).queryByRole("radio", { name: /Almaz Bekele/ }),
+      ).not.toBeInTheDocument(),
+    );
+    // Nothing is chosen: no reason asked, focus on the choices, nothing sent until one is.
+    const next = within(dialog).getByRole("radio", { name: t.nextInLine });
+    expect(next).not.toBeChecked();
+    await waitFor(() => expect(next).toHaveFocus());
+    expect(
+      within(dialog).queryByLabelText(t.reasonLabel),
+    ).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+    expect(sent).toHaveLength(1);
+    expect(within(dialog).getByText(t.requestRefused)).toBeVisible();
+  });
+
+  it("treats a chosen request that is now first as next in line", async () => {
+    const sent: Sent[] = [];
+    let reads = 0;
+    serveOffers([[]]);
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offer-queue"), () => {
+        reads += 1;
+        // Meron accepted an offer elsewhere: Almaz is first now.
+        const items =
+          reads === 1 ? queue : [queued(almaz, 1, { offered_before: true })];
+        return HttpResponse.json({ items, next_cursor: null });
+      }),
+    );
+    serveCreate(
+      () =>
+        sent.length === 1
+          ? problemResponse(409, "OFFER_OPEN", "req-409")
+          : HttpResponse.json(open, { status: 201 }),
+      sent,
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    await user.click(
+      await within(dialog).findByRole("radio", { name: /Almaz Bekele/ }),
+    );
+    await user.type(within(dialog).getByLabelText(t.reasonLabel), "Nearby");
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+    // The refusal reloads the queue.
+    const next = within(dialog).getByRole("radio", { name: t.nextInLine });
+    await waitFor(() =>
+      expect(next).toHaveAccessibleDescription(
+        `${fill(t.nextInLineIs, { name: "Almaz Bekele", date: "Sep 1, 2026" })} · ${t.offeredBefore}`,
+      ),
+    );
+    expect(next).toBeChecked();
+    expect(
+      within(dialog).queryByLabelText(t.reasonLabel),
+    ).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: t.offerSave }));
+
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(t.offeredToast));
+    expect(sent[1]?.body).toEqual({ start_date: "2026-12-01" });
+  });
+
+  it("keeps the queue when its next page fails, and Show more tries again", async () => {
+    // The Retry-After wait runs on the real clock.
+    vi.useRealTimers();
+    let failNext = true;
+    serveOffers([[]]);
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offer-queue"), ({ request }) => {
+        const cursor = new URL(request.url).searchParams.get("cursor");
+        if (cursor === null) {
+          return HttpResponse.json({
+            items: [queued(meron, 1), queued(almaz, 2)],
+            next_cursor: "1",
+          });
+        }
+        if (failNext) {
+          failNext = false;
+          return problemResponse(429, "RATE_LIMITED", "req-429", {
+            "Retry-After": "1",
+          });
+        }
+        return HttpResponse.json({
+          items: [queued(dawit, 3)],
+          next_cursor: null,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    const dialog = await openOfferDialog(user);
+    const more = await within(dialog).findByRole("button", {
+      name: t.showMoreQueue,
+    });
+    await user.click(more);
+    expect(await within(dialog).findByText("req-429")).toBeVisible();
+    expect(
+      within(dialog).getByRole("radio", { name: /Almaz Bekele/ }),
+    ).toBeVisible();
+    // One way to try again: Show more, once Retry-After has passed.
+    expect(
+      within(dialog).queryByRole("button", {
+        name: messages.ProblemAlert.retry,
+      }),
+    ).not.toBeInTheDocument();
+    expect(more).toHaveAttribute("aria-disabled", "true");
+    await waitFor(
+      () => expect(more).not.toHaveAttribute("aria-disabled", "true"),
+      { timeout: 3000 },
+    );
+    await user.click(more);
+    const added = await within(dialog).findByRole("radio", {
+      name: fill(t.position, { position: 3, name: "Dawit Haile" }),
+    });
+    // The last page is in: the button goes, and focus moves to the first one added.
+    await waitFor(() => expect(added).toHaveFocus());
+    expect(within(dialog).queryByText("req-429")).not.toBeInTheDocument();
+  });
+
+  it("never shows a queue kept from an earlier opening", async () => {
+    let release: () => void = () => {};
+    let reads = 0;
+    serveOffers([[]]);
+    server.use(
+      http.get(apiUrl("/v1/routes/{route_id}/offer-queue"), async () => {
+        reads += 1;
+        if (reads === 1) {
+          return HttpResponse.json({ items: queue, next_cursor: null });
+        }
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return HttpResponse.json({
+          items: [queued(almaz, 1)],
+          next_cursor: null,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderOffers();
+
+    let dialog = await openOfferDialog(user);
+    await within(dialog).findByRole("radio", { name: /Almaz Bekele/ });
+    await user.click(
+      within(dialog).getByRole("button", { name: messages.Common.cancel }),
+    );
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    vi.setSystemTime(new Date("2026-11-11T09:10:00Z"));
+
+    dialog = await openOfferDialog(user);
+    await waitFor(() => expect(reads).toBe(2));
+    expect(
+      within(dialog).getByRole("radio", { name: t.nextInLine }),
+    ).toHaveAccessibleDescription(t.nextInLineHint);
+    expect(within(dialog).queryByText(/Meron Tadesse/)).not.toBeInTheDocument();
+    release();
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("radio", { name: t.nextInLine }),
+      ).toHaveAccessibleDescription(
+        fill(t.nextInLineIs, { name: "Almaz Bekele", date: "Sep 1, 2026" }),
+      ),
+    );
   });
 });
 

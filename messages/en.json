@@ -1414,7 +1414,7 @@
     "reasonLabel": "Reason to offer it ahead of the queue",
     "reasonHint": "Up to 100 characters. It's kept with the offer and in the audit log.",
     "reasonRequired": "Give a reason to offer it ahead of the queue.",
-    "requestRefused": "This request can no longer be offered a seat on this route. The queue has been reloaded: choose another, or next in line.",
+    "requestRefused": "The request you chose can no longer be offered a seat on this route. Choose another, or next in line.",
     "startRefused": "Choose a 1st from next month on, within a year.",
     "fullRunning": "No seat is free on every day from {month}. Try a later month.",
     "fullForming": "No seat is free on this forming route from {month}.",
