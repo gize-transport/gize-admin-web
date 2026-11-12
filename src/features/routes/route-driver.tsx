@@ -3,7 +3,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type RefObject,
+} from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FormField } from "@/components/form-field";
 import { DriverPicker } from "@/components/pickers/driver-picker";
@@ -34,14 +41,23 @@ type RouteRead = components["schemas"]["RouteRead"];
  */
 export function RouteDriver({ route }: { route: RouteRead }) {
   const t = useTranslations("Routes");
+  // The driver's name as when Remove was pressed: the dialog stays (and finishes: its toast)
+  // after the route comes back without them.
   const [dialog, setDialog] = useState<{
     kind: "choose" | "remove";
     key: number;
+    driverName: string;
   } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  // After a removal, "Remove driver" is gone: the closing dialog sends focus to "Choose driver".
+  const chooseButton = useRef<HTMLButtonElement>(null);
 
   function open(kind: "choose" | "remove") {
-    setDialog((current) => ({ kind, key: (current?.key ?? 0) + 1 }));
+    setDialog((current) => ({
+      kind,
+      key: (current?.key ?? 0) + 1,
+      driverName: route.driver?.full_name ?? "",
+    }));
     setDialogOpen(true);
   }
 
@@ -63,7 +79,12 @@ export function RouteDriver({ route }: { route: RouteRead }) {
         <span className="text-muted">{t("driverNone")}</span>
       )}
       <span className="flex flex-wrap gap-2">
-        <Button variant="secondary" size="sm" onClick={() => open("choose")}>
+        <Button
+          ref={chooseButton}
+          variant="secondary"
+          size="sm"
+          onClick={() => open("choose")}
+        >
           {route.driver ? t("changeDriver") : t("chooseDriver")}
         </Button>
         {route.driver && (
@@ -81,13 +102,14 @@ export function RouteDriver({ route }: { route: RouteRead }) {
           onOpenChange={setDialogOpen}
         />
       )}
-      {dialog?.kind === "remove" && route.driver && (
+      {dialog?.kind === "remove" && (
         <RemoveDriverDialog
           key={dialog.key}
           route={route}
-          driverName={route.driver.full_name}
+          driverName={dialog.driverName}
           open={dialogOpen}
           onClose={() => setDialogOpen(false)}
+          chooseButton={chooseButton}
         />
       )}
     </span>
@@ -248,12 +270,15 @@ function RemoveDriverDialog({
   driverName,
   open,
   onClose,
+  chooseButton,
 }: {
   route: RouteRead;
   /** As when the dialog opened: the route has no driver once it succeeds. */
   driverName: string;
   open: boolean;
   onClose: () => void;
+  /** Where focus goes once the driver is removed (their Remove button is gone). */
+  chooseButton: RefObject<HTMLButtonElement | null>;
 }) {
   const t = useTranslations("Routes");
   const { message } = useApiErrorMessages();
@@ -275,6 +300,7 @@ function RemoveDriverDialog({
       title={t("removeDriverTitle", { name: driverName, code: route.code })}
       description={t("removeDriverDescription")}
       confirmLabel={t("removeDriver")}
+      focusOnClose={() => (setDriver.isSuccess ? chooseButton.current : null)}
       pending={setDriver.isPending}
       confirmDisabled={waiting}
       onConfirm={() =>

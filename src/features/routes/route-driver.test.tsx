@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import {
@@ -11,8 +11,15 @@ import {
 } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
 import { renderWithProviders } from "../../../tests/utils/render";
+import { useRoute, useRoutes } from "./queries";
 import { RouteDriver } from "./route-driver";
-import { fill, problemResponse, route, serveRole } from "./test-support";
+import {
+  fill,
+  problemResponse,
+  route,
+  serveRole,
+  serveRoute,
+} from "./test-support";
 
 vi.mock("@/lib/auth/supabase-browser", () => ({
   getSupabaseBrowserClient: () => ({ auth: { signOut: vi.fn() } }),
@@ -106,6 +113,23 @@ async function chooseIn(
     d.full_name.slice(0, 3),
   );
   await user.click(await screen.findByRole("option", { name: option(d) }));
+}
+
+/**
+ * The route as the page reads it: from the query cache, so a change shows at once, with the
+ * routes list beside it (a change refetches it, which takes a moment).
+ */
+function FromCache({ id }: { id: string }) {
+  const found = useRoute(id);
+  useRoutes({
+    q: null,
+    routeType: null,
+    status: null,
+    corridorId: null,
+    companyId: null,
+    cursor: null,
+  });
+  return found.data ? <RouteDriver route={found.data} /> : null;
 }
 
 describe("RouteDriver", () => {
@@ -210,7 +234,9 @@ describe("RouteDriver", () => {
           status: 422,
           code: "VALIDATION_FAILED",
           request_id: "req-422",
-          errors: [{ location: "body", field: "driver_id", reason: "invalid" }],
+          errors: [
+            { location: "body", field: "/driver_id", reason: "invalid" },
+          ],
           errors_truncated: false,
         },
         { status: 422, headers: problemHeaders },
@@ -300,4 +326,77 @@ describe("RouteDriver", () => {
     );
     expect(await within(dialog).findByText("req-503")).toBeVisible();
   });
+
+  it("removes the driver of a route read from the cache: toast, then focus on Choose driver", async () => {
+    serveRoute(driven);
+    server.use(
+      http.get(apiUrl("/v1/routes"), async () => {
+        await delay(200);
+        return HttpResponse.json({ items: [], next_cursor: null });
+      }),
+    );
+    serveSetDriver(() => HttpResponse.json(withoutDriver));
+    const user = userEvent.setup();
+    renderWithProviders(<FromCache id={driven.id} />);
+
+    await user.click(
+      await screen.findByRole("button", { name: t.removeDriver }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: t.removeDriver }),
+    );
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(t.driverRemovedToast),
+    );
+    expect(await screen.findByText(t.driverNone)).toBeVisible();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: t.chooseDriver }),
+      ).toHaveFocus(),
+    );
+  });
+
+  it("keeps Remove disabled until Retry-After has passed", async () => {
+    serveSetDriver(() =>
+      problemResponse(429, "RATE_LIMITED", "req-429", { "Retry-After": "30" }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<RouteDriver route={driven} />);
+
+    await user.click(screen.getByRole("button", { name: t.removeDriver }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: t.removeDriver }),
+    );
+    expect(await within(dialog).findByText("req-429")).toBeVisible();
+    expect(
+      within(dialog).getByRole("button", { name: t.removeDriver }),
+    ).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it.each([
+    [403, "FORBIDDEN", messages.Errors.FORBIDDEN],
+    [404, "NOT_FOUND", messages.Errors.NOT_FOUND],
+  ] as const)(
+    "explains a %s when choosing, with its reference",
+    async (status, code, words) => {
+      serveDrivers([bereket]);
+      serveSetDriver(() => problemResponse(status, code, `req-${status}`));
+      const user = userEvent.setup();
+      renderWithProviders(<RouteDriver route={withoutDriver} />);
+
+      await user.click(screen.getByRole("button", { name: t.chooseDriver }));
+      const dialog = await screen.findByRole("dialog");
+      await chooseIn(user, dialog, bereket);
+      await user.click(
+        within(dialog).getByRole("button", { name: t.driverSave }),
+      );
+
+      expect(await within(dialog).findByText(words)).toBeVisible();
+      expect(within(dialog).getByText(`req-${status}`)).toBeVisible();
+      expect(toast).not.toHaveBeenCalled();
+    },
+  );
 });

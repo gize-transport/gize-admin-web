@@ -93,5 +93,9 @@ test("staff give a route a driver, are told why a busy one can't drive it, and r
     })
     .getByRole("button", { name: t.removeDriver })
     .click();
+  await expect(page.getByText(t.driverRemovedToast)).toBeVisible();
   await expect(details.getByText(t.driverNone)).toBeVisible();
+  await expect(
+    details.getByRole("button", { name: t.chooseDriver }),
+  ).toBeFocused();
 });

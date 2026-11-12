@@ -73,7 +73,8 @@ test.describe("drivers", () => {
     await expect(
       table.getByRole("link", { name: "Bereket Tolosa" }),
     ).toHaveCount(0);
-    expect(page.url()).toContain("searched=1");
+    // The address is marked a moment after the search (a replace): wait for it.
+    await expect(page).toHaveURL(/searched=1/);
     expect(decodeURIComponent(page.url()).toLowerCase()).not.toContain(
       typed.slice(4),
     );

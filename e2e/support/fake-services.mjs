@@ -3710,7 +3710,8 @@ const api = createServer(async (request, response) => {
       (candidate) => candidate.id === routeDriverMatch[1],
     );
     if (!route) return problem(response, 404, "NOT_FOUND");
-    if (driverId !== null) {
+    // The driver it already has: nothing to check or change (the API's no-op).
+    if (driverId !== null && driverId !== (route.driverId ?? null)) {
       const chosen = drivers.find(
         (d) => d.id === driverId && !d.deleted && d.is_active,
       );
