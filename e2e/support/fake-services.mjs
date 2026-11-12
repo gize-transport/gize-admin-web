@@ -2786,6 +2786,47 @@ function waitingFor(route) {
 const hasOpenOffer = (requestId) =>
   offers.some((o) => o.requestId === requestId && offerStatus(o) === "open");
 
+/**
+ * A route's offer queue, like GZ-075 (`offers_queue`): the order an offer picks (position 1 is
+ * whom it goes to by default), then the requests that can't be offered a seat (an open offer
+ * anywhere, or a student's), oldest first.
+ * @param {FakeRoute} route
+ * @returns {Schemas["OfferQueueItem"][]}
+ */
+function offerQueue(route) {
+  const offerable = waitingFor(route).filter((r) => !hasOpenOffer(r.id));
+  const others = requests
+    .filter(
+      (r) =>
+        !r.deleted &&
+        isOpen(r) &&
+        (r.routeId === route.id || r.matchedRouteId === route.id) &&
+        !offerable.includes(r),
+    )
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  return [
+    ...offerable.map((r, index) => ({
+      position: index + 1,
+      offered_before: offers.some(
+        (o) =>
+          o.requestId === r.id &&
+          o.routeId === route.id &&
+          ["expired", "withdrawn"].includes(offerStatus(o)),
+      ),
+      not_offerable: null,
+      request: requestRead(r),
+    })),
+    ...others.map((r) => ({
+      position: null,
+      offered_before: false,
+      not_offerable: /** @type {Schemas["NotOfferable"]} */ (
+        r.rider_type === "adult" ? "open_offer" : "student"
+      ),
+      request: requestRead(r),
+    })),
+  ];
+}
+
 /** @type {Map<string, { route: FakeRoute; fingerprint: string }>} */
 const routeKeys = new Map();
 
@@ -3644,6 +3685,22 @@ const api = createServer(async (request, response) => {
       companies.splice(companies.indexOf(company), 1);
       return send(response, 204);
     }
+  }
+
+  // A route's offer queue (GZ-075): any staff member; paged by position.
+  const queueMatch = /^\/v1\/routes\/([^/]+)\/offer-queue$/.exec(url.pathname);
+  if (queueMatch && request.method === "GET") {
+    const route = routes.find((r) => r.id === queueMatch[1]);
+    if (!route) return problem(response, 404, "NOT_FOUND");
+    const limit = Number(url.searchParams.get("limit") ?? 25);
+    const from = Number(url.searchParams.get("cursor") ?? 0);
+    const items = offerQueue(route);
+    /** @type {Schemas["OfferQueuePage"]} */
+    const page = {
+      items: items.slice(from, from + limit),
+      next_cursor: from + limit < items.length ? String(from + limit) : null,
+    };
+    return send(response, 200, page);
   }
 
   // Route requests (GZ-027): any staff member; delete is admin-only.

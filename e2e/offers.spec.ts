@@ -52,7 +52,7 @@ async function requestSeat(page: Page, code: string) {
   return who;
 }
 
-test("staff offer free seats: ahead of the queue with a reason, then the next in line; withdraw and accept", async ({
+test("staff see the queue and offer free seats: ahead of it with a reason, then the next in line; withdraw and accept", async ({
   page,
 }, testInfo) => {
   const route =
@@ -66,14 +66,23 @@ test("staff offer free seats: ahead of the queue with a reason, then the next in
 
   // Buttons after a toast are pressed by keyboard: on phones the toast can sit over them (and
   // stays while the pointer rests on it).
-  // The later request, ahead of the older one: a reason first.
+  // The queue, in the API's order: the older request is next in line, the later one second.
   await page.getByRole("button", { name: t.offer }).press("Enter");
   let dialog = page.getByRole("dialog", {
     name: fill(t.offerTitle, { code: route.code }),
   });
-  await dialog.getByRole("radio", { name: second.name }).check();
+  await expect(
+    dialog.getByRole("radio", { name: t.nextInLine }),
+  ).toHaveAccessibleDescription(new RegExp(`^${first.name}, asked `));
+  // The later request, ahead of the older one: it needs a reason.
+  await dialog
+    .getByRole("radio", {
+      name: fill(t.position, { position: 2, name: second.name }),
+    })
+    .check();
   await dialog.getByRole("button", { name: t.offerSave }).click();
   const reason = dialog.getByLabel(t.reasonLabel);
+  await expect(dialog.getByText(t.reasonRequired)).toBeVisible();
   await expect(reason).toBeFocused();
   await reason.fill("Their workplace moved next to the stop");
   await dialog.getByRole("button", { name: t.offerSave }).click();
@@ -85,11 +94,19 @@ test("staff offer free seats: ahead of the queue with a reason, then the next in
     fill(t.skipped, { reason: "Their workplace moved next to the stop" }),
   );
 
-  // Next in line: the older request.
+  // Next in line is still the older request; the later one now has an open offer.
   await page.getByRole("button", { name: t.offer }).press("Enter");
   dialog = page.getByRole("dialog", {
     name: fill(t.offerTitle, { code: route.code }),
   });
+  await expect(
+    dialog.getByRole("radio", { name: t.nextInLine }),
+  ).toHaveAccessibleDescription(new RegExp(`^${first.name}, asked `));
+  const held = dialog.getByRole("radio", { name: second.name, exact: true });
+  await expect(held).toBeDisabled();
+  await expect(held).toHaveAccessibleDescription(
+    new RegExp(`${t.notOfferable.open_offer}$`),
+  );
   await dialog.getByRole("button", { name: t.offerSave }).click();
   await expect(page.getByText(t.offeredToast).first()).toBeVisible();
   const firstOffer = offersList
