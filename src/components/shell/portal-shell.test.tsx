@@ -85,7 +85,7 @@ describe("PortalShell", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "content");
   });
 
-  it("shows only built screens, admin tools aside: all but Drivers so far", () => {
+  it("shows every built screen, admin tools aside", () => {
     serveStaff("admin");
     renderWithProviders(<PortalShell>{null}</PortalShell>);
 
@@ -99,6 +99,7 @@ describe("PortalShell", () => {
       t.nav.demand,
       t.nav.companies,
       t.nav.riders,
+      t.nav.drivers,
       t.nav.areas,
       t.nav.corridors,
     ]);

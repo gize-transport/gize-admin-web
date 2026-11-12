@@ -256,6 +256,40 @@ describe("AuditLogScreen", () => {
     );
   });
 
+  it("names driver changes, linking to the driver, the phone hidden", async () => {
+    const DRIVER = "00000000-0000-4000-f000-000000000051";
+    serveLog([
+      entry(51, {
+        action: "driver.updated",
+        entity_type: "driver",
+        entity_id: DRIVER,
+        before: { phone: "[redacted]", plate: "AA 3-B12341", is_active: true },
+        after: { phone: "[redacted]", plate: "AA 3-B54321", is_active: false },
+      }),
+      entry(52, {
+        action: "route.driver_changed",
+        entity_type: "route",
+        entity_id: "00000000-0000-4000-d000-000000000052",
+        before: { driver_id: null },
+        after: { driver_id: DRIVER },
+      }),
+    ]);
+    const user = userEvent.setup();
+    renderWithProviders(<AuditLogScreen />);
+
+    await screen.findByText(t.actions.driver.updated);
+    const changed = rowOf(t.actions.driver.updated);
+    expect(
+      within(changed).getByRole("link", { name: /^Driver changed/ }),
+    ).toHaveAttribute("href", `/drivers/${DRIVER}`);
+    await user.click(within(changed).getByText(t.showChanges));
+    expect(changed).toHaveTextContent(
+      `${t.fields.plate}AA 3-B12341AA 3-B54321`,
+    );
+    expect(changed).not.toHaveTextContent("[redacted]");
+    expect(rowOf(t.actions.route.driver_changed)).toBeVisible();
+  });
+
   it("filters by who made the change", async () => {
     const seen: URL[] = [];
     serveLog(entries, seen);

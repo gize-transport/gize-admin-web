@@ -46,6 +46,7 @@ const ENTITIES = [
   "route_request",
   "rider",
   "route_assignment",
+  "driver",
   "staff",
 ] as const;
 type Entity = (typeof ENTITIES)[number] | "other";
@@ -56,6 +57,7 @@ const RECORD_PAGES: Partial<Record<Entity, string>> = {
   route: "/routes",
   route_request: "/route-requests",
   rider: "/riders",
+  driver: "/drivers",
   staff: "/staff",
 };
 
