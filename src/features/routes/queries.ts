@@ -211,6 +211,35 @@ export function useSetRouteAreas() {
   });
 }
 
+/**
+ * `routes_set_driver` (staff): an active driver, or null for none; a PUT, so no Idempotency-Key.
+ * The route comes back with its driver. Refused because the driver can't be chosen any more (422)
+ * or drives another route at the same time (409): the drivers picker searches afresh.
+ */
+export function useSetRouteDriver() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, driverId }: { id: string; driverId: string | null }) =>
+      unwrap(
+        api.PUT("/v1/routes/{route_id}/driver", {
+          params: { path: { route_id: id } },
+          body: { driver_id: driverId },
+        }),
+      ),
+    onSuccess: (route) => {
+      queryClient.setQueryData(routeKeys.detail(route.id), route);
+      return refetchRoutes(queryClient, route.id);
+    },
+    onError: (error, { id }) => {
+      if (!(error instanceof ApiError)) return;
+      if (error.status === 404) void refetchRoutes(queryClient, id);
+      if (error.status === 409 || error.status === 422) {
+        void queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      }
+    },
+  });
+}
+
 /** The months a launch may name (`routes_launch_months`), with riders reserved; off until needed. */
 export function useLaunchMonths(id: string, enabled: boolean) {
   return useQuery({

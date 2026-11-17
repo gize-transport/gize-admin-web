@@ -303,6 +303,9 @@ describe("RouteFormDialog", () => {
       ["ROUTE_HAS_RIDERS", t.hasRiders],
       ["ROUTE_HAS_PRICES", t.hasPrices],
       ["ROUTE_HAS_REQUESTS", t.hasRequests],
+      // The API answers this when new times clash with the driver's other routes; any change
+      // stands in for that here.
+      ["DRIVER_BUSY", t.driverBusyTimes],
     ];
     for (const [code, text] of answers) {
       server.use(

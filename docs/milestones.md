@@ -183,8 +183,9 @@ Upload via signed URLs (type/size checked first, progress), view via short-lived
 ### GZW-052 · Inspection and approval · Needs backend: GZ-052 · Status: deferred (owner decision 2026-11-05: not in the MVP)
 Record inspection; approve/reject enabled only when the API allows; missing requirements listed.
 
-### GZW-053 · Assign driver to route · Needs backend: GZ-053 · Status: todo
-From route detail; only eligible drivers offered; API errors explained.
+### GZW-053 · Assign driver to route · Needs backend: GZ-053 (in `api-v2.15.0`) · Status: done
+- From route detail; only eligible drivers offered; API errors explained. Rescoped with GZ-053 (owner decision 2026-11-05): only active drivers; one driver per route; a driver may drive several routes whose runs don't overlap (the API decides: `DRIVER_BUSY`).
+- Built (owner decisions 2026-11-12): "Driver" in a route's facts (any type or status): their name (their page) and plate, or none yet. "Choose driver" / "Change driver" (`routes_set_driver`, a PUT): a driver picker offering active drivers by the start of a name or plate ("Name · Plate"); `DRIVER_BUSY` on the picker, naming the driver; a driver deactivated or deleted meanwhile (422 on `driver_id`) clears the choice and the picker searches afresh. "Remove driver", confirmed. Routes list: a Driver column. Editing a route: new times that clash with another route of its driver explained (`DRIVER_BUSY`). Toasts never name the driver. A driver's own routes wait for backend question 11.
 
 ---
 

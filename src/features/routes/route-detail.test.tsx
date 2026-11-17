@@ -75,6 +75,7 @@ describe("RouteDetail", () => {
       }),
     );
     expect(fact(t.seats)).toHaveTextContent(fill(t.seatsTotal, { seats: 14 }));
+    expect(fact(t.driver)).toHaveTextContent(t.driverNone);
     expect(fact(t.launchMinimum)).toHaveTextContent(
       fill(t.launchMinimumValue, { minimum: 10 }),
     );

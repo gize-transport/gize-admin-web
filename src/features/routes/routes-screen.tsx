@@ -138,6 +138,17 @@ export function RoutesScreen() {
             );
           },
         }),
+        col.accessor("driver", {
+          header: t("colDriver"),
+          cell: (info) => {
+            const driver = info.getValue();
+            return driver ? (
+              driver.full_name
+            ) : (
+              <span className="text-muted">{t("notAssigned")}</span>
+            );
+          },
+        }),
         col.accessor("status", {
           header: t("colStatus"),
           cell: (info) => {

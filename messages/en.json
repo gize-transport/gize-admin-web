@@ -653,7 +653,26 @@
     "vanAdded": "Van {code} added: {start}.",
     "vanStartsForming": "forming, taking reservations",
     "vanStartsDraft": "a draft for now",
-    "vanCompanyInactive": "The company isn't active, so its route can't get another van. Reactivate the company first."
+    "vanCompanyInactive": "The company isn't active, so its route can't get another van. Reactivate the company first.",
+    "colDriver": "Driver",
+    "notAssigned": "Not assigned",
+    "driver": "Driver",
+    "driverNone": "No driver yet",
+    "chooseDriver": "Choose driver",
+    "changeDriver": "Change driver",
+    "removeDriver": "Remove driver",
+    "driverTitle": "Driver for {code}",
+    "driverHint": "Only active drivers can be chosen. A driver can drive several routes whose times don't overlap.",
+    "driverLabel": "Driver",
+    "driverRequired": "Choose a driver.",
+    "driverSave": "Save",
+    "driverSavedToast": "Driver saved",
+    "driverBusy": "{name} already drives another route at overlapping times. Choose another driver, or change that route's times first.",
+    "driverUnavailable": "This driver can no longer be chosen: they were deactivated or deleted. Choose another.",
+    "removeDriverTitle": "Take {name} off {code}?",
+    "removeDriverDescription": "The route will have no driver until you choose one.",
+    "driverRemovedToast": "Driver removed",
+    "driverBusyTimes": "Its driver drives another route at these times. Change the times, or change or remove the driver first."
   },
   "RouteRequests": {
     "metaTitle": "Route requests",
@@ -1164,6 +1183,16 @@
     "loading": "Searching…",
     "clear": "Clear {name}",
     "moreHint": "Only the first matches are shown. Type more of the name to find others."
+  },
+  "DriverPicker": {
+    "placeholder": "Choose a driver",
+    "searchLabel": "Search drivers",
+    "searchPlaceholder": "Type the start of a name or plate",
+    "listLabel": "Matching drivers",
+    "noResults": "No active drivers start with that.",
+    "loading": "Searching…",
+    "clear": "Clear {name}",
+    "moreHint": "Only the first matches are shown. Type more to find others."
   },
   "RoutePicker": {
     "placeholder": "Choose a route",

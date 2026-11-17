@@ -267,14 +267,18 @@ describe("SeatOffers: the list", () => {
 
 describe("SeatOffers: keeping the list current", () => {
   it("keeps the loaded offers when the next page fails, and retries that page", async () => {
-    // The Retry-After wait runs on the real clock.
+    // The Retry-After wait runs on the real clock, so the open offer's 48 hours run from the
+    // real now: one already past would reload the list mid-test (and fail on a later date).
     vi.useRealTimers();
+    const stillOpen = offer(1, {
+      expires_at: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
+    });
     let failNext = true;
     server.use(
       http.get(apiUrl("/v1/routes/{route_id}/offers"), ({ request }) => {
         const cursor = new URL(request.url).searchParams.get("cursor");
         if (cursor === null) {
-          return HttpResponse.json({ items: [open], next_cursor: "1" });
+          return HttpResponse.json({ items: [stillOpen], next_cursor: "1" });
         }
         if (failNext) {
           failNext = false;

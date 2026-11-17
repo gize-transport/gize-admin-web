@@ -31,6 +31,11 @@ type ConfirmDialogProps = {
   onConfirm: () => void;
   /** Extra content above the buttons, e.g. a ProblemAlert after a failed attempt. */
   children?: ReactNode;
+  /**
+   * Where focus goes as the dialog closes, when not back to the element that opened it (e.g. the
+   * action removed that element): read then, so it can depend on how it ended. null: the opener.
+   */
+  focusOnClose?: () => HTMLElement | null;
 };
 
 export function ConfirmDialog({
@@ -45,6 +50,7 @@ export function ConfirmDialog({
   confirmDisabled = false,
   onConfirm,
   children,
+  focusOnClose,
 }: ConfirmDialogProps) {
   const t = useTranslations("Common");
   // Radix only returns focus to its own Trigger; this dialog is opened from app state, so remember
@@ -66,7 +72,9 @@ export function ConfirmDialog({
               ? document.activeElement
               : null;
         }}
-        onCloseAutoFocus={(event) => returnFocus(event, returnFocusTo.current)}
+        onCloseAutoFocus={(event) =>
+          returnFocus(event, focusOnClose?.() ?? returnFocusTo.current)
+        }
       >
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
