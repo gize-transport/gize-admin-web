@@ -15,7 +15,7 @@ A PR that breaks any of these is not done.
 - Role checks in the UI are convenience only; every mutation handles 403 and 404 gracefully.
 - No `dangerouslySetInnerHTML`, no `eval`, no rendering of untrusted HTML. Links built from data use safe URL helpers.
 - Security headers: CSP (self + API + Supabase + Sentry origins only), `frame-ancestors 'none'`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`.
-- Only `NEXT_PUBLIC_*` variables, validated at build; no secrets in the repo (gitleaks in pre-commit and CI). `npm audit --audit-level=high` in CI.
+- Only `NEXT_PUBLIC_*` variables, validated at build; no secrets in the repo (gitleaks in pre-commit and CI). CI fails on any high or critical `npm audit` advisory (`npm run audit:check`). The only exception is one the owner allows for a set time, in `audit-exceptions.json`: its GHSA id, package, why it is safe, and an end date at most 90 days ahead. The check fails once that date passes, and also once the exception is no longer needed, so it gets removed.
 - Sentry scrubs names, phone numbers and request bodies; logs nothing personal to the console in production.
 - File uploads (driver documents): check type and size client-side before requesting a signed URL; upload directly to the signed URL; never proxy files through the app.
 

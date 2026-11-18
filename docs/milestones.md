@@ -14,7 +14,7 @@ Status: done · Needs backend: –
 
 ### GZW-002 · CI
 Status: done · Needs backend: –
-- GitHub Actions: install, lint, typecheck, unit tests, build, Playwright (with axe), `npm audit --audit-level=high`, gitleaks.
+- GitHub Actions: install, lint, typecheck, unit tests, build, Playwright (with axe), `npm audit` (high and critical fail; dated owner exceptions in `audit-exceptions.json`), gitleaks.
 
 ### GZW-003 · Contract sync and drift checks
 Status: done · Needs backend: GZ-015 (first tag `api-v1.0.0`; latest `api-v2.5.0`)

@@ -162,8 +162,9 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-      # Reads package-lock.json only; no install needed.
-      - run: npm audit --audit-level=high
+      # Reads package-lock.json only; no install needed. Fails on any high or critical advisory,
+      # except one in audit-exceptions.json until its date (an owner decision each time).
+      - run: npm run audit:check
 
   gitleaks:
     name: Secret scan (gitleaks)
