@@ -340,7 +340,12 @@ describe("PlaceSeatDialog", () => {
       http.get(apiUrl("/v1/routes"), () =>
         HttpResponse.json<Schemas["RoutePage"]>({
           items: [
-            route("R-21", 21, { route_type: "corporate", company: brewery }),
+            // Only a safety check now: an inactive company's routes can't be started (GZ-078).
+            route("R-21", 21, {
+              route_type: "corporate",
+              company: brewery,
+              status: "active",
+            }),
           ],
           next_cursor: null,
         }),
@@ -360,6 +365,35 @@ describe("PlaceSeatDialog", () => {
         fill(t.seatCompanyInactive, { company: "Addis Brewery" }),
       ),
     ).toBeVisible();
+  });
+
+  it("shows a company's draft routes as not started, not to be chosen", async () => {
+    server.use(
+      http.get(apiUrl("/v1/routes"), () =>
+        HttpResponse.json<Schemas["RoutePage"]>({
+          items: [
+            route("R-21", 21, {
+              route_type: "corporate",
+              company: brewery,
+              status: "draft",
+            }),
+            route("R-22", 22, {
+              route_type: "corporate",
+              company: brewery,
+              status: "paused",
+            }),
+          ],
+          next_cursor: null,
+        }),
+      ),
+    );
+    const { dialog } = renderPlace(companyRider);
+
+    const r21 = await within(dialog).findByRole("radio", { name: /^R-21/ });
+    expect(r21).toBeDisabled();
+    expect(r21).toHaveAccessibleDescription(t.routeNotStartedNote);
+    // A company rider may join a paused company route.
+    expect(option(dialog, "R-22")).toBeEnabled();
   });
 
   it("shows paused routes and routes without the Saturday they want, not to be chosen", async () => {
@@ -660,6 +694,34 @@ describe("KeepSeatDialog", () => {
 
     expect(
       await within(dialog).findByText(fill(t.keepFull, { code: "R-03" })),
+    ).toBeVisible();
+    expect(keep).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("explains that a company route back in draft must be started first", async () => {
+    servePlace(() => validationResponse("/route_id"), []);
+    const onTheDraft = {
+      ...companyRider,
+      seat: {
+        route_id: "00000000-0000-4000-c000-000000000021",
+        route_code: "R-21",
+        status: "active" as const,
+        start_date: "2026-09-01",
+        end_date: "2026-11-30",
+      },
+    };
+    const user = userEvent.setup();
+    renderWithProviders(
+      <KeepSeatDialog rider={onTheDraft} open onClose={vi.fn()} />,
+    );
+    const dialog = screen.getByRole("alertdialog");
+    const keep = within(dialog).getByRole("button", {
+      name: fill(t.keepSave, { code: "R-21" }),
+    });
+    await user.click(keep);
+
+    expect(
+      await within(dialog).findByText(fill(t.keepNotStarted, { code: "R-21" })),
     ).toBeVisible();
     expect(keep).toHaveAttribute("aria-disabled", "true");
   });
