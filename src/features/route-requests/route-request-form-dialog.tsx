@@ -187,8 +187,24 @@ export function RouteRequestFormDialog({
               values.fromName !== "" &&
               sameLooking(values.fromName).toLowerCase() ===
                 sameLooking(values.toName).toLowerCase();
+            // A typed name that is the other end's listed area names that area (GZ-077).
+            const typedIsListed = (typed: string, listed: AreaRef | null) =>
+              typed !== "" &&
+              listed !== null &&
+              sameLooking(typed).toLowerCase() ===
+                sameLooking(listed.name).toLowerCase();
+            const fromNamesTo =
+              values.fromMode === "named" &&
+              values.toMode === "listed" &&
+              typedIsListed(values.fromName, values.toArea);
+            const toNamesFrom =
+              values.fromMode === "listed" &&
+              values.toMode === "named" &&
+              typedIsListed(values.toName, values.fromArea);
             if (sameArea) issue("toArea", t("endsSame"));
             if (sameName) issue("toName", t("endsSame"));
+            if (fromNamesTo) issue("fromName", t("endNameIsOther"));
+            if (toNamesFrom) issue("toName", t("endNameIsOther"));
           } else if (!values.route) {
             issue("route", t("routeRequired"));
           }
@@ -382,6 +398,10 @@ export function RouteRequestFormDialog({
       for (const [apiField, field] of failed) {
         let words = fields[apiField];
         if (apiField === "route_id") words = t("routeNotFor");
+        // A typed name the API matched to the listed area at the other end (GZ-077).
+        if (apiField === "from_area_name" || apiField === "to_area_name") {
+          words = t("endNameIsOther");
+        }
         if (apiField === "school_name" && request) words = t("schoolNotRoute");
         setError(field, { message: words });
       }

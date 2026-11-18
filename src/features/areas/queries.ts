@@ -86,9 +86,21 @@ function refetchAreasAfter(queryClient: ReturnType<typeof useQueryClient>) {
   };
 }
 
+/**
+ * Adding or renaming an area links the open route requests that typed its name (GZ-077): their
+ * lists, details and the demand summary are read again (by their literal key: features/route-requests
+ * imports from here). Awaited, so Demand shows the linked card before the form closes.
+ */
+function refetchRequestsAfterLink(
+  queryClient: ReturnType<typeof useQueryClient>,
+) {
+  return queryClient.invalidateQueries({ queryKey: ["route-requests"] });
+}
+
 /** `areas_create`; the caller keeps one Idempotency-Key per add, reused on retry. */
 export function useCreateArea() {
   const queryClient = useQueryClient();
+  const refetch = refetchAreasAfter(queryClient);
   return useMutation({
     mutationFn: ({
       name,
@@ -103,13 +115,15 @@ export function useCreateArea() {
           body: { name },
         }),
       ),
-    ...refetchAreasAfter(queryClient),
+    onSuccess: () =>
+      Promise.all([refetch.onSuccess(), refetchRequestsAfterLink(queryClient)]),
+    onError: refetch.onError,
   });
 }
 
 /**
- * `areas_update` (rename). Corridors and routes show their areas' names, so they refetch too
- * (routes by their literal key: features/routes imports from here).
+ * `areas_update` (rename). Corridors, routes and route requests show their areas' names, so they
+ * refetch too (routes by their literal key: features/routes imports from here).
  */
 export function useRenameArea() {
   const queryClient = useQueryClient();
@@ -127,6 +141,7 @@ export function useRenameArea() {
         refetch.onSuccess(),
         queryClient.invalidateQueries({ queryKey: corridorKeys.all }),
         queryClient.invalidateQueries({ queryKey: ["routes"] }),
+        refetchRequestsAfterLink(queryClient),
       ]),
     onError: refetch.onError,
   });

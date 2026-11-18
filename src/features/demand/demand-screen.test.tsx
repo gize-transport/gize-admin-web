@@ -128,18 +128,25 @@ describe("DemandScreen", () => {
     expect(screen.getAllByText(t.truncated)).toHaveLength(1);
   });
 
-  it("offers the corridor or route for two listed areas, nothing to add for a name not listed", async () => {
+  it("offers the corridor or route for two listed areas, and the area for a name not listed", async () => {
     serveSummary();
     renderWithProviders(<DemandScreen />);
 
     const lebu = await screen.findByRole("heading", { level: 3, name: /Lebu/ });
     const unlisted = lebu.closest("li") as HTMLElement;
-    // Adding the area wouldn't link these requests to it (milestones.md, question 8).
-    expect(within(unlisted).queryAllByRole("button")).toHaveLength(0);
-    // The list can't filter by area yet: all new new-areas requests.
+    expect(within(unlisted).getAllByRole("button")).toHaveLength(1);
     expect(
-      within(unlisted).getByRole("link", { name: t.seeNewAreaRequests }),
-    ).toHaveAttribute("href", "/route-requests?kind=new_areas&status=new");
+      within(unlisted).getByRole("button", {
+        name: "Add area Lebu, from Bole to Lebu (not listed)",
+      }),
+    ).toBeVisible();
+    // Exactly the requests the card counts: a listed end by id, a typed one by its name.
+    expect(
+      within(unlisted).getByRole("link", { name: /^See these requests/ }),
+    ).toHaveAttribute(
+      "href",
+      `/route-requests?kind=new_areas&status=new&from_area_id=${areas.bole.id}&to_area_name=Lebu`,
+    );
 
     const listed = cardOf(t.pairsLabel, /Piassa/);
     expect(
@@ -152,6 +159,73 @@ describe("DemandScreen", () => {
         name: "Add route, from Bole to Piassa",
       }),
     ).toBeVisible();
+    expect(
+      within(listed).getByRole("link", { name: /^See these requests/ }),
+    ).toHaveAttribute(
+      "href",
+      `/route-requests?kind=new_areas&status=new&from_area_id=${areas.bole.id}&to_area_id=${areas.piassa.id}`,
+    );
+  });
+
+  it("adds a name not listed as an area, then offers the corridor on its card, focused", async () => {
+    const lebuArea = {
+      id: "00000000-0000-4000-8000-0000000000aa",
+      name: "Lebu",
+      created_at: "2026-11-18T09:00:00Z",
+      updated_at: "2026-11-18T09:00:00Z",
+    };
+    let added: unknown = null;
+    server.use(
+      http.get(apiUrl("/v1/route-requests/summary"), () =>
+        HttpResponse.json(
+          added === null
+            ? summary
+            : {
+                ...summary,
+                // The API linked the requests that typed it.
+                area_pairs: [
+                  {
+                    from_area: areas.bole,
+                    from_area_name: null,
+                    to_area: { id: lebuArea.id, name: "Lebu" },
+                    to_area_name: null,
+                    open: 2,
+                  },
+                  ...summary.area_pairs.slice(1),
+                ],
+              },
+        ),
+      ),
+      http.post(apiUrl("/v1/areas"), async ({ request }) => {
+        added = await request.json();
+        return HttpResponse.json(lebuArea, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<DemandScreen />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /^Add area Lebu/ }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: messages.Areas.addTitle,
+    });
+    expect(within(dialog).getByLabelText(messages.Areas.nameLabel)).toHaveValue(
+      "Lebu",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: messages.Areas.save }),
+    );
+    await vi.waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(added).toEqual({ name: "Lebu" });
+
+    const card = cardOf(t.pairsLabel, "from Bole to Lebu");
+    expect(
+      within(card).getByRole("button", { name: /^Add corridor/ }),
+    ).toBeVisible();
+    await vi.waitFor(() =>
+      expect(within(card).getByRole("heading", { level: 3 })).toHaveFocus(),
+    );
   });
 
   it("opens the corridor form with the two areas", async () => {

@@ -22,6 +22,11 @@ export type RequestFilters = {
   kind: RequestKind | null;
   open: boolean | null;
   routeId: string | null;
+  /** Each end of a new-areas request: a listed area's id or a name typed as not listed (never both). */
+  fromAreaId: string | null;
+  fromAreaName: string | null;
+  toAreaId: string | null;
+  toAreaName: string | null;
   cursor: string | null;
 };
 
@@ -58,6 +63,10 @@ export function useRouteRequests(filters: RequestFilters) {
               open: filters.open ?? undefined,
               // An empty value in the address means no filter.
               route_id: filters.routeId || undefined,
+              from_area_id: filters.fromAreaId || undefined,
+              from_area_name: filters.fromAreaName || undefined,
+              to_area_id: filters.toAreaId || undefined,
+              to_area_name: filters.toAreaName || undefined,
               cursor: filters.cursor || undefined,
             },
           },
