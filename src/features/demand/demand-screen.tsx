@@ -12,6 +12,7 @@ import { ProblemAlert } from "@/components/problem-alert";
 import { StatusPill, type StatusTone } from "@/components/status-pill";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AreaFormDialog } from "@/features/areas/area-form-dialog";
 import { CorridorFormDialog } from "@/features/corridors/corridor-form-dialog";
 import { fetchCorridorBetween } from "@/features/corridors/queries";
 import { useDemandSummary } from "@/features/route-requests/queries";
@@ -34,7 +35,8 @@ type CorridorRef = components["schemas"]["CorridorRef"];
 type Opened =
   | { kind: "corridor"; origin: AreaRef; destination: AreaRef; key: number }
   | { kind: "route"; corridor: CorridorRef; key: number }
-  | { kind: "van"; route: RouteRead; key: number };
+  | { kind: "van"; route: RouteRead; key: number }
+  | { kind: "area"; name: string; pair: AreaPairDemand; key: number };
 type Open = (opened: DistributiveOmit<Opened, "key">) => void;
 type DistributiveOmit<T, K extends keyof never> = T extends unknown
   ? Omit<T, K>
@@ -67,6 +69,8 @@ export function DemandScreen() {
     formOpenNow.current = next;
     setFormOpenState(next);
   };
+  // A pair whose name was just added as an area: its card (now under the area) takes focus.
+  const focusPair = useRef<string | null>(null);
   const open: Open = (next) => {
     if (formOpenNow.current) return;
     setOpened(
@@ -128,7 +132,12 @@ export function DemandScreen() {
           truncated={area_pairs_truncated}
         >
           {area_pairs.map((pair) => (
-            <PairCard key={pairKey(pair)} pair={pair} open={open} />
+            <PairCard
+              key={pairKey(pair)}
+              pairKey={pairKey(pair)}
+              pair={pair}
+              open={open}
+            />
           ))}
         </Section>
         <Section
@@ -170,6 +179,27 @@ export function DemandScreen() {
           initialCorridor={opened.corridor}
         />
       )}
+      {opened?.kind === "area" && (
+        <AreaFormDialog
+          key={opened.key}
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          initialName={opened.name}
+          onSaved={(area) => {
+            // The card moves under the area once the summary is read again: focus it there.
+            // The API links the requests that typed the name as saved (staff may have changed it).
+            focusPair.current = pairKeyWith(opened.pair, area);
+          }}
+          focusOnClose={() => {
+            const key = focusPair.current;
+            focusPair.current = null;
+            if (key === null) return null;
+            return document.querySelector<HTMLElement>(
+              `[data-pair-key="${CSS.escape(key)}"] h3`,
+            );
+          }}
+        />
+      )}
       {opened?.kind === "van" && (
         <RouteVanDialog
           key={opened.key}
@@ -185,6 +215,22 @@ export function DemandScreen() {
       )}
     </>
   );
+}
+
+/**
+ * The key `pair` will have once `added` (an area just added) takes the place of an end typed as
+ * its name (ignoring case, as the API links them). An end typed otherwise stays.
+ */
+function pairKeyWith(pair: AreaPairDemand, added: AreaRef) {
+  const typed = (value: string | null) =>
+    value !== null && value.toLowerCase() === added.name.toLowerCase();
+  return pairKey({
+    ...pair,
+    from_area: typed(pair.from_area_name) ? added : pair.from_area,
+    from_area_name: typed(pair.from_area_name) ? null : pair.from_area_name,
+    to_area: typed(pair.to_area_name) ? added : pair.to_area,
+    to_area_name: typed(pair.to_area_name) ? null : pair.to_area_name,
+  });
 }
 
 /** A pair's identity as the summary groups it: each end's area, or its name ignoring case. */
@@ -245,12 +291,17 @@ function Section({
 function Card({
   heading,
   children,
+  pairKey,
 }: {
   heading: ReactNode;
   children: ReactNode;
+  pairKey?: string;
 }) {
   return (
-    <li className="grid content-start gap-4 rounded-xl bg-surface p-5 shadow-sm ring-1 ring-line">
+    <li
+      data-pair-key={pairKey}
+      className="grid content-start gap-4 rounded-xl bg-surface p-5 shadow-sm ring-1 ring-line"
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         {heading}
       </div>
@@ -264,11 +315,33 @@ const linkClass =
   "w-fit text-table font-semibold text-royal underline-offset-4 hover:underline";
 
 /**
- * An area pair: for two listed areas, add the corridor or the
- * route (prefilled). Its requests: all new new-areas requests for now (the list can't filter by
- * area yet; milestones.md, question 7).
+ * The requests a pair's card counts (GZW-045): new new-areas requests between its two ends, each
+ * a listed area's id or the name typed as not listed (a place, not personal data).
  */
-function PairCard({ pair, open }: { pair: AreaPairDemand; open: Open }) {
+function pairRequestsHref(pair: AreaPairDemand) {
+  const query = new URLSearchParams({ kind: "new_areas", status: "new" });
+  if (pair.from_area) query.set("from_area_id", pair.from_area.id);
+  else if (pair.from_area_name)
+    query.set("from_area_name", pair.from_area_name);
+  if (pair.to_area) query.set("to_area_id", pair.to_area.id);
+  else if (pair.to_area_name) query.set("to_area_name", pair.to_area_name);
+  return `/route-requests?${query.toString()}`;
+}
+
+/**
+ * An area pair: for two listed areas, add the corridor or the route (prefilled); an end typed as
+ * not listed, add that area (prefilled), which links the requests to it (GZW-045). Its requests:
+ * the ones it counts.
+ */
+function PairCard({
+  pairKey,
+  pair,
+  open,
+}: {
+  pairKey: string;
+  pair: AreaPairDemand;
+  open: Open;
+}) {
   const t = useTranslations("Demand");
   const { message } = useApiErrorMessages();
   const queryClient = useQueryClient();
@@ -310,8 +383,9 @@ function PairCard({ pair, open }: { pair: AreaPairDemand; open: Open }) {
 
   return (
     <Card
+      pairKey={pairKey}
       heading={
-        <h3 className={cardHeading}>
+        <h3 tabIndex={-1} className={cardHeading}>
           {t.rich("pairName", {
             from: end(origin, pair.from_area_name),
             to: end(destination, pair.to_area_name),
@@ -324,8 +398,30 @@ function PairCard({ pair, open }: { pair: AreaPairDemand; open: Open }) {
       <p className="text-body text-ink">
         {t("openRequests", { count: pair.open })}
       </p>
-      {/* A name not listed yet: no action here. Adding the area wouldn't link these requests to
-          it (milestones.md, question 8); staff add areas from Areas. */}
+      {/* A name not listed yet: add the area. The API links the open requests that typed it, and
+          the card then counts them under the area. */}
+      {(origin === null || destination === null) && (
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              [origin, pair.from_area_name],
+              [destination, pair.to_area_name],
+            ] as const
+          ).map(([area, name]) =>
+            area === null && name !== null ? (
+              <Button
+                key={name}
+                variant="secondary"
+                size="sm"
+                onClick={() => open({ kind: "area", name, pair })}
+              >
+                {t("addArea", { name })}
+                {forPair}
+              </Button>
+            ) : null,
+          )}
+        </div>
+      )}
       {origin && destination && (
         <div className="flex flex-wrap gap-2">
           <Button
@@ -378,11 +474,9 @@ function PairCard({ pair, open }: { pair: AreaPairDemand; open: Open }) {
           }
         />
       )}
-      <Link
-        href="/route-requests?kind=new_areas&status=new"
-        className={linkClass}
-      >
-        {t("seeNewAreaRequests")}
+      <Link href={pairRequestsHref(pair)} className={linkClass}>
+        {t("seePairRequests")}
+        {forPair}
       </Link>
     </Card>
   );

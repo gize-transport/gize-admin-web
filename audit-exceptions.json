@@ -1,0 +1,8 @@
+[
+  {
+    "id": "GHSA-fc5q-39xc-vjpf",
+    "package": "picomatch",
+    "reason": "ReDoS from a crafted glob pattern; no fixed release (all versions up to 4.0.7). Reached only by build and dev tools (Sentry's build plugin, Vite, next-intl's file watcher, test runners) matching our own patterns; the portal never matches patterns anyone types. Owner decision 2026-11-18: allowed until a fix ships or this date.",
+    "expires": "2026-12-31"
+  }
+]

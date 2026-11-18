@@ -20,7 +20,7 @@ export interface paths {
         /**
          * Add an area
          * @description Requires `Idempotency-Key`. 409 AREA_NAME_TAKEN: a live area has this name, ignoring
-         *     case.
+         *     case. Open route requests that typed this name, ignoring case, now name the area.
          */
         post: operations["areas_create"];
         delete?: never;
@@ -54,7 +54,8 @@ export interface paths {
         /**
          * Rename an area
          * @description Everything that refers to the area shows the new name. Renaming to the current name
-         *     changes nothing.
+         *     changes nothing on the area. Either way, open route requests that typed its name,
+         *     ignoring case, now name the area.
          */
         patch: operations["areas_update"];
         trace?: never;
@@ -538,8 +539,8 @@ export interface paths {
          * Give a rider a seat, or move them
          * @description Requires `Idempotency-Key`. An adult rides a public route that takes their trip
          *     (a reservation on a `forming` one, a place on an `active` one) from a 1st; a company
-         *     rider their company's route from any day. A move ends the seat they hold the day
-         *     before (a reservation just ends).
+         *     rider their company's `active` or `paused` route (not a draft) from any day. A move
+         *     ends the seat they hold the day before (a reservation just ends).
          *
          *     - 409 ROUTE_FULL: not a seat free on every day from the start (record a route request).
          *     - 409 ROUTE_HAS_WAITING_REQUESTS: an adult on an active route ahead of other people's
@@ -605,7 +606,8 @@ export interface paths {
          * Record a route request
          * @description A `new` request from `staff`. Requires `Idempotency-Key`. 409 ROUTE_REQUEST_EXISTS:
          *     the same rider already has an open request for this. An area or route that doesn't exist
-         *     or doesn't fit is a 422 on its field.
+         *     or doesn't fit is a 422 on its field. A typed area name that is a listed area's, ignoring
+         *     case, names that area (422 on the typed field if it is the other end's).
          */
         post: operations["route_requests_create"];
         delete?: never;
@@ -7065,6 +7067,14 @@ export interface operations {
                 kind?: components["schemas"]["RequestKind"] | null;
                 open?: boolean | null;
                 route_id?: string | null;
+                /** @description A listed area at A. */
+                from_area_id?: string | null;
+                /** @description An area typed as not listed at A, ignoring case. */
+                from_area_name?: string | null;
+                /** @description A listed area at B. */
+                to_area_id?: string | null;
+                /** @description An area typed as not listed at B, ignoring case. */
+                to_area_name?: string | null;
             };
             header?: never;
             path?: never;
@@ -7878,6 +7888,8 @@ export interface operations {
                 status?: components["schemas"]["RouteStatus"] | null;
                 corridor_id?: string | null;
                 company_id?: string | null;
+                /** @description Routes this driver drives. */
+                driver_id?: string | null;
             };
             header?: never;
             path?: never;

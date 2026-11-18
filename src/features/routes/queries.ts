@@ -35,7 +35,30 @@ export const routeKeys = {
   list: (filters: RouteFilters) => ["routes", "list", filters] as const,
   detail: (id: string) => ["routes", "detail", id] as const,
   launchMonths: (id: string) => ["routes", "launch-months", id] as const,
+  driver: (driverId: string) => ["routes", "driver", driverId] as const,
 };
+
+/** The most routes one driver's list shows (the API's page limit). */
+export const DRIVER_ROUTES_LIMIT = 100;
+
+/**
+ * The routes a driver drives (`routes_list` by `driver_id`, GZ-076): any status, not deleted; the
+ * same routes a 409 DRIVER_ASSIGNED counts. Under the routes' key, so changing a route's driver
+ * reads it again.
+ */
+export function useDriverRoutes(driverId: string) {
+  return useQuery({
+    queryKey: routeKeys.driver(driverId),
+    queryFn: () =>
+      unwrap(
+        api.GET("/v1/routes", {
+          params: {
+            query: { limit: DRIVER_ROUTES_LIMIT, driver_id: driverId },
+          },
+        }),
+      ),
+  });
+}
 
 /** One page of routes (`routes_list`), newest first; the filters combine (AND). */
 export function useRoutes(filters: RouteFilters) {

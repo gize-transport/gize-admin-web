@@ -7,6 +7,7 @@ import { apiUrl, server } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
 import { renderWithProviders } from "../../../tests/utils/render";
 import {
+  areas,
   fill,
   problemResponse,
   serveRole,
@@ -126,6 +127,63 @@ describe("RouteRequestsScreen", () => {
         { name: t.filterOpen },
       ),
     ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("sends a Demand card's area pair, names its ends and shows all areas again", async () => {
+    navigation().search = `?kind=new_areas&status=new&from_area_id=${areas.bole.id}&to_area_name=Lebu`;
+    const seen: URL[] = [];
+    serveRequests([newAreas], seen);
+    server.use(
+      http.get(apiUrl("/v1/areas/{area_id}"), () =>
+        HttpResponse.json({
+          ...areas.bole,
+          created_at: "2026-11-01T09:00:00Z",
+          updated_at: "2026-11-01T09:00:00Z",
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<RouteRequestsScreen />);
+
+    await screen.findByRole("link", { name: "Selam Bekele" });
+    const params = seen[0]?.searchParams;
+    expect(params?.get("from_area_id")).toBe(areas.bole.id);
+    expect(params?.get("to_area_name")).toBe("Lebu");
+    expect(params?.has("from_area_name")).toBe(false);
+    expect(params?.has("to_area_id")).toBe(false);
+    const pair = screen.getByRole("group", { name: t.areasFilter });
+    expect(
+      await within(pair).findByText("From Bole to Lebu (not listed)"),
+    ).toBeVisible();
+
+    await user.click(within(pair).getByRole("button", { name: t.clearAreas }));
+    expect(navigation().push).toHaveBeenLastCalledWith(
+      "/route-requests?kind=new_areas&status=new",
+      { scroll: false },
+    );
+    // The button goes with the filter: focus stays on the kind chosen.
+    expect(
+      within(screen.getByRole("group", { name: t.kindFilter })).getByRole(
+        "button",
+        { name: t.kindNewAreas },
+      ),
+    ).toHaveFocus();
+  });
+
+  it("says when an area of the pair no longer exists", async () => {
+    navigation().search = `?from_area_id=${areas.bole.id}`;
+    serveRequests([]);
+    server.use(
+      http.get(apiUrl("/v1/areas/{area_id}"), () =>
+        problemResponse(404, "NOT_FOUND"),
+      ),
+    );
+    renderWithProviders(<RouteRequestsScreen />);
+
+    expect(
+      await screen.findByText("From an area that no longer exists to any area"),
+    ).toBeVisible();
+    expect(screen.getByText(t.noMatchesTitle)).toBeVisible();
   });
 
   it("ignores filters in the URL it doesn't know", async () => {

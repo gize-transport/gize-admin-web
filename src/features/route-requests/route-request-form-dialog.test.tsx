@@ -378,6 +378,57 @@ describe("RouteRequestFormDialog: recording", () => {
     expect(seen).toHaveLength(0);
   });
 
+  it("refuses a typed name that is the listed area at the other end", async () => {
+    const seen: Seen[] = [];
+    serveCreate(() => problemResponse(500, "INTERNAL_ERROR"), seen);
+    const user = userEvent.setup();
+    const { dialog } = renderDialog();
+
+    await pickArea(user, dialog, t.fromLegend, "Bole");
+    await nameEnd(user, dialog, t.toLegend, " bole ");
+    await fillWho(user, dialog);
+    await user.click(save(dialog));
+
+    const to = field(dialog, fill(t.endNameLabel, { end: t.toLegend }));
+    expect(await within(dialog).findByText(t.endNameIsOther)).toBeVisible();
+    expect(to).toHaveFocus();
+    expect(seen).toHaveLength(0);
+  });
+
+  it("explains the API matching a typed name to the area at the other end", async () => {
+    serveCreate(() => validationResponse("/from_area_name"));
+    const user = userEvent.setup();
+    const { dialog } = renderDialog();
+
+    // An area added meanwhile, with the name typed here.
+    await nameEnd(user, dialog, t.fromLegend, "Lebu");
+    await pickArea(user, dialog, t.toLegend, "Bole");
+    await fillWho(user, dialog);
+    await user.click(save(dialog));
+
+    const from = field(dialog, fill(t.endNameLabel, { end: t.fromLegend }));
+    await waitFor(() => expect(from).toHaveFocus());
+    expect(from).toHaveAccessibleDescription(
+      `${t.endNameHint} ${t.endNameIsOther}`,
+    );
+  });
+
+  it("keeps other refusals of a typed name as the API gives them", async () => {
+    serveCreate(() => validationResponse("/to_area_name", "too_long"));
+    const user = userEvent.setup();
+    const { dialog } = renderDialog();
+
+    await pickArea(user, dialog, t.fromLegend, "Bole");
+    await nameEnd(user, dialog, t.toLegend, "Lebu");
+    await fillWho(user, dialog);
+    await user.click(save(dialog));
+
+    expect(
+      await within(dialog).findByText(messages.ValidationReasons.too_long),
+    ).toBeVisible();
+    expect(within(dialog).queryByText(t.endNameIsOther)).toBeNull();
+  });
+
   it("explains a route that couldn't be loaded for a student's school, with a retry", async () => {
     servePickerRoutes([schoolRoute]);
     let fail = true;

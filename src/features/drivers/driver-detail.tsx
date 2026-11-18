@@ -1,7 +1,8 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
@@ -15,6 +16,9 @@ import { ProblemAlert } from "@/components/problem-alert";
 import { StatusPill } from "@/components/status-pill";
 import { showSuccessToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { routeKeys, useDriverRoutes } from "@/features/routes/queries";
+import { RouteStatusPill } from "@/features/routes/route-status-pill";
 import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
@@ -30,6 +34,7 @@ import {
 } from "./queries";
 
 type DriverRead = components["schemas"]["DriverRead"];
+type DriverRoutes = ReturnType<typeof useDriverRoutes>;
 
 type DriverDetailProps = {
   driverId: string;
@@ -92,6 +97,7 @@ function Loaded({
   // The status move as it was when its button was pressed: kept while the dialog closes, after
   // the driver has changed.
   const [deactivating, setDeactivating] = useState(driver.is_active);
+  const routes = useDriverRoutes(driver.id);
 
   return (
     <>
@@ -118,6 +124,9 @@ function Loaded({
           ) : (
             <StatusPill tone="neutral">{t("inactive")}</StatusPill>
           )}
+        </Fact>
+        <Fact label={t("routes")} wide>
+          <TheirRoutes routes={routes} />
         </Fact>
         <Fact label={t("added")}>{date(driver.created_at)}</Fact>
         <Fact label={t("updated")}>{date(driver.updated_at)}</Fact>
@@ -171,11 +180,13 @@ function Loaded({
       <StatusDialog
         driver={driver}
         deactivating={deactivating}
+        routes={routes}
         open={confirm === "status"}
         onClose={() => setConfirm(null)}
       />
       <DeleteDialog
         driver={driver}
+        routes={routes}
         open={confirm === "delete"}
         onClose={() => setConfirm(null)}
         onDeleted={onDeleted}
@@ -188,12 +199,14 @@ function Loaded({
 function StatusDialog({
   driver,
   deactivating,
+  routes,
   open,
   onClose,
 }: {
   driver: DriverRead;
   /** Deactivate (true) or reactivate (false), as when the dialog opened. */
   deactivating: boolean;
+  routes: DriverRoutes;
   open: boolean;
   onClose: () => void;
 }) {
@@ -202,6 +215,7 @@ function StatusDialog({
   const queryClient = useQueryClient();
   const update = useUpdateDriver();
   const error = update.error;
+  const assigned = useAssignedWords(error, routes, "deactivate");
   const waiting = useRetryWait(error);
   const action = deactivating ? t("deactivate") : t("reactivate");
   return (
@@ -229,6 +243,8 @@ function StatusDialog({
         update.mutate(
           { id: driver.id, change: { is_active: !deactivating } },
           {
+            onError: (failed) =>
+              refetchRoutesOf(queryClient, driver.id, failed),
             onSuccess: () => {
               showSuccessToast(
                 t(deactivating ? "deactivatedToast" : "reactivatedToast"),
@@ -241,28 +257,27 @@ function StatusDialog({
     >
       {error && (
         <ProblemAlert
-          message={
-            error instanceof ApiError && error.code === "DRIVER_ASSIGNED"
-              ? t("assignedDeactivate")
-              : message(error)
-          }
+          message={assigned?.words ?? message(error)}
           requestId={error instanceof ApiError ? error.requestId : null}
           retryAfterSeconds={
             error instanceof ApiError ? error.retryAfterSeconds : null
           }
         />
       )}
+      {assigned && <RouteLinks routes={assigned.routes} />}
     </ConfirmDialog>
   );
 }
 
 function DeleteDialog({
   driver,
+  routes,
   open,
   onClose,
   onDeleted,
 }: {
   driver: DriverRead;
+  routes: DriverRoutes;
   open: boolean;
   onClose: () => void;
   onDeleted?: () => void;
@@ -272,6 +287,7 @@ function DeleteDialog({
   const queryClient = useQueryClient();
   const remove = useDeleteDriver();
   const error = remove.error;
+  const assigned = useAssignedWords(error, routes, "delete");
   const waiting = useRetryWait(error);
   return (
     <ConfirmDialog
@@ -292,6 +308,7 @@ function DeleteDialog({
       confirmDisabled={waiting}
       onConfirm={() =>
         remove.mutate(driver.id, {
+          onError: (failed) => refetchRoutesOf(queryClient, driver.id, failed),
           onSuccess: () => {
             showSuccessToast(t("deletedToast"));
             onClose();
@@ -302,17 +319,144 @@ function DeleteDialog({
     >
       {error && (
         <ProblemAlert
-          message={
-            error instanceof ApiError && error.code === "DRIVER_ASSIGNED"
-              ? t("assignedDelete")
-              : message(error)
-          }
+          message={assigned?.words ?? message(error)}
           requestId={error instanceof ApiError ? error.requestId : null}
           retryAfterSeconds={
             error instanceof ApiError ? error.retryAfterSeconds : null
           }
         />
       )}
+      {assigned && <RouteLinks routes={assigned.routes} />}
     </ConfirmDialog>
+  );
+}
+
+type RouteLink = { id: string; code: string };
+
+/** A driver's routes in their details: each one's code (its page) and status. */
+function TheirRoutes({ routes }: { routes: DriverRoutes }) {
+  const t = useTranslations("Drivers");
+  if (routes.isPending) {
+    return (
+      <>
+        <span className="sr-only">{t("routesLoading")}</span>
+        <Skeleton aria-hidden className="h-5 w-40" />
+      </>
+    );
+  }
+  if (routes.isError) {
+    return (
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-muted">{t("routesError")}</span>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => void routes.refetch()}
+        >
+          {t("routesRetry")}
+        </Button>
+      </span>
+    );
+  }
+  const { items, next_cursor } = routes.data;
+  if (items.length === 0) {
+    return <span className="text-muted">{t("routesNone")}</span>;
+  }
+  return (
+    <>
+      <ul className="flex flex-wrap gap-x-4 gap-y-2">
+        {items.map((route) => (
+          <li key={route.id} className="flex items-center gap-2">
+            <Link
+              href={`/routes/${route.id}`}
+              className="font-mono font-semibold text-royal underline-offset-4 hover:underline"
+            >
+              {route.code}
+            </Link>
+            <RouteStatusPill route={route} showProgress={false} />
+          </li>
+        ))}
+      </ul>
+      {next_cursor !== null && (
+        <span className="mt-1 block text-table text-muted">
+          {t("routesFirst", { count: items.length })}
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
+ * After a 409 DRIVER_ASSIGNED, the routes it counts are read again: the refusal names them
+ * (GZ-076). A refusal for anything else leaves them.
+ */
+function refetchRoutesOf(
+  queryClient: ReturnType<typeof useQueryClient>,
+  driverId: string,
+  error: unknown,
+) {
+  if (error instanceof ApiError && error.code === "DRIVER_ASSIGNED") {
+    void queryClient.invalidateQueries({
+      queryKey: routeKeys.driver(driverId),
+    });
+  }
+}
+
+/**
+ * The words for a 409 DRIVER_ASSIGNED: the routes they drive, by code (read again after it); if
+ * none are known (not read, or none left), the refusal without names. null for any other error.
+ */
+function useAssignedWords(
+  error: unknown,
+  routes: DriverRoutes,
+  action: "deactivate" | "delete",
+): { words: string; routes: RouteLink[] } | null {
+  const t = useTranslations("Drivers");
+  const format = useFormatter();
+  if (!(error instanceof ApiError && error.code === "DRIVER_ASSIGNED")) {
+    return null;
+  }
+  // What was read last while it's read again: usually the same routes, so the words don't jump.
+  const items = routes.data?.items ?? [];
+  if (items.length === 0) {
+    return {
+      words: t(
+        action === "deactivate" ? "assignedDeactivate" : "assignedDelete",
+      ),
+      routes: [],
+    };
+  }
+  const codes = format.list(
+    items.map((route) => route.code),
+    { type: "conjunction" },
+  );
+  return {
+    words: t(
+      action === "deactivate"
+        ? "assignedDeactivateRoutes"
+        : "assignedDeleteRoutes",
+      { routes: codes, count: items.length },
+    ),
+    routes: items.map(({ id, code }) => ({ id, code })),
+  };
+}
+
+/** The routes a refusal names, each a link to change its driver there. */
+function RouteLinks({ routes }: { routes: RouteLink[] }) {
+  const t = useTranslations("Drivers");
+  if (routes.length === 0) return null;
+  return (
+    <ul className="flex flex-wrap gap-x-4 gap-y-2">
+      {routes.map((route) => (
+        <li key={route.id}>
+          <Link
+            href={`/routes/${route.id}`}
+            className="text-table font-semibold text-royal underline-offset-4 hover:underline"
+          >
+            {t("openRoute", { code: route.code })}
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

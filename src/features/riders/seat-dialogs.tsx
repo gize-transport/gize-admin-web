@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { routeKeys, useRoute } from "@/features/routes/queries";
 import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
@@ -53,10 +54,11 @@ type SeatRoute = {
   full: boolean;
   freeThisMonth: number | null;
   /**
-   * Why an adult can't have it now, as the API's rules say (riders_place): a paused route takes no
-   * one; Saturday riders need a route with a Saturday price. Shown, not chosen; the API decides.
+   * Why the rider can't have it now, as the API's rules say (riders_place): a paused public route
+   * takes no adult; Saturday riders need a route with a Saturday price; a company's draft route
+   * takes no one until it's started (GZ-078). Shown, not chosen; the API decides.
    */
-  unavailable: "paused" | "noSaturday" | null;
+  unavailable: "paused" | "noSaturday" | "notStarted" | null;
 };
 
 const selectClass =
@@ -99,7 +101,7 @@ function useSeatRoutes(rider: RiderRead) {
       times: `${route.morning_time}–${route.return_time}`,
       full: route.seats_free.this_month <= 0,
       freeThisMonth: route.seats_free.this_month,
-      unavailable: null,
+      unavailable: route.status === "draft" ? "notStarted" : null,
     }));
   } else {
     routes = trip.data?.items.map((route) => ({
@@ -553,6 +555,12 @@ const statusKeys = {
   paused: "routePaused",
 } as const;
 
+const unavailableNotes = {
+  paused: "routePausedNote",
+  noSaturday: "routeNoSaturday",
+  notStarted: "routeNotStartedNote",
+} as const;
+
 /** One route to choose: code, A → B, times, its state and whether it's full. */
 function RouteOption({
   route,
@@ -614,9 +622,7 @@ function RouteOption({
         </span>
         {unavailable && (
           <span id={`${uid}-why`} className="text-meta text-muted">
-            {t(
-              unavailable === "paused" ? "routePausedNote" : "routeNoSaturday",
-            )}
+            {t(unavailableNotes[unavailable])}
           </span>
         )}
         {route.freeThisMonth !== null && !route.full && (
@@ -838,6 +844,17 @@ export function KeepSeatDialog({
   const [nextSeat] = useState(rider.next_seat);
   const error = place.error;
   const waiting = useRetryWait(error);
+  // A company rider refused on their route (a 422 on route_id): it's back in draft (GZ-078), or no
+  // longer takes them (their home area changed). The route, read afresh, says which.
+  const refusedRoute =
+    rider.rider_type === "corporate" &&
+    error instanceof ApiError &&
+    error.fieldErrors.some(
+      (field) => field.location === "body" && field.path === "route_id",
+    );
+  const route = useRoute(refusedRoute ? (seat?.route_id ?? null) : null);
+  const notStarted =
+    refusedRoute && !route.isFetching && route.data?.status === "draft";
   if (!seat) return null;
   const full = error instanceof ApiError && error.code === "ROUTE_FULL";
   return (
@@ -866,7 +883,7 @@ export function KeepSeatDialog({
       }
       confirmLabel={t("keepSave", { code: seat.route_code })}
       pending={place.isPending}
-      confirmDisabled={waiting || full}
+      confirmDisabled={waiting || full || refusedRoute}
       onConfirm={() =>
         place.mutate(
           {
@@ -879,6 +896,13 @@ export function KeepSeatDialog({
               showSuccessToast(t("keptToast"));
               onClose();
             },
+            onError: () => {
+              // Read afresh to explain a refusal on it (its status may have changed meanwhile).
+              void queryClient.invalidateQueries({
+                queryKey: routeKeys.detail(seat.route_id),
+                refetchType: "all",
+              });
+            },
           },
         )
       }
@@ -886,7 +910,13 @@ export function KeepSeatDialog({
       {error && (
         <ProblemAlert
           message={
-            full ? t("keepFull", { code: seat.route_code }) : message(error)
+            full
+              ? t("keepFull", { code: seat.route_code })
+              : notStarted
+                ? t("keepNotStarted", { code: seat.route_code })
+                : refusedRoute
+                  ? t("seatRouteRefusedCompany")
+                  : message(error)
           }
           requestId={error instanceof ApiError ? error.requestId : null}
           retryAfterSeconds={

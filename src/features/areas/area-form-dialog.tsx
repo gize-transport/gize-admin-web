@@ -34,6 +34,12 @@ type AreaFormDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** The area to rename; omitted to add one. */
   area?: AreaRead;
+  /** A new area's name, filled in (Demand: the name callers typed as not listed). */
+  initialName?: string;
+  /** The area as saved, before the form closes. */
+  onSaved?: (area: AreaRead) => void;
+  /** Where focus goes once it has closed, read then; null: back to what opened it. */
+  focusOnClose?: () => HTMLElement | null;
 };
 
 /**
@@ -44,6 +50,9 @@ export function AreaFormDialog({
   open,
   onOpenChange,
   area,
+  initialName,
+  onSaved,
+  focusOnClose,
 }: AreaFormDialogProps) {
   const t = useTranslations("Areas");
   // Ids unique to this instance: Next can keep earlier pages (with their own copy of this) in the
@@ -80,7 +89,7 @@ export function AreaFormDialog({
     formState: { errors },
   } = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
-    defaultValues: { name: area?.name ?? "" },
+    defaultValues: { name: area?.name ?? initialName ?? "" },
   });
 
   const onSubmit = handleSubmit(async ({ name }) => {
@@ -89,9 +98,11 @@ export function AreaFormDialog({
       if (area) {
         const renamed = await rename.mutateAsync({ id: area.id, name });
         showSuccessToast(t("renamed", { name: renamed.name }));
+        onSaved?.(renamed);
       } else {
         const added = await create.mutateAsync({ name, idempotencyKey });
         showSuccessToast(t("added", { name: added.name }));
+        onSaved?.(added);
       }
       onOpenChange(false);
     } catch (error) {
@@ -125,7 +136,9 @@ export function AreaFormDialog({
               ? document.activeElement
               : null;
         }}
-        onCloseAutoFocus={(event) => returnFocus(event, returnFocusTo.current)}
+        onCloseAutoFocus={(event) =>
+          returnFocus(event, focusOnClose?.() ?? returnFocusTo.current)
+        }
       >
         <div className="grid gap-1">
           <DialogTitle>

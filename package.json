@@ -18,7 +18,8 @@
     "prepare": "git config core.hooksPath .githooks || true",
     "screenshots": "playwright test --grep @screenshot",
     "contract:sync": "node scripts/contract-sync.mjs",
-    "contract:check": "node scripts/contract-check.mjs"
+    "contract:check": "node scripts/contract-check.mjs",
+    "audit:check": "node scripts/audit-check.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.2",

@@ -7,6 +7,7 @@ import { apiUrl, server, type Schemas } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { currentStaffQueryKey } from "@/lib/auth/use-current-staff";
+import { route } from "../routes/test-support";
 import { DriverDetail } from "./driver-detail";
 import {
   bereket,
@@ -38,7 +39,24 @@ startMswServer();
 beforeEach(() => {
   toast.mockClear();
   serveRole("staff");
+  serveTheirRoutes(() => []);
 });
+
+const b07 = route("B-07", 7, { status: "active" });
+const r21 = route("R-21", 21, { status: "draft" });
+
+/** The routes `driver_id` drives, as `routes()` says at each call; records the filters sent. */
+function serveTheirRoutes(routes: () => Schemas["RouteRead"][], seen?: URL[]) {
+  server.use(
+    http.get(apiUrl("/v1/routes"), ({ request }) => {
+      seen?.push(new URL(request.url));
+      return HttpResponse.json<Schemas["RoutePage"]>({
+        items: routes(),
+        next_cursor: null,
+      });
+    }),
+  );
+}
 
 function renderDetail(
   found: Schemas["DriverRead"],
@@ -79,6 +97,48 @@ describe("DriverDetail", () => {
     expect(fact(t.status)).toHaveTextContent(t.inactive);
     expect(fact(t.added)).toHaveTextContent("Nov 5, 2026");
     expect(fact(t.updated)).toHaveTextContent("Nov 8, 2026");
+    await waitFor(() => expect(fact(t.routes)).toHaveTextContent(t.routesNone));
+  });
+
+  it("lists the routes they drive, each linked, with its status", async () => {
+    const seen: URL[] = [];
+    serveDriver(bereket);
+    serveTheirRoutes(() => [b07, r21], seen);
+    renderDetail(bereket);
+
+    const facts = await screen.findByRole("group", { name: t.detailLabel });
+    expect(
+      await within(facts).findByRole("link", { name: "B-07" }),
+    ).toHaveAttribute("href", `/routes/${b07.id}`);
+    expect(within(facts).getByRole("link", { name: "R-21" })).toHaveAttribute(
+      "href",
+      `/routes/${r21.id}`,
+    );
+    expect(within(facts).getByText(messages.RouteStatus.draft)).toBeVisible();
+    expect(seen[0]?.searchParams.get("driver_id")).toBe(bereket.id);
+  });
+
+  it("says when their routes couldn't be loaded, with a retry", async () => {
+    let fail = true;
+    serveDriver(bereket);
+    server.use(
+      http.get(apiUrl("/v1/routes"), () => {
+        if (fail) {
+          fail = false;
+          return problemResponse(503, "SERVICE_UNAVAILABLE");
+        }
+        return HttpResponse.json<Schemas["RoutePage"]>({
+          items: [b07],
+          next_cursor: null,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderDetail(bereket);
+
+    expect(await screen.findByText(t.routesError)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: t.routesRetry }));
+    expect(await screen.findByRole("link", { name: "B-07" })).toBeVisible();
   });
 
   it("explains a driver that no longer exists", async () => {
@@ -147,8 +207,11 @@ describe("DriverDetail", () => {
     ).toBeNull();
   });
 
-  it("explains why a driver who drives a route can't be deactivated", async () => {
+  it("names the routes a driver drives when they can't be deactivated, read again", async () => {
     serveDriver(bereket);
+    // Given B-07 and R-21 after the page loaded.
+    let given = false;
+    serveTheirRoutes(() => (given ? [b07, r21] : []));
     server.use(
       http.patch(apiUrl("/v1/drivers/{driver_id}"), () =>
         problemResponse(409, "DRIVER_ASSIGNED", "req-assigned"),
@@ -159,12 +222,23 @@ describe("DriverDetail", () => {
 
     await user.click(await screen.findByRole("button", { name: t.deactivate }));
     const dialog = await screen.findByRole("alertdialog");
+    given = true;
     await user.click(
       within(dialog).getByRole("button", { name: t.deactivate }),
     );
 
-    expect(await within(dialog).findByText(t.assignedDeactivate)).toBeVisible();
+    expect(
+      await within(dialog).findByText(
+        "They drive B-07 and R-21, so they can't be deactivated. Give those routes another driver, or none, first.",
+      ),
+    ).toBeVisible();
     expect(within(dialog).getByText("req-assigned")).toBeVisible();
+    expect(
+      within(dialog).getByRole("link", { name: "Open B-07" }),
+    ).toHaveAttribute("href", `/routes/${b07.id}`);
+    expect(
+      within(dialog).getByRole("link", { name: "Open R-21" }),
+    ).toHaveAttribute("href", `/routes/${r21.id}`);
     expect(toast).not.toHaveBeenCalled();
   });
 
@@ -251,10 +325,39 @@ describe("DriverDetail", () => {
     expect(toast).toHaveBeenCalledWith(t.deletedToast);
   });
 
+  it("names the routes a driver drives when they can't be deleted", async () => {
+    serveRole("admin");
+    serveDriver(bereket);
+    serveTheirRoutes(() => [b07]);
+    server.use(
+      http.delete(apiUrl("/v1/drivers/{driver_id}"), () =>
+        problemResponse(409, "DRIVER_ASSIGNED"),
+      ),
+    );
+    const user = userEvent.setup();
+    renderDetail(bereket);
+
+    await user.click(await screen.findByRole("button", { name: t.delete }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: t.delete }));
+
+    expect(
+      await within(dialog).findByText(
+        "They drive B-07, so they can't be deleted. Give that route another driver, or none, first.",
+      ),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole("link", { name: "Open B-07" }),
+    ).toHaveAttribute("href", `/routes/${b07.id}`);
+  });
+
   it("explains why a driver who drives a route can't be deleted", async () => {
     serveRole("admin");
     serveDriver(bereket);
     server.use(
+      http.get(apiUrl("/v1/routes"), () =>
+        problemResponse(503, "SERVICE_UNAVAILABLE"),
+      ),
       http.delete(apiUrl("/v1/drivers/{driver_id}"), () =>
         problemResponse(409, "DRIVER_ASSIGNED", "req-assigned"),
       ),
@@ -266,8 +369,10 @@ describe("DriverDetail", () => {
     const dialog = await screen.findByRole("alertdialog");
     await user.click(within(dialog).getByRole("button", { name: t.delete }));
 
+    // Their routes can't be read: the refusal without names.
     expect(await within(dialog).findByText(t.assignedDelete)).toBeVisible();
     expect(within(dialog).getByText("req-assigned")).toBeVisible();
+    expect(within(dialog).queryAllByRole("link")).toHaveLength(0);
   });
 
   it("explains a delete the API refuses for this role", async () => {
