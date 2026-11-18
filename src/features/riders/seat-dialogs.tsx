@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { routeKeys, useRoute } from "@/features/routes/queries";
 import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
@@ -843,15 +844,19 @@ export function KeepSeatDialog({
   const [nextSeat] = useState(rider.next_seat);
   const error = place.error;
   const waiting = useRetryWait(error);
-  if (!seat) return null;
-  const full = error instanceof ApiError && error.code === "ROUTE_FULL";
-  // Refused on the route: a company route back in draft takes no one until it's started (GZ-078).
-  const notStarted =
+  // A company rider refused on their route (a 422 on route_id): it's back in draft (GZ-078), or no
+  // longer takes them (their home area changed). The route, read afresh, says which.
+  const refusedRoute =
     rider.rider_type === "corporate" &&
     error instanceof ApiError &&
     error.fieldErrors.some(
       (field) => field.location === "body" && field.path === "route_id",
     );
+  const route = useRoute(refusedRoute ? (seat?.route_id ?? null) : null);
+  const notStarted =
+    refusedRoute && !route.isFetching && route.data?.status === "draft";
+  if (!seat) return null;
+  const full = error instanceof ApiError && error.code === "ROUTE_FULL";
   return (
     <ConfirmDialog
       open={open}
@@ -878,7 +883,7 @@ export function KeepSeatDialog({
       }
       confirmLabel={t("keepSave", { code: seat.route_code })}
       pending={place.isPending}
-      confirmDisabled={waiting || full || notStarted}
+      confirmDisabled={waiting || full || refusedRoute}
       onConfirm={() =>
         place.mutate(
           {
@@ -891,6 +896,13 @@ export function KeepSeatDialog({
               showSuccessToast(t("keptToast"));
               onClose();
             },
+            onError: () => {
+              // Read afresh to explain a refusal on it (its status may have changed meanwhile).
+              void queryClient.invalidateQueries({
+                queryKey: routeKeys.detail(seat.route_id),
+                refetchType: "all",
+              });
+            },
           },
         )
       }
@@ -902,7 +914,9 @@ export function KeepSeatDialog({
               ? t("keepFull", { code: seat.route_code })
               : notStarted
                 ? t("keepNotStarted", { code: seat.route_code })
-                : message(error)
+                : refusedRoute
+                  ? t("seatRouteRefusedCompany")
+                  : message(error)
           }
           requestId={error instanceof ApiError ? error.requestId : null}
           retryAfterSeconds={

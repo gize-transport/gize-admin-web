@@ -413,6 +413,22 @@ describe("RouteRequestFormDialog: recording", () => {
     );
   });
 
+  it("keeps other refusals of a typed name as the API gives them", async () => {
+    serveCreate(() => validationResponse("/to_area_name", "too_long"));
+    const user = userEvent.setup();
+    const { dialog } = renderDialog();
+
+    await pickArea(user, dialog, t.fromLegend, "Bole");
+    await nameEnd(user, dialog, t.toLegend, "Lebu");
+    await fillWho(user, dialog);
+    await user.click(save(dialog));
+
+    expect(
+      await within(dialog).findByText(messages.ValidationReasons.too_long),
+    ).toBeVisible();
+    expect(within(dialog).queryByText(t.endNameIsOther)).toBeNull();
+  });
+
   it("explains a route that couldn't be loaded for a student's school, with a retry", async () => {
     servePickerRoutes([schoolRoute]);
     let fail = true;

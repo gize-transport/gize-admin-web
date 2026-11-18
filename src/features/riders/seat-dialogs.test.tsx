@@ -13,6 +13,7 @@ import {
   problemResponse,
   route,
   serveRole,
+  serveRoute,
   validationResponse,
 } from "../routes/test-support";
 import { EndSeatDialog, KeepSeatDialog, PlaceSeatDialog } from "./seat-dialogs";
@@ -114,6 +115,18 @@ function renderPlace(who: Schemas["RiderRead"]) {
   );
   return { onOpenChange, onRecordRequest, dialog: screen.getByRole("dialog") };
 }
+
+/** A company rider whose seat on `onTo` was ending (Keep places them back on it). */
+const onRoute = (onTo: Schemas["RouteRead"]): Schemas["RiderRead"] => ({
+  ...companyRider,
+  seat: {
+    route_id: onTo.id,
+    route_code: onTo.code,
+    status: "active",
+    start_date: "2026-09-01",
+    end_date: "2026-11-30",
+  },
+});
 
 const option = (dialog: HTMLElement, code: string) =>
   within(dialog).getByRole("radio", { name: new RegExp(`^${code}`) });
@@ -700,19 +713,15 @@ describe("KeepSeatDialog", () => {
 
   it("explains that a company route back in draft must be started first", async () => {
     servePlace(() => validationResponse("/route_id"), []);
-    const onTheDraft = {
-      ...companyRider,
-      seat: {
-        route_id: "00000000-0000-4000-c000-000000000021",
-        route_code: "R-21",
-        status: "active" as const,
-        start_date: "2026-09-01",
-        end_date: "2026-11-30",
-      },
-    };
+    const r21 = route("R-21", 21, {
+      route_type: "corporate",
+      company: brewery,
+      status: "draft",
+    });
+    serveRoute(r21);
     const user = userEvent.setup();
     renderWithProviders(
-      <KeepSeatDialog rider={onTheDraft} open onClose={vi.fn()} />,
+      <KeepSeatDialog rider={onRoute(r21)} open onClose={vi.fn()} />,
     );
     const dialog = screen.getByRole("alertdialog");
     const keep = within(dialog).getByRole("button", {
@@ -724,5 +733,35 @@ describe("KeepSeatDialog", () => {
       await within(dialog).findByText(fill(t.keepNotStarted, { code: "R-21" })),
     ).toBeVisible();
     expect(keep).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("explains a started company route that no longer takes them, without saying it isn't started", async () => {
+    servePlace(() => validationResponse("/route_id"), []);
+    const r21 = route("R-21", 21, {
+      route_type: "corporate",
+      company: brewery,
+      status: "active",
+    });
+    serveRoute(r21);
+    const user = userEvent.setup();
+    renderWithProviders(
+      <KeepSeatDialog rider={onRoute(r21)} open onClose={vi.fn()} />,
+    );
+    const dialog = screen.getByRole("alertdialog");
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: fill(t.keepSave, { code: "R-21" }),
+      }),
+    );
+
+    expect(
+      await within(dialog).findByText(t.seatRouteRefusedCompany),
+    ).toBeVisible();
+    // Read afresh: still not "not started".
+    await waitFor(() =>
+      expect(
+        within(dialog).queryByText(fill(t.keepNotStarted, { code: "R-21" })),
+      ).toBeNull(),
+    );
   });
 });

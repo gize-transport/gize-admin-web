@@ -1794,7 +1794,6 @@ function routeFits(
   );
 }
 
-/** Another live, open request asks for the same (the API's unique rule). */
 /** A live area with this name, ignoring case. @param {string} name */
 function liveAreaNamed(name) {
   return areas.find((area) => area.name.toLowerCase() === name.toLowerCase());
@@ -1829,6 +1828,7 @@ function linkTypedRequests(area) {
   }
 }
 
+/** Another live, open request asks for the same (the API's unique rule). */
 function sameRequestOpen(
   /** @type {Omit<FakeRequest, "id">} */ asked,
   /** @type {string | null} */ exceptId,

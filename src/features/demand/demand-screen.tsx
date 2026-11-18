@@ -187,7 +187,8 @@ export function DemandScreen() {
           initialName={opened.name}
           onSaved={(area) => {
             // The card moves under the area once the summary is read again: focus it there.
-            focusPair.current = pairKeyWith(opened.pair, opened.name, area);
+            // The API links the requests that typed the name as saved (staff may have changed it).
+            focusPair.current = pairKeyWith(opened.pair, area);
           }}
           focusOnClose={() => {
             const key = focusPair.current;
@@ -217,12 +218,12 @@ export function DemandScreen() {
 }
 
 /**
- * The key `pair` will have once `added` (an area just added or renamed) takes the place of the
- * name it was added for, at whichever end typed it (ignoring case, as the API links them).
+ * The key `pair` will have once `added` (an area just added) takes the place of an end typed as
+ * its name (ignoring case, as the API links them). An end typed otherwise stays.
  */
-function pairKeyWith(pair: AreaPairDemand, name: string, added: AreaRef) {
+function pairKeyWith(pair: AreaPairDemand, added: AreaRef) {
   const typed = (value: string | null) =>
-    value !== null && value.toLowerCase() === name.toLowerCase();
+    value !== null && value.toLowerCase() === added.name.toLowerCase();
   return pairKey({
     ...pair,
     from_area: typed(pair.from_area_name) ? added : pair.from_area,

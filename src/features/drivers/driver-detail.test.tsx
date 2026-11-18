@@ -325,6 +325,32 @@ describe("DriverDetail", () => {
     expect(toast).toHaveBeenCalledWith(t.deletedToast);
   });
 
+  it("names the routes a driver drives when they can't be deleted", async () => {
+    serveRole("admin");
+    serveDriver(bereket);
+    serveTheirRoutes(() => [b07]);
+    server.use(
+      http.delete(apiUrl("/v1/drivers/{driver_id}"), () =>
+        problemResponse(409, "DRIVER_ASSIGNED"),
+      ),
+    );
+    const user = userEvent.setup();
+    renderDetail(bereket);
+
+    await user.click(await screen.findByRole("button", { name: t.delete }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: t.delete }));
+
+    expect(
+      await within(dialog).findByText(
+        "They drive B-07, so they can't be deleted. Give that route another driver, or none, first.",
+      ),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole("link", { name: "Open B-07" }),
+    ).toHaveAttribute("href", `/routes/${b07.id}`);
+  });
+
   it("explains why a driver who drives a route can't be deleted", async () => {
     serveRole("admin");
     serveDriver(bereket);

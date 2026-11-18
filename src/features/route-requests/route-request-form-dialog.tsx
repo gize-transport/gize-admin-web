@@ -64,6 +64,19 @@ const sameLooking = (value: string) =>
 const chosen = <T,>() =>
   z.custom<T>((value) => typeof value === "object" && value !== null);
 
+/** The API refused a typed end as the other end's area (GZ-077): its `invalid` 422 on that field. */
+function sameEndRefused(error: unknown, field: string) {
+  return (
+    error instanceof ApiError &&
+    error.fieldErrors.some(
+      (refused) =>
+        refused.location === "body" &&
+        refused.path === field &&
+        refused.reason === "invalid",
+    )
+  );
+}
+
 /** The API's field names → the form's, for its 422s. */
 const apiFields = {
   from_area_id: "fromArea",
@@ -398,8 +411,12 @@ export function RouteRequestFormDialog({
       for (const [apiField, field] of failed) {
         let words = fields[apiField];
         if (apiField === "route_id") words = t("routeNotFor");
-        // A typed name the API matched to the listed area at the other end (GZ-077).
-        if (apiField === "from_area_name" || apiField === "to_area_name") {
+        // A typed name the API matched to the listed area at the other end (GZ-077): the
+        // service's own refusal ("invalid"), not a length or format one.
+        if (
+          (apiField === "from_area_name" || apiField === "to_area_name") &&
+          sameEndRefused(error, apiField)
+        ) {
           words = t("endNameIsOther");
         }
         if (apiField === "school_name" && request) words = t("schoolNotRoute");

@@ -161,6 +161,13 @@ describe("RouteRequestsScreen", () => {
       "/route-requests?kind=new_areas&status=new",
       { scroll: false },
     );
+    // The button goes with the filter: focus stays on the kind chosen.
+    expect(
+      within(screen.getByRole("group", { name: t.kindFilter })).getByRole(
+        "button",
+        { name: t.kindNewAreas },
+      ),
+    ).toHaveFocus();
   });
 
   it("says when an area of the pair no longer exists", async () => {

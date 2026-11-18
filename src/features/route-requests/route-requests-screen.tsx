@@ -2,7 +2,7 @@
 
 import { InboxIcon, PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import {
   createDataTableColumnHelper,
   DataTable,
@@ -81,6 +81,8 @@ export function RouteRequestsScreen() {
   };
   const requests = useRouteRequests(filters);
   const [formKey, setFormKey] = useState<number | null>(null);
+  // The kind chips: where focus goes when the pair filter (and its button) goes away.
+  const kindChips = useRef<HTMLDivElement>(null);
   const [formOpen, setFormOpen] = useState(false);
 
   function openForm() {
@@ -185,14 +187,16 @@ export function RouteRequestsScreen() {
               { value: "false", label: t("filterClosed") },
             ]}
           />
-          <FilterChips
-            param="kind"
-            label={t("kindFilter")}
-            options={[
-              { value: "new_areas", label: t("kindNewAreas") },
-              { value: "route", label: t("kindRoute") },
-            ]}
-          />
+          <div ref={kindChips}>
+            <FilterChips
+              param="kind"
+              label={t("kindFilter")}
+              options={[
+                { value: "new_areas", label: t("kindNewAreas") },
+                { value: "route", label: t("kindRoute") },
+              ]}
+            />
+          </div>
         </div>
         <FilterChips
           param="status"
@@ -218,11 +222,14 @@ export function RouteRequestsScreen() {
           <PairFilter
             from={{ id: filters.fromAreaId, name: filters.fromAreaName }}
             to={{ id: filters.toAreaId, name: filters.toAreaName }}
-            onClear={() =>
+            onClear={() => {
+              kindChips.current
+                ?.querySelector<HTMLElement>('[aria-pressed="true"]')
+                ?.focus();
               setFilters(
                 Object.fromEntries(AREA_FILTERS.map((key) => [key, null])),
-              )
-            }
+              );
+            }}
           />
         )}
       </div>
