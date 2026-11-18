@@ -4416,7 +4416,7 @@
         ]
       },
       "post": {
-        "description": "Requires `Idempotency-Key`. 409 AREA_NAME_TAKEN: a live area has this name, ignoring\ncase.",
+        "description": "Requires `Idempotency-Key`. 409 AREA_NAME_TAKEN: a live area has this name, ignoring\ncase. Open route requests that typed this name, ignoring case, now name the area.",
         "operationId": "areas_create",
         "parameters": [
           {
@@ -5205,7 +5205,7 @@
         ]
       },
       "patch": {
-        "description": "Everything that refers to the area shows the new name. Renaming to the current name\nchanges nothing.",
+        "description": "Everything that refers to the area shows the new name. Renaming to the current name\nchanges nothing on the area. Either way, open route requests that typed its name,\nignoring case, now name the area.",
         "operationId": "areas_update",
         "parameters": [
           {
@@ -13887,7 +13887,7 @@
     },
     "/v1/riders/{rider_id}/seat": {
       "put": {
-        "description": "Requires `Idempotency-Key`. An adult rides a public route that takes their trip\n(a reservation on a `forming` one, a place on an `active` one) from a 1st; a company\nrider their company's route from any day. A move ends the seat they hold the day\nbefore (a reservation just ends).\n\n- 409 ROUTE_FULL: not a seat free on every day from the start (record a route request).\n- 409 ROUTE_HAS_WAITING_REQUESTS: an adult on an active route ahead of other people's\n  open requests for it: send a `skip_reason` (kept and audited). Their own requests for\n  it are fulfilled.\n- 409 ALREADY_ON_ROUTE: they hold a seat on it that isn't ending. On the route of a\n  seat they are leaving, the end is undone instead (and a move still to come ends).\n- 409 RIDER_MOVING: a move is already planned: undo it first (place them back on\n  their current route).\n- 409 ROUTE_NOT_READY: a company rider whose company isn't active.\n- 422 on `route_id`: a route that doesn't take this rider, or a forming one for\n  someone riding now (it may launch late); on `start_date`: not a coming 1st for an\n  adult, past, or more than a year ahead.",
+        "description": "Requires `Idempotency-Key`. An adult rides a public route that takes their trip\n(a reservation on a `forming` one, a place on an `active` one) from a 1st; a company\nrider their company's `active` or `paused` route (not a draft) from any day. A move\nends the seat they hold the day before (a reservation just ends).\n\n- 409 ROUTE_FULL: not a seat free on every day from the start (record a route request).\n- 409 ROUTE_HAS_WAITING_REQUESTS: an adult on an active route ahead of other people's\n  open requests for it: send a `skip_reason` (kept and audited). Their own requests for\n  it are fulfilled.\n- 409 ALREADY_ON_ROUTE: they hold a seat on it that isn't ending. On the route of a\n  seat they are leaving, the end is undone instead (and a move still to come ends).\n- 409 RIDER_MOVING: a move is already planned: undo it first (place them back on\n  their current route).\n- 409 ROUTE_NOT_READY: a company rider whose company isn't active.\n- 422 on `route_id`: a route that doesn't take this rider, or a forming one for\n  someone riding now (it may launch late); on `start_date`: not a coming 1st for an\n  adult, past, or more than a year ahead.",
         "operationId": "riders_place",
         "parameters": [
           {
@@ -14777,6 +14777,84 @@
               ],
               "title": "Route Id"
             }
+          },
+          {
+            "description": "A listed area at A.",
+            "in": "query",
+            "name": "from_area_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A listed area at A.",
+              "title": "From Area Id"
+            }
+          },
+          {
+            "description": "An area typed as not listed at A, ignoring case.",
+            "in": "query",
+            "name": "from_area_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "An area typed as not listed at A, ignoring case.",
+              "title": "From Area Name"
+            }
+          },
+          {
+            "description": "A listed area at B.",
+            "in": "query",
+            "name": "to_area_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A listed area at B.",
+              "title": "To Area Id"
+            }
+          },
+          {
+            "description": "An area typed as not listed at B, ignoring case.",
+            "in": "query",
+            "name": "to_area_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "An area typed as not listed at B, ignoring case.",
+              "title": "To Area Name"
+            }
           }
         ],
         "responses": {
@@ -15009,7 +15087,7 @@
         ]
       },
       "post": {
-        "description": "A `new` request from `staff`. Requires `Idempotency-Key`. 409 ROUTE_REQUEST_EXISTS:\nthe same rider already has an open request for this. An area or route that doesn't exist\nor doesn't fit is a 422 on its field.",
+        "description": "A `new` request from `staff`. Requires `Idempotency-Key`. 409 ROUTE_REQUEST_EXISTS:\nthe same rider already has an open request for this. An area or route that doesn't exist\nor doesn't fit is a 422 on its field. A typed area name that is a listed area's, ignoring\ncase, names that area (422 on the typed field if it is the other end's).",
         "operationId": "route_requests_create",
         "parameters": [
           {
@@ -16721,6 +16799,25 @@
                 }
               ],
               "title": "Company Id"
+            }
+          },
+          {
+            "description": "Routes this driver drives.",
+            "in": "query",
+            "name": "driver_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Routes this driver drives.",
+              "title": "Driver Id"
             }
           }
         ],
