@@ -111,7 +111,7 @@ test.describe("drivers", () => {
     await expect(driver.getByText(t.active, { exact: true })).toBeVisible();
   });
 
-  test("a phone another driver has is refused on its field, and a driver of a route can't be deactivated", async ({
+  test("a phone another driver has is refused on its field, and a driver of a route can't be deactivated until that route changes", async ({
     page,
   }) => {
     await signIn(page, "staff", "/sign-in?next=%2Fdrivers");
@@ -137,13 +137,26 @@ test.describe("drivers", () => {
       .getByRole("link", { name: "Bereket Tolosa" })
       .click();
     const bereket = await opened(page, "Bereket Tolosa");
+    // Their routes, each linked.
+    await expect(
+      bereket.getByRole("link", { name: "B-07", exact: true }),
+    ).toBeVisible();
     await bereket.getByRole("button", { name: t.deactivate }).click();
     const confirm = page.getByRole("alertdialog", {
       name: fill(t.deactivateTitle, { name: "Bereket Tolosa" }),
     });
     await confirm.getByRole("button", { name: t.deactivate }).click();
-    await expect(confirm.getByText(t.assignedDeactivate)).toBeVisible();
+    // The refusal names the route to change, and links to it.
+    await expect(
+      confirm.getByText(
+        "They drive B-07, so they can't be deactivated. Give that route another driver, or none, first.",
+      ),
+    ).toBeVisible();
     await expectNoSeriousA11yViolations(page);
+    await confirm.getByRole("link", { name: "Open B-07" }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "B-07" }),
+    ).toBeVisible();
   });
 
   test("an admin deletes a driver", async ({ page }) => {

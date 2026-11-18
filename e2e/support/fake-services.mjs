@@ -1477,7 +1477,7 @@ function listRoutes(url, response) {
   }
   /** @type {Record<string, string | null>} */
   const ids = {};
-  for (const name of ["corridor_id", "company_id"]) {
+  for (const name of ["corridor_id", "company_id", "driver_id"]) {
     const value = url.searchParams.get(name);
     if (value !== null && !UUID.test(value)) {
       return validationProblem(response, `/${name}`, "invalid_format", "query");
@@ -1501,7 +1501,9 @@ function listRoutes(url, response) {
         (type === null || route.route_type === type) &&
         (status === null || route.status === status) &&
         (ids.corridor_id === null || route.corridorId === ids.corridor_id) &&
-        (ids.company_id === null || route.companyId === ids.company_id),
+        (ids.company_id === null || route.companyId === ids.company_id) &&
+        // A driver's routes, any status (GZ-076).
+        (ids.driver_id === null || route.driverId === ids.driver_id),
     )
     .sort(
       (a, b) =>
@@ -1793,6 +1795,40 @@ function routeFits(
 }
 
 /** Another live, open request asks for the same (the API's unique rule). */
+/** A live area with this name, ignoring case. @param {string} name */
+function liveAreaNamed(name) {
+  return areas.find((area) => area.name.toLowerCase() === name.toLowerCase());
+}
+
+/**
+ * An area added or renamed: open requests with an end typed as its name (ignoring case) name it
+ * instead, like GZ-077. Skipped (the text stays) when the area would be at both ends or the request
+ * would repeat the same rider's open one.
+ * @param {FakeArea} area
+ */
+function linkTypedRequests(area) {
+  const named = (/** @type {string | null} */ typed) =>
+    typed !== null && typed.toLowerCase() === area.name.toLowerCase();
+  for (const request of requests) {
+    if (request.deleted || !isOpen(request)) continue;
+    const fromEnd = named(request.from_area_name);
+    const toEnd = named(request.to_area_name);
+    if (!fromEnd && !toEnd) continue;
+    const linked = {
+      ...request,
+      fromAreaId: fromEnd ? area.id : request.fromAreaId,
+      from_area_name: fromEnd ? null : request.from_area_name,
+      toAreaId: toEnd ? area.id : request.toAreaId,
+      to_area_name: toEnd ? null : request.to_area_name,
+    };
+    if (linked.fromAreaId !== null && linked.fromAreaId === linked.toAreaId) {
+      continue;
+    }
+    if (sameRequestOpen(linked, request.id)) continue;
+    Object.assign(request, linked, { updated_at: new Date().toISOString() });
+  }
+}
+
 function sameRequestOpen(
   /** @type {Omit<FakeRequest, "id">} */ asked,
   /** @type {string | null} */ exceptId,
@@ -2007,6 +2043,39 @@ function listRequests(url, response) {
   if (routeId !== null && !UUID.test(routeId)) {
     return validationProblem(response, "/route_id", "invalid_format", "query");
   }
+  // Each end of a new-areas request: a listed area's id or a typed name, never both (GZ-076).
+  /** @type {Record<string, string | null>} */
+  const ends = {};
+  for (const end of ["from", "to"]) {
+    const id = url.searchParams.get(`${end}_area_id`);
+    const name = url.searchParams.get(`${end}_area_name`);
+    if (id !== null && !UUID.test(id)) {
+      return validationProblem(
+        response,
+        `/${end}_area_id`,
+        "invalid_format",
+        "query",
+      );
+    }
+    if (name !== null && (name.length < 1 || name.length > 100)) {
+      return validationProblem(
+        response,
+        `/${end}_area_name`,
+        "invalid",
+        "query",
+      );
+    }
+    if (id !== null && name !== null) {
+      return validationProblem(
+        response,
+        `/${end}_area_name`,
+        "invalid",
+        "query",
+      );
+    }
+    ends[`${end}Id`] = id;
+    ends[`${end}Name`] = name?.toLowerCase() ?? null;
+  }
   const limit = Number(url.searchParams.get("limit") ?? 25);
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     return validationProblem(response, "/limit", "out_of_range", "query");
@@ -2026,7 +2095,13 @@ function listRequests(url, response) {
         (open === null || isOpen(request) === (open === "true")) &&
         (routeId === null ||
           request.routeId === routeId ||
-          request.matchedRouteId === routeId),
+          request.matchedRouteId === routeId) &&
+        (ends.fromId === null || request.fromAreaId === ends.fromId) &&
+        (ends.fromName === null ||
+          request.from_area_name?.toLowerCase() === ends.fromName) &&
+        (ends.toId === null || request.toAreaId === ends.toId) &&
+        (ends.toName === null ||
+          request.to_area_name?.toLowerCase() === ends.toName),
     )
     .sort(
       (a, b) =>
@@ -2655,6 +2730,8 @@ function routeTakesRider(route, rider) {
     const corridor = corridors.find((c) => c.id === route.corridorId);
     return (
       route.route_type === "corporate" &&
+      // Started routes only, not a draft (GZ-078).
+      ["active", "paused"].includes(route.status) &&
       route.companyId === rider.companyId &&
       corridor !== undefined &&
       takesTrip(route, rider.homeId, corridor.destinationId)
@@ -3235,6 +3312,7 @@ const api = createServer(async (request, response) => {
       /** @type {FakeArea} */
       const area = { id: randomUUID(), name, created_at: now, updated_at: now };
       areas.push(area);
+      linkTypedRequests(area);
       areaKeys.set(`${user.email}|${key}`, { area, fingerprint });
       return send(response, 201, areaRead(area));
     }
@@ -3259,8 +3337,12 @@ const api = createServer(async (request, response) => {
       if (areaNameTaken(name, area.id)) {
         return problem(response, 409, "AREA_NAME_TAKEN");
       }
-      area.name = name;
-      area.updated_at = new Date().toISOString();
+      if (area.name !== name) {
+        area.name = name;
+        area.updated_at = new Date().toISOString();
+      }
+      // Either way, open requests that typed its name now name it (GZ-077).
+      linkTypedRequests(area);
       return send(response, 200, areaRead(area));
     }
     if (request.method === "DELETE") {
@@ -3551,6 +3633,8 @@ const api = createServer(async (request, response) => {
       laterReserved: undefined,
       hasRiders: false,
       hasRequests: false,
+      // A new van has no driver yet (the API doesn't copy one).
+      driverId: null,
       created_at: now,
       updated_at: now,
     };
@@ -4722,6 +4806,21 @@ const api = createServer(async (request, response) => {
         if (id !== null && !areas.some((area) => area.id === id)) {
           return validationProblem(response, `/${field}`, "invalid");
         }
+      }
+      // A typed name that is a listed area's names the area (GZ-077); the other end's: a 422.
+      for (const [end, other] of [
+        ["from", "to"],
+        ["to", "from"],
+      ]) {
+        const typed = fields[`${end}_area_name`];
+        const listed =
+          typeof typed === "string" ? liveAreaNamed(typed) : undefined;
+        if (!listed) continue;
+        if (fields[`${other}_area_id`] === listed.id) {
+          return validationProblem(response, `/${end}_area_name`, "invalid");
+        }
+        fields[`${end}_area_id`] = listed.id;
+        fields[`${end}_area_name`] = null;
       }
       if (fields.route_id !== null) {
         const route = routes.find((r) => r.id === fields.route_id);

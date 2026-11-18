@@ -46,7 +46,7 @@ Status: done · Needs backend: GZ-025
 
 ## Build order
 
-Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.18.0`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`), staff name corrections (`api-v2.6.0`), rider management (`api-v2.10.0`), assign rider to route (`api-v2.11.0`), seat offers (`api-v2.13.0`), drivers (`api-v2.14.0`), assign driver to route (`api-v2.15.0`), the overview summary (`api-v2.16.0`), a route's offer queue (`api-v2.18.0`). So GZW-025, GZW-030, GZW-031, GZW-042, GZW-044, GZW-050, GZW-053 and GZW-070 can be built; GZW-043 waits for GZ-042 and a student's guardian for GZ-033; GZW-051 and GZW-052 are deferred with GZ-051 and GZ-052.
+Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.19.2`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`), staff name corrections (`api-v2.6.0`), rider management (`api-v2.10.0`), assign rider to route (`api-v2.11.0`), seat offers (`api-v2.13.0`), drivers (`api-v2.14.0`), assign driver to route (`api-v2.15.0`), the overview summary (`api-v2.16.0`), a route's offer queue (`api-v2.18.0`), requests by area pair, requests linked to a new area, company riders on started routes only and a driver's routes (`api-v2.19.2`). So GZW-025, GZW-030, GZW-031, GZW-042, GZW-044, GZW-045, GZW-050, GZW-053 and GZW-070 can be built; GZW-043 waits for GZ-042 and a student's guardian for GZ-033; GZW-051 and GZW-052 are deferred with GZ-051 and GZ-052.
 
 ### Questions for the backend
 
@@ -54,19 +54,15 @@ Answered in `api-v2.5.0` (GZ-067): what a route still needs and when it can laun
 
 Answered in `api-v2.18.0` (GZ-075): question 10, who's next for a route's seat. The portal listed a route's requests oldest first, but "Offer a free seat" skips requests with an open offer and puts those offered a seat here before last, so the dialog couldn't show the real order. `offers_queue` now lists the route's queue in the order the offer picks, with `position`, `offered_before` and `not_offerable`; GZW-044 uses it.
 
+Answered in `api-v2.19.2` (GZ-076, GZ-077, GZ-078), all used by GZW-045:
+- Question 7, requests per area pair: `route_requests_list` filters by each end (`from_area_id` or `from_area_name`, `to_area_id` or `to_area_name`, a name ignoring case; both for one end is a 422), so a Demand card opens exactly the requests it counts.
+- Question 8, requests naming an area not listed yet: adding or renaming an area links the open requests that typed its name (ignoring case); closed ones keep the text, and a link that would repeat the same rider's open request or put the area at both ends is skipped. A new request typing a listed area's name gets that area (a 422 on the typed field if it is the other end's).
+- Question 9, a company rider on a draft or paused route: owner decision, only their company's `active` or `paused` routes take them; a draft is a 422 on `/route_id`, like adults. Seats already on a draft are kept and can be ended; placing them back on it needs the route started first. `ROUTE_NOT_READY` (inactive company) stays only as a safety check.
+- Question 11, a driver's routes: `routes_list` takes `driver_id` (any status, not deleted: the routes `DRIVER_ASSIGNED` counts).
+
 Decided:
 
 6. **Route request moves** (GZW-040): requests have no `status_changes`. Owner decision (2026-11-03): the portal offers match / fulfil / decline from the documented flow (`new` → `matched` (again) → `fulfilled`, `new` → `fulfilled`, `new`/`matched` → `declined`; fulfilled and declined are final) and explains `INVALID_STATUS_CHANGE`, reloading the request. No backend change.
-
-Open (not blocking):
-
-7. **Requests per area pair** (GZW-041): the demand summary counts open new-areas requests per area pair, but `route_requests_list` can't list them (it filters by `status`, `kind`, `open` and `route_id` only). Could it also filter by each end – `from_area_id` / `from_area_name` and `to_area_id` / `to_area_name`, a name compared as the summary groups it (ignoring case)? Until then (owner decision 2026-11-04) an area pair's card links to all new new-areas requests (`?kind=new_areas&status=new`); the link narrows to the pair once the filter is tagged.
-8. **Requests naming an area not listed yet** (GZW-041): when staff add that area, the requests keep the typed name (`from_area_name` / `to_area_name`), so the demand summary still shows the pair as "not listed" and its corridor or route can't be started from it. Could adding an area (or a separate call) link open requests whose name matches it, ignoring case, so they count under the listed area? Until then (owner decision 2026-11-04) Demand offers no "Add area"; staff add areas from Areas, and such a card only links to the requests.
-9. **A company rider on a draft or paused route** (GZW-031): `riders_place` doesn't check the route's status for company riders (`_takes`), so one can be placed on their company's draft route and gets an `active` seat. Is that intended (a company route runs from the agreement), or should only `active` routes (or `active` and `paused`) take them, like adults on `forming`/`active`? Until then the portal lists all of the company's routes with their status and lets the API decide.
-
-<!-- Question 10 was answered (above): 11 keeps its number. -->
-
-11. **A driver's routes** (GZW-050): `routes_list` can't filter by driver, so a driver's page can't say which routes they drive, and `DRIVER_ASSIGNED` (deactivating or deleting them) can't name the route to change. Could `routes_list` take `driver_id`? Until then the refusal sends staff to Routes, and GZW-053 shows each route's driver.
 
 ---
 
@@ -155,7 +151,7 @@ Status: done · Needs backend: – (Supabase Auth settings, README "Supabase Aut
 
 ### GZW-041 · Demand · Needs backend: GZ-027 (in `api-v2.2.0`) · Status: done
 - `route_requests_summary`, two lists, busiest first, at most 100 each: **area pairs** (open new-areas requests not matched yet, between areas no route serves yet: listed area or a name not listed yet at each end, and the count) and **routes** (open requests waiting for a route, its status and `seats_free_next_month`). When a list is cut (`*_truncated`), say "Showing the 100 busiest".
-- From an area pair: open its requests; when both ends are listed areas, offer "Add corridor" or "Add route" prefilled; a name not listed yet offers "Add area" first (not yet: question 8). From a route: open it, or add a van (GZW-028). Card layout from `AdminWaitlists.png`, brand colours.
+- From an area pair: open its requests; when both ends are listed areas, offer "Add corridor" or "Add route" prefilled; a name not listed yet offers "Add area" first (with GZW-045). From a route: open it, or add a van (GZW-028). Card layout from `AdminWaitlists.png`, brand colours.
 
 ### GZW-042 · Seat offers and skips · Needs backend: GZ-040 (in `api-v2.13.0`) · Status: done
 - Free seats offered to the oldest open request, offer status and expiry; skipping a request needs a reason (audited). Scope confirmed when GZ-040's contract is tagged.
@@ -168,6 +164,12 @@ Status: done · Needs backend: – (Supabase Auth settings, README "Supabase Aut
 ### GZW-044 · Offer queue order · Needs backend: GZ-075 (in `api-v2.18.0`) · Status: done
 - The offer dialog shows the route's queue (`offers_queue`) in the order "Offer a free seat" picks, in place of the requests oldest first and the portal's own guesses from the route's offers (backend question 10).
 - Built (owner decision 2026-11-12): "Next in line" names position 1 (who, when they asked, offered here before) and still lets the API pick when it's sent. The others are numbered from 2 and need a reason, asked for as soon as one is chosen. Requests that can't be offered (an open offer anywhere, or a student's) are listed last with why and can't be chosen. "Show more of the queue" loads the next page; positions continue and a request read twice shows once. A refusal reloads the queue: a chosen request that has left it asks staff to choose again, and one that is now first becomes next in line. Each opening reads the queue afresh (never an earlier opening's order).
+
+### GZW-045 · Backend answers 7, 8, 9 and 11 · Needs backend: GZ-076, GZ-077, GZ-078 (in `api-v2.19.2`) · Status: done
+- Owner decision (2026-11-18): one ticket for the four answers.
+- Demand (questions 7 and 8): an area pair's card opens exactly the requests it counts ("See these requests": `kind=new_areas&status=new` and each end's `*_area_id` or `*_area_name` in the address; a typed name is a place, not personal data). Route requests shows that pair ("From Ayat to Lebu (not listed)") with "Show all areas"; no picker for it. A card with a name not listed yet offers "Add area Lebu", the area form filled in; once saved, the requests name the area, the summary is read again and the card, now under the area, offers the corridor or route and takes focus. Adding or renaming an area anywhere reads route requests and Demand again. Recording a request: a typed name that is the listed area at the other end is refused on its field, before sending and from the API.
+- Company seats (question 9): a company's draft route is listed as "Not started" and can't be chosen; "Keep on R-21" for a seat on a route back in draft explains that it must be started first.
+- Drivers (question 11): a driver's details list their routes (`routes_list` by `driver_id`: code linked, status). Deactivate and Delete refused with `DRIVER_ASSIGNED` read their routes again and name them ("They drive B-07 and R-21…"), each with a link to it.
 
 ---
 
@@ -185,7 +187,7 @@ Record inspection; approve/reject enabled only when the API allows; missing requ
 
 ### GZW-053 · Assign driver to route · Needs backend: GZ-053 (in `api-v2.15.0`) · Status: done
 - From route detail; only eligible drivers offered; API errors explained. Rescoped with GZ-053 (owner decision 2026-11-05): only active drivers; one driver per route; a driver may drive several routes whose runs don't overlap (the API decides: `DRIVER_BUSY`).
-- Built (owner decisions 2026-11-12): "Driver" in a route's facts (any type or status): their name (their page) and plate, or none yet. "Choose driver" / "Change driver" (`routes_set_driver`, a PUT): a driver picker offering active drivers by the start of a name or plate ("Name · Plate"); `DRIVER_BUSY` on the picker, naming the driver; a driver deactivated or deleted meanwhile (422 on `driver_id`) clears the choice and the picker searches afresh. "Remove driver", confirmed. Routes list: a Driver column. Editing a route: new times that clash with another route of its driver explained (`DRIVER_BUSY`). Toasts never name the driver. A driver's own routes wait for backend question 11.
+- Built (owner decisions 2026-11-12): "Driver" in a route's facts (any type or status): their name (their page) and plate, or none yet. "Choose driver" / "Change driver" (`routes_set_driver`, a PUT): a driver picker offering active drivers by the start of a name or plate ("Name · Plate"); `DRIVER_BUSY` on the picker, naming the driver; a driver deactivated or deleted meanwhile (422 on `driver_id`) clears the choice and the picker searches afresh. "Remove driver", confirmed. Routes list: a Driver column. Editing a route: new times that clash with another route of its driver explained (`DRIVER_BUSY`). Toasts never name the driver. A driver's own routes came with GZW-045.
 
 ---
 
