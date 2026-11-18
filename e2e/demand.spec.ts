@@ -25,7 +25,7 @@ test.describe("demand", () => {
     await expect(lebu).toContainText("2 open requests");
     await expect(lebu.getByRole("button")).toHaveCount(0);
     await expect(
-      lebu.getByRole("link", { name: t.seeNewAreaRequests }),
+      lebu.getByRole("link", { name: /^See these requests/ }),
     ).toHaveAttribute("href", "/route-requests?kind=new_areas&status=new");
 
     // Both listed, no corridor yet: Add route says so; Add corridor is prefilled.
