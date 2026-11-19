@@ -103,6 +103,10 @@ describe("OverviewScreen", () => {
     expect(
       within(cards[2]!).getByRole("link", { name: t.seeDemand }),
     ).toHaveAttribute("href", "/demand");
+    // Rows in one card, each with an icon for sight only.
+    for (const card of cards) {
+      expect(card.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    }
   });
 
   it("shows only the items above 0, in the singular for one", async () => {
@@ -159,6 +163,148 @@ describe("OverviewScreen", () => {
         }),
       ).toHaveAttribute("href", `/routes?status=${status}`);
     }
+  });
+
+  it("draws the routes by status as one bar, described in words", async () => {
+    serveOverview();
+    renderWithProviders(<OverviewScreen />);
+
+    const bar = await screen.findByRole("img", {
+      name: "All 21 routes: 12 active, 6 forming, 2 paused, 1 draft",
+    });
+    // One part per status, as wide as its share (in % of the bar).
+    const parts = Array.from(bar.querySelectorAll("rect[data-part]"));
+    expect(parts.map((rect) => rect.getAttribute("data-part"))).toEqual([
+      "active",
+      "forming",
+      "paused",
+      "draft",
+    ]);
+    const widths = parts.map((rect) => Number(rect.getAttribute("width")));
+    const starts = parts.map((rect) => Number(rect.getAttribute("x")));
+    [12, 6, 2, 1].forEach((count, index) =>
+      expect(widths[index]).toBeCloseTo((count / 21) * 100, 1),
+    );
+    // Side by side, filling the bar.
+    expect(starts[0]).toBe(0);
+    for (let i = 1; i < 4; i++) {
+      expect(starts[i]).toBeCloseTo(starts[i - 1]! + widths[i - 1]!, 5);
+    }
+    expect(starts[3]! + widths[3]!).toBeCloseTo(100, 5);
+    expect(screen.getByRole("link", { name: t.seeAllRoutes })).toHaveAttribute(
+      "href",
+      "/routes",
+    );
+  });
+
+  it("leaves out a status at 0 and keeps a tiny share visible", async () => {
+    serveOverview({
+      ...counts,
+      routes: {
+        ...counts.routes,
+        active: 299,
+        forming: 0,
+        paused: 0,
+        draft: 1,
+      },
+    });
+    renderWithProviders(<OverviewScreen />);
+
+    const bar = await screen.findByRole("img", {
+      name: "All 300 routes: 299 active, 0 forming, 0 paused, 1 draft",
+    });
+    const parts = Array.from(bar.querySelectorAll("rect[data-part]"));
+    expect(parts.map((rect) => rect.getAttribute("data-part"))).toEqual([
+      "active",
+      "draft",
+    ]);
+    // 1 of 300 is drawn 1% wide, the bar still ends at 100%.
+    const draft = parts[1]!;
+    expect(Number(draft.getAttribute("width"))).toBeGreaterThanOrEqual(0.99);
+    expect(
+      Number(draft.getAttribute("x")) + Number(draft.getAttribute("width")),
+    ).toBeCloseTo(100, 5);
+  });
+
+  it("says large counts in the bar's words as the tiles show them", async () => {
+    serveOverview({
+      ...counts,
+      routes: {
+        ...counts.routes,
+        active: 1200,
+        forming: 0,
+        paused: 0,
+        draft: 0,
+      },
+    });
+    renderWithProviders(<OverviewScreen />);
+
+    expect(
+      await screen.findByRole("img", {
+        name: "All 1,200 routes: 1,200 active, 0 forming, 0 paused, 0 draft",
+      }),
+    ).toBeVisible();
+  });
+
+  it("draws an empty bar when there are no routes yet", async () => {
+    serveOverview({
+      ...counts,
+      routes: {
+        draft: 0,
+        forming: 0,
+        active: 0,
+        paused: 0,
+        ready_to_launch: 0,
+        active_without_driver: 0,
+      },
+    });
+    renderWithProviders(<OverviewScreen />);
+
+    const bar = await screen.findByRole("img", { name: t.noRoutes });
+    expect(bar.querySelectorAll("rect[data-part]")).toHaveLength(0);
+  });
+
+  it("shows each rider count's share of all riders, for sight only", async () => {
+    serveOverview();
+    renderWithProviders(<OverviewScreen />);
+
+    await screen.findByRole("list", { name: t.ridersLabel });
+    const share = (label: string) =>
+      tile(t.ridersLabel, label).querySelector(
+        "svg[aria-hidden='true'] rect[data-part]",
+      );
+    expect(Number(share(t.riding)?.getAttribute("width"))).toBeCloseTo(
+      (140 / 1180) * 100,
+      1,
+    );
+    expect(Number(share(t.reserved)?.getAttribute("width"))).toBeCloseTo(
+      (24 / 1180) * 100,
+      1,
+    );
+    expect(share(t.allRiders)).toBeNull();
+  });
+
+  it("draws no share bars without riders, and never past the whole", async () => {
+    serveOverview({
+      ...counts,
+      riders: { total: 0, riding: 0, reserved: 0, starting: 0 },
+    });
+    const { unmount } = renderWithProviders(<OverviewScreen />);
+    const list = await screen.findByRole("list", { name: t.ridersLabel });
+    expect(list.querySelectorAll("svg")).toHaveLength(0);
+    unmount();
+
+    // Counts that overlap could exceed the total: a share stops at 100%.
+    serveOverview({
+      ...counts,
+      riders: { total: 10, riding: 12, reserved: 0, starting: 0 },
+    });
+    renderWithProviders(<OverviewScreen />);
+    await screen.findByRole("list", { name: t.ridersLabel });
+    const riding = tile(t.ridersLabel, t.riding).querySelector(
+      "rect[data-part]",
+    );
+    expect(Number(riding?.getAttribute("width"))).toBe(100);
   });
 
   it("counts riders by seat; riding today and starting soon open together, as the list holds them", async () => {

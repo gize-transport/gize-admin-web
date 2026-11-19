@@ -37,7 +37,8 @@ test.describe("overview", () => {
     page,
   }) => {
     await signIn(page, "staff");
-    const counts = (await openOverview(page))();
+    const read = await openOverview(page);
+    const counts = read();
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(t.title);
     await expect(
@@ -58,6 +59,18 @@ test.describe("overview", () => {
         { exact: true },
       ),
     ).toBeVisible();
+    // The routes bar says in words what it draws: the latest counts the page was given (the
+    // sidebar reads them again too, and other tests change them).
+    await expect(async () => {
+      const { active, forming, paused, draft } = read().routes;
+      const total = active + forming + paused + draft;
+      expect(total).toBeGreaterThan(0);
+      await expect(
+        page.getByRole("img", {
+          name: `All ${total} routes: ${active} active, ${forming} forming, ${paused} paused, ${draft} draft`,
+        }),
+      ).toBeVisible({ timeout: 1_000 });
+    }).toPass();
     await expectNoSeriousA11yViolations(page);
 
     // The sample data always has open route requests: Needs action opens them.
