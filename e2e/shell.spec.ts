@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import messages from "../messages/en.json";
+import type { components } from "../src/lib/api/schema";
 import { accountName, signIn } from "./support/auth";
 
 const t = messages.Shell;
@@ -27,6 +28,47 @@ test.describe("portal shell", () => {
       sidebar.getByText(messages.Roles.staff, { exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: t.openMenu })).toBeHidden();
+  });
+
+  test("the sidebar groups the screens and counts the open route requests", async ({
+    page,
+  }) => {
+    test.skip(!isWide(page.viewportSize()?.width), "wide screens only");
+    await signIn(page, "staff");
+    // The count other tests leave: read it from the API's answers on this page, never assume it.
+    let open: number | null = null;
+    await page.route("**/v1/overview", async (route) => {
+      const response = await route.fetch();
+      const counts =
+        (await response.json()) as components["schemas"]["Overview"];
+      open = counts.route_requests.open;
+      await route.fulfill({ response });
+    });
+    // A page that doesn't read the counts itself: the sidebar does.
+    await page.goto("/drivers");
+
+    const sidebar = page.getByRole("complementary");
+    for (const group of [t.groupOperations, t.groupPeople, t.groupPlaces]) {
+      await expect(sidebar.getByRole("list", { name: group })).toBeVisible();
+    }
+    await expect(sidebar.getByRole("list", { name: t.groupAdmin })).toHaveCount(
+      0,
+    );
+    const requests = sidebar.getByRole("link", {
+      name: t.nav.routeRequests,
+      exact: true,
+    });
+    await expect(async () => {
+      // The sample data always has open route requests (e2e/overview.spec.ts).
+      expect(open).toBeGreaterThan(0);
+      await expect(requests).toHaveAccessibleDescription(`${open} open`, {
+        timeout: 1_000,
+      });
+    }).toPass();
+
+    await requests.click();
+    await expect(page).toHaveURL(/\/route-requests$/);
+    await expect(requests).toHaveAttribute("aria-current", "page");
   });
 
   test("on a phone, the menu drawer works with the keyboard alone", async ({

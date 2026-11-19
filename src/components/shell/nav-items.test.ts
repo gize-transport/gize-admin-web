@@ -13,7 +13,7 @@ const allBuilt: NavItem[] = navItems.map((item) => ({
 }));
 
 describe("navItems", () => {
-  it("lists the MVP screens in the agreed order, Places grouped, admin tools last", () => {
+  it("lists the MVP screens in the agreed order, admin tools last", () => {
     expect(navItems.map((item) => item.key)).toEqual([
       "overview",
       "routes",
@@ -28,13 +28,25 @@ describe("navItems", () => {
       "auditLog",
     ]);
     expect(
-      navItems
-        .filter((item) => item.group === "places")
-        .map((item) => item.key),
-    ).toEqual(["areas", "corridors"]);
-    expect(
       navItems.filter((item) => item.adminOnly).map((item) => item.key),
     ).toEqual(["staff", "auditLog"]);
+  });
+
+  it("groups everything but Overview under a heading", () => {
+    const keysIn = (group: NavItem["group"]) =>
+      navItems.filter((item) => item.group === group).map((item) => item.key);
+
+    expect(keysIn(undefined)).toEqual(["overview"]);
+    expect(keysIn("operations")).toEqual(["routes", "routeRequests", "demand"]);
+    expect(keysIn("people")).toEqual(["companies", "riders", "drivers"]);
+    expect(keysIn("places")).toEqual(["areas", "corridors"]);
+    expect(keysIn("admin")).toEqual(["staff", "auditLog"]);
+  });
+
+  it("gives every item its own icon", () => {
+    const icons = navItems.map((item) => item.icon);
+    expect(icons.every(Boolean)).toBe(true);
+    expect(new Set(icons).size).toBe(navItems.length);
   });
 
   it("shows every MVP screen, now that Drivers is built", () => {

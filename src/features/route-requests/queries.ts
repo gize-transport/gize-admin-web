@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { PickerResult } from "@/components/pickers/search-picker";
+import { overviewKeys } from "@/features/overview/queries";
 import { api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
@@ -137,6 +138,8 @@ function refetchRequests(
   queryClient: ReturnType<typeof useQueryClient>,
   exceptId?: string,
 ) {
+  // The open count in the sidebar and on the overview.
+  void queryClient.invalidateQueries({ queryKey: overviewKeys.all });
   return queryClient.invalidateQueries({
     queryKey: requestKeys.all,
     predicate: ({ queryKey }) =>

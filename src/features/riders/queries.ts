@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { overviewKeys } from "@/features/overview/queries";
 import { api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
@@ -237,7 +238,8 @@ export function useCompanySeatRoutes(companyId: string | null) {
 
 /**
  * After a seat changes: the rider (the answer), every rider list, every route (seats taken and
- * reserved), company routes, route requests (their own become fulfilled) and demand.
+ * reserved), company routes, route requests (their own become fulfilled), demand and the open
+ * request count (sidebar, overview).
  */
 function refetchAfterSeat(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -245,17 +247,18 @@ function refetchAfterSeat(
 ) {
   queryClient.setQueryData(riderKeys.detail(rider.id), rider);
   return Promise.all(
-    [riderKeys.all, ["routes"], ["companies"], ["route-requests"]].map(
-      (queryKey) =>
-        queryClient.invalidateQueries({
-          queryKey,
-          predicate: ({ queryKey: key }) =>
-            !(
-              key[0] === "riders" &&
-              key[1] === "detail" &&
-              key[2] === rider.id
-            ),
-        }),
+    [
+      riderKeys.all,
+      ["routes"],
+      ["companies"],
+      ["route-requests"],
+      overviewKeys.all,
+    ].map((queryKey) =>
+      queryClient.invalidateQueries({
+        queryKey,
+        predicate: ({ queryKey: key }) =>
+          !(key[0] === "riders" && key[1] === "detail" && key[2] === rider.id),
+      }),
     ),
   );
 }

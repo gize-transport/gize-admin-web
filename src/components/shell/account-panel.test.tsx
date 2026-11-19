@@ -60,6 +60,26 @@ describe("AccountPanel", () => {
       messages.Shell.loadingAccount,
     );
     expect(await screen.findByText("Abebe Admin")).toBeInTheDocument();
+    expect(screen.getByText(messages.Roles.admin)).toBeInTheDocument();
+  });
+
+  it("shows their initials beside the name, for sight only", async () => {
+    server.use(
+      http.get(apiUrl("/v1/staff/me"), () =>
+        HttpResponse.json<Schemas["StaffMe"]>(staff),
+      ),
+    );
+    renderWithProviders(<AccountPanel />);
+
+    const initials = await screen.findByText("AA");
+    expect(initials.closest("[aria-hidden='true']")).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: messages.Shell.signOut }),
+    ).toContainElement(
+      screen
+        .getByRole("button", { name: messages.Shell.signOut })
+        .querySelector("svg[aria-hidden='true']") as HTMLElement,
+    );
   });
 
   it("signs out, clears the cache and opens sign-in", async () => {

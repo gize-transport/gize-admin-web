@@ -57,6 +57,29 @@ function serveStaff(role: Schemas["StaffRole"]) {
   );
 }
 
+/** The overview's counts, of which the sidebar shows the open route requests. */
+function serveOverview(openRequests: number) {
+  server.use(
+    http.get(apiUrl("/v1/overview"), () => {
+      return HttpResponse.json<Schemas["Overview"]>({
+        as_of: "2026-11-19",
+        routes: {
+          draft: 0,
+          forming: 0,
+          active: 0,
+          paused: 0,
+          ready_to_launch: 0,
+          active_without_driver: 0,
+        },
+        riders: { total: 0, riding: 0, reserved: 0, starting: 0 },
+        route_requests: { open: openRequests },
+        seat_offers: { open: 0 },
+        drivers: { active: 0 },
+      });
+    }),
+  );
+}
+
 /** The sidebar (desktop) — jsdom shows both it and the top bar, as it has no media queries. */
 function sidebar() {
   return within(screen.getByRole("complementary"));
@@ -64,6 +87,7 @@ function sidebar() {
 
 beforeEach(() => {
   navigation().pathname = "/";
+  serveOverview(0);
 });
 
 describe("PortalShell", () => {
@@ -119,17 +143,135 @@ describe("PortalShell", () => {
     ).not.toHaveAttribute("aria-current");
   });
 
-  it("groups Areas and Corridors under Places", () => {
+  it("groups the screens under headings, Admin only for admins", async () => {
+    serveStaff("admin");
+    renderWithProviders(<PortalShell items={allBuilt}>{null}</PortalShell>);
+
+    const group = (name: string) =>
+      within(sidebar().getByRole("list", { name }))
+        .getAllByRole("link")
+        .map((link) => link.textContent);
+    // Admin shows once the role is known.
+    await sidebar().findByRole("list", { name: t.groupAdmin });
+    expect(group(t.groupOperations)).toEqual([
+      t.nav.routes,
+      t.nav.routeRequests,
+      t.nav.demand,
+    ]);
+    expect(group(t.groupPeople)).toEqual([
+      t.nav.companies,
+      t.nav.riders,
+      t.nav.drivers,
+    ]);
+    expect(group(t.groupPlaces)).toEqual([t.nav.areas, t.nav.corridors]);
+    expect(group(t.groupAdmin)).toEqual([t.nav.staff, t.nav.auditLog]);
+  });
+
+  it("puts an icon before each name, hidden from screen readers", () => {
     serveStaff("staff");
     renderWithProviders(<PortalShell items={allBuilt}>{null}</PortalShell>);
 
-    const places = sidebar().getByText(t.groupPlaces).parentElement;
-    expect(places).not.toBeNull();
-    const links = within(places as HTMLElement).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual([
-      t.nav.areas,
-      t.nav.corridors,
-    ]);
+    const links = within(
+      sidebar().getByRole("navigation", { name: t.navLabel }),
+    ).getAllByRole("link");
+    for (const link of links) {
+      const icon = link.querySelector("svg");
+      expect(icon).not.toBeNull();
+      expect(icon).toHaveAttribute("aria-hidden", "true");
+    }
+  });
+
+  it("shows how many route requests are open beside Route requests", async () => {
+    serveStaff("staff");
+    serveOverview(6);
+    renderWithProviders(<PortalShell items={allBuilt}>{null}</PortalShell>);
+
+    const link = sidebar().getByRole("link", { name: t.nav.routeRequests });
+    await waitFor(() => expect(link).toHaveAccessibleDescription("6 open"));
+    expect(link).toHaveAttribute("href", "/route-requests");
+    expect(sidebar().getByText("6")).toBeVisible();
+    // Only there.
+    expect(
+      sidebar().getByRole("link", { name: t.nav.routes }),
+    ).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("shows 99+ for more than 99 open requests", async () => {
+    serveStaff("staff");
+    serveOverview(120);
+    renderWithProviders(<PortalShell items={allBuilt}>{null}</PortalShell>);
+
+    const link = sidebar().getByRole("link", { name: t.nav.routeRequests });
+    await waitFor(() => expect(link).toHaveAccessibleDescription("99+ open"));
+    expect(sidebar().getByText("99+")).toBeVisible();
+  });
+
+  it("shows no count when no request is open", async () => {
+    serveStaff("staff");
+    serveOverview(0);
+    const { queryClient } = renderWithProviders(
+      <PortalShell items={allBuilt}>{null}</PortalShell>,
+    );
+
+    await waitFor(() =>
+      expect(queryClient.getQueryState(["overview"])?.status).toBe("success"),
+    );
+    expect(
+      sidebar().getByRole("link", { name: t.nav.routeRequests }),
+    ).toHaveAccessibleDescription("");
+    expect(sidebar().queryByText("0")).toBeNull();
+  });
+
+  it.each([
+    [403, "FORBIDDEN"],
+    [500, "INTERNAL_ERROR"],
+  ] as const)(
+    "leaves the count out when the counts can't be read (%i)",
+    async (status, code) => {
+      serveStaff("staff");
+      server.use(
+        http.get(apiUrl("/v1/overview"), () =>
+          HttpResponse.json(problem(status, code), {
+            status,
+            headers: problemHeaders,
+          }),
+        ),
+      );
+      const { queryClient } = renderWithProviders(
+        <PortalShell items={allBuilt}>{null}</PortalShell>,
+      );
+
+      await waitFor(() =>
+        expect(queryClient.getQueryState(["overview"])?.status).toBe("error"),
+      );
+      expect(
+        sidebar().getByRole("link", { name: t.nav.routeRequests }),
+      ).toHaveAccessibleDescription("");
+      expect(screen.queryByRole("alert")).toBeNull();
+    },
+  );
+
+  it("drops a count it read before once a later read fails", async () => {
+    serveStaff("staff");
+    serveOverview(6);
+    const { queryClient } = renderWithProviders(
+      <PortalShell items={allBuilt}>{null}</PortalShell>,
+    );
+    const link = sidebar().getByRole("link", { name: t.nav.routeRequests });
+    await waitFor(() => expect(link).toHaveAccessibleDescription("6 open"));
+
+    server.use(
+      http.get(apiUrl("/v1/overview"), () =>
+        HttpResponse.json(problem(500, "INTERNAL_ERROR"), {
+          status: 500,
+          headers: problemHeaders,
+        }),
+      ),
+    );
+    await queryClient.refetchQueries({ queryKey: ["overview"] });
+
+    await waitFor(() => expect(link).toHaveAccessibleDescription(""));
+    expect(sidebar().queryByText("6")).toBeNull();
   });
 
   it("hides Staff and Audit log from staff", async () => {
