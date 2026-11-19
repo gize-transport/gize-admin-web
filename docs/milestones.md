@@ -46,7 +46,7 @@ Status: done · Needs backend: GZ-025
 
 ## Build order
 
-Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.19.2`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`), staff name corrections (`api-v2.6.0`), rider management (`api-v2.10.0`), assign rider to route (`api-v2.11.0`), seat offers (`api-v2.13.0`), drivers (`api-v2.14.0`), assign driver to route (`api-v2.15.0`), the overview summary (`api-v2.16.0`), a route's offer queue (`api-v2.18.0`), requests by area pair, requests linked to a new area, company riders on started routes only and a driver's routes (`api-v2.19.2`). So GZW-025, GZW-030, GZW-031, GZW-042, GZW-044, GZW-045, GZW-050, GZW-053 and GZW-070 can be built; GZW-043 waits for GZ-042 and a student's guardian for GZ-033; GZW-051 and GZW-052 are deferred with GZ-051 and GZ-052.
+Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.20.0`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`), staff name corrections (`api-v2.6.0`), rider management (`api-v2.10.0`), assign rider to route (`api-v2.11.0`), seat offers (`api-v2.13.0`), drivers (`api-v2.14.0`), assign driver to route (`api-v2.15.0`), the overview summary (`api-v2.16.0`), a route's offer queue (`api-v2.18.0`), requests by area pair, requests linked to a new area, company riders on started routes only and a driver's routes (`api-v2.19.2`), riders starting soon on the overview (`api-v2.20.0`). So GZW-025, GZW-030, GZW-031, GZW-042, GZW-044, GZW-045, GZW-050, GZW-053 and GZW-070 can be built; GZW-043 waits for GZ-042 and a student's guardian for GZ-033; GZW-051 and GZW-052 are deferred with GZ-051 and GZ-052.
 
 ### Questions for the backend
 
@@ -59,6 +59,14 @@ Answered in `api-v2.19.2` (GZ-076, GZ-077, GZ-078), all used by GZW-045:
 - Question 8, requests naming an area not listed yet: adding or renaming an area links the open requests that typed its name (ignoring case); closed ones keep the text, and a link that would repeat the same rider's open request or put the area at both ends is skipped. A new request typing a listed area's name gets that area (a 422 on the typed field if it is the other end's).
 - Question 9, a company rider on a draft or paused route: owner decision, only their company's `active` or `paused` routes take them; a draft is a 422 on `/route_id`, like adults. Seats already on a draft are kept and can be ended; placing them back on it needs the route started first. `ROUTE_NOT_READY` (inactive company) stays only as a safety check.
 - Question 11, a driver's routes: `routes_list` takes `driver_id` (any status, not deleted: the routes `DRIVER_ASSIGNED` counts).
+
+Open (not blocking; asked 2026-11-19 for GZW-070). Each Overview count opens a list, but three lists can't show exactly the records counted, so the cards open the closest list and say which:
+
+12. **Routes ready to launch as a list.** The Overview says "2 routes are ready to launch", but `routes_list` can't filter to them: the card opens every forming route (say 6) and staff spot the ready ones by their progress. Ask: a `routes_list` filter for "ready to launch", by the same rule as `ready_to_launch`.
+13. **Active routes with no driver as a list.** "1 active route has no driver" opens every active route (say 12); staff look for "Not assigned" in the Driver column. Ask: a `routes_list` filter for "no driver", by the same rule as `active_without_driver`.
+14. **Open seat offers across routes.** "3 open seat offers" can't open anything: offers are listed per route only (`GET /v1/routes/{route_id}/offers`). Ask: a list of open offers across all routes (rider, route, when it runs out), so staff can phone riders while SMS is paused (GZ-079).
+
+Answered in `api-v2.20.0` (GZ-080): riders whose seat starts on a later day counted nowhere on the Overview. `riders.starting` counts them; riding today plus starting soon are exactly the riders list's `seat=active`, so GZW-070 opens that list for both.
 
 Decided:
 
@@ -203,8 +211,11 @@ Record inspection; approve/reject enabled only when the API allows; missing requ
 
 ## W7 – Release
 
-### GZW-070 · Overview page · Needs backend: GZ-064 · Status: todo
+### GZW-070 · Overview page · Needs backend: GZ-064, GZ-080 (in `api-v2.20.0`) · Status: done
 Counts and "needs action" items from the summary endpoint only.
+- Built: `overview_get` only, read each time the page is opened or its tab comes back (no polling); the heading dates it with the API's day ("Thursday, November 19"). Only widgets the API backs: the mockup's map, backups, payments and complaints are not in the MVP.
+- Needs action (sun cards, only while above 0, "Nothing needs action right now." otherwise): routes ready to launch ("See forming routes"), active routes with no driver ("See active routes"), open route requests ("See open requests", "See demand"). The first two open the closest list until backend questions 12 and 13 are answered.
+- Counts, each a link to its filtered list where one holds exactly them: routes by status; riders riding today, starting soon (GZ-080), reserved (`seat=reserved`) and all, with "See riders with a seat" (`seat=active`: riding today and starting soon together); open seat offers (no link: question 14); active drivers (`is_active=true`).
 
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.

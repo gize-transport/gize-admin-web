@@ -43,7 +43,7 @@ export const screens: readonly Screen[] = [
     name: "overview",
     path: "/",
     signInAs: "staff",
-    readyText: messages.Overview.description,
+    readyText: messages.Overview.openOffers,
   },
   {
     name: "areas",

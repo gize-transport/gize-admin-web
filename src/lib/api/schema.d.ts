@@ -329,9 +329,9 @@ export interface paths {
         /**
          * Counts for the home page
          * @description Live records only: routes by status (forming ones ready to launch, active ones with
-         *     no driver), riders (riding today, reserved), open route requests and seat offers,
-         *     active drivers. A snapshot: counts can move a moment later. It takes no parameters:
-         *     422 VALIDATION_FAILED for any.
+         *     no driver), riders (riding today, reserved, starting on a later day), open route
+         *     requests and seat offers, active drivers. A snapshot: counts can move a moment later.
+         *     It takes no parameters: 422 VALIDATION_FAILED for any.
          */
         get: operations["overview_get"];
         put?: never;
@@ -2034,6 +2034,11 @@ export interface components {
              * @description Holding an active seat today.
              */
             riding: number;
+            /**
+             * Starting
+             * @description Holding an active seat that starts after today (placed from a later 1st, or on a route launched for one), and not riding today. They count as riding from that day.
+             */
+            starting: number;
             /** Total */
             total: number;
         };
@@ -5561,7 +5566,8 @@ export interface operations {
                      *       },
                      *       "riders": {
                      *         "reserved": 24,
-                     *         "riding": 150,
+                     *         "riding": 140,
+                     *         "starting": 10,
                      *         "total": 180
                      *       },
                      *       "route_requests": {

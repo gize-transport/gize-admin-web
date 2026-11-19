@@ -1951,6 +1951,11 @@
             "title": "Riding",
             "type": "integer"
           },
+          "starting": {
+            "description": "Holding an active seat that starts after today (placed from a later 1st, or on a route launched for one), and not riding today. They count as riding from that day.",
+            "title": "Starting",
+            "type": "integer"
+          },
           "total": {
             "title": "Total",
             "type": "integer"
@@ -1959,7 +1964,8 @@
         "required": [
           "total",
           "riding",
-          "reserved"
+          "reserved",
+          "starting"
         ],
         "title": "RiderCounts",
         "type": "object"
@@ -10842,7 +10848,7 @@
     },
     "/v1/overview": {
       "get": {
-        "description": "Live records only: routes by status (forming ones ready to launch, active ones with\nno driver), riders (riding today, reserved), open route requests and seat offers,\nactive drivers. A snapshot: counts can move a moment later. It takes no parameters:\n422 VALIDATION_FAILED for any.",
+        "description": "Live records only: routes by status (forming ones ready to launch, active ones with\nno driver), riders (riding today, reserved, starting on a later day), open route\nrequests and seat offers, active drivers. A snapshot: counts can move a moment later.\nIt takes no parameters: 422 VALIDATION_FAILED for any.",
         "operationId": "overview_get",
         "responses": {
           "200": {
@@ -10855,7 +10861,8 @@
                   },
                   "riders": {
                     "reserved": 24,
-                    "riding": 150,
+                    "riding": 140,
+                    "starting": 10,
                     "total": 180
                   },
                   "route_requests": {
