@@ -194,44 +194,46 @@ export function AuditLogScreen() {
   return (
     <>
       <PageHeader title={t("title")} description={t("description")} />
-      <div className="grid gap-4">
-        <ActorFilter
-          ref={actorRef}
-          actorId={filters.actorId}
-          actors={actors}
-          names={names}
-        />
-        {filters.entity && entity && (
-          <div
-            ref={bannerRef}
-            tabIndex={-1}
-            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-ice px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-royal"
-          >
-            <p className="text-body text-ink">
-              {t("recordFilter", { type: t(`entity.${entity}`) })}
-            </p>
-            {recordPage && (
-              <Link
-                href={`${recordPage}/${filters.entity.id}`}
-                className="text-table font-semibold text-royal underline-offset-4 hover:underline"
-              >
-                {t("openRecord", { type: t(`entity.${entity}`) })}
-              </Link>
-            )}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                focusNext.current = "actor";
-                setFilters({ entity_type: null, entity_id: null });
-              }}
-            >
-              {t("showAll")}
-            </Button>
-          </div>
-        )}
-      </div>
       <DataTable
+        toolbar={
+          <div className="grid gap-4">
+            <ActorFilter
+              ref={actorRef}
+              actorId={filters.actorId}
+              actors={actors}
+              names={names}
+            />
+            {filters.entity && entity && (
+              <div
+                ref={bannerRef}
+                tabIndex={-1}
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-ice px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-royal"
+              >
+                <p className="text-body text-ink">
+                  {t("recordFilter", { type: t(`entity.${entity}`) })}
+                </p>
+                {recordPage && (
+                  <Link
+                    href={`${recordPage}/${filters.entity.id}`}
+                    className="text-table font-semibold text-royal underline-offset-4 hover:underline"
+                  >
+                    {t("openRecord", { type: t(`entity.${entity}`) })}
+                  </Link>
+                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    focusNext.current = "actor";
+                    setFilters({ entity_type: null, entity_id: null });
+                  }}
+                >
+                  {t("showAll")}
+                </Button>
+              </div>
+            )}
+          </div>
+        }
         label={t("tableLabel")}
         columns={columns}
         data={badFilter ? [] : entries.data?.items}

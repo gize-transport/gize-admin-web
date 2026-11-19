@@ -55,6 +55,11 @@ type DataTableProps<TData extends RowData> = {
   nextCursor?: string | null;
   /** Highlights the row whose details are open. */
   selectedRowId?: string | null;
+  /**
+   * The list's search and filters, in a bar at the top of the card. Shown in every state
+   * (loading, no matches, errors), always the same elements: typing in it is never interrupted.
+   */
+  toolbar?: ReactNode;
 };
 
 const SKELETON_ROWS = 5;
@@ -78,6 +83,7 @@ export function DataTable<TData extends RowData>({
   emptyState,
   nextCursor,
   selectedRowId,
+  toolbar,
 }: DataTableProps<TData>) {
   const t = useTranslations("DataTable");
   const captionId = useId();
@@ -151,9 +157,10 @@ export function DataTable<TData extends RowData>({
     previousCursor.current = cursor;
     const region = regionRef.current;
     if (region) region.scrollTop = 0;
-    const card = cardRef.current;
-    if (card && card.getBoundingClientRect().top < 0) {
-      card.scrollIntoView({ block: "start" });
+    // The rows, not the toolbar above them: filters can fill a phone's screen.
+    const top = region ?? cardRef.current;
+    if (top && top.getBoundingClientRect().top < 0) {
+      top.scrollIntoView({ block: "start" });
     }
   }, [cursor]);
 
@@ -180,97 +187,100 @@ export function DataTable<TData extends RowData>({
     </p>
   );
 
-  if (error || (!loading && rows.length === 0)) {
-    return (
-      <TableCard ref={cardRef}>
-        {loadingStatus}
-        {error ?? emptyState}
-        {/* With an error, still offer "First page" – e.g. for an expired cursor in a shared link. */}
-        {pagination}
-      </TableCard>
-    );
-  }
-
   const headerGroups = table.getHeaderGroups();
   const columnCount = headerGroups.at(-1)?.headers.length ?? 1;
+  const showTable = !error && (loading || rows.length > 0);
 
+  // One layout for every state, toolbar first: switching states never remounts it.
   return (
     <TableCard ref={cardRef}>
+      {toolbar && (
+        <div className="border-b border-line px-4 py-4">{toolbar}</div>
+      )}
       {loadingStatus}
-      <div
-        ref={regionRef}
-        role="region"
-        aria-labelledby={captionId}
-        tabIndex={0}
-        className="relative overflow-auto rounded-xl md:max-h-[70dvh]"
-      >
-        <Table aria-busy={loading || undefined}>
-          <TableCaption id={captionId} className="sr-only">
-            {label}
-          </TableCaption>
-          <TableHeader>
-            {headerGroups.map((group) => (
-              <TableRow key={group.id}>
-                {group.headers.map((header, index) => (
-                  <TableHead
-                    key={header.id}
-                    colSpan={header.colSpan}
-                    className={cn(
-                      "sticky top-0 z-10",
-                      index === 0 && "left-0 z-20 max-md:border-r",
-                    )}
-                  >
-                    {header.isPlaceholder ? null : (
-                      <table.FlexRender header={header} />
-                    )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody ref={bodyRef}>
-            {loading
-              ? Array.from({ length: SKELETON_ROWS }, (_, rowIndex) => (
-                  <TableRow key={rowIndex}>
-                    {Array.from({ length: columnCount }, (_, index) => (
-                      <TableCell
-                        key={index}
-                        className={cn(
-                          index === 0 && "sticky left-0 z-5 max-md:border-r",
-                        )}
-                      >
-                        <Skeleton className="h-4 w-full min-w-16" />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              : rows.map((row) => {
-                  const selected = row.id === selectedRowId;
-                  return (
-                    <TableRow
-                      key={row.id}
-                      data-state={selected ? "selected" : undefined}
-                      className="hover:bg-ice has-[[data-row-action]]:cursor-pointer"
+      {showTable ? (
+        <div
+          ref={regionRef}
+          role="region"
+          aria-labelledby={captionId}
+          tabIndex={0}
+          className={cn(
+            "relative overflow-auto md:max-h-[70dvh]",
+            toolbar ? "rounded-b-xl" : "rounded-xl",
+          )}
+        >
+          <Table aria-busy={loading || undefined}>
+            <TableCaption id={captionId} className="sr-only">
+              {label}
+            </TableCaption>
+            <TableHeader>
+              {headerGroups.map((group) => (
+                <TableRow key={group.id}>
+                  {group.headers.map((header, index) => (
+                    <TableHead
+                      key={header.id}
+                      colSpan={header.colSpan}
+                      className={cn(
+                        "sticky top-0 z-10",
+                        index === 0 && "left-0 z-20 max-md:border-r",
+                      )}
                     >
-                      {row.getAllCells().map((cell, index) => (
+                      {header.isPlaceholder ? null : (
+                        <table.FlexRender header={header} />
+                      )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody ref={bodyRef}>
+              {loading
+                ? Array.from({ length: SKELETON_ROWS }, (_, rowIndex) => (
+                    <TableRow key={rowIndex}>
+                      {Array.from({ length: columnCount }, (_, index) => (
                         <TableCell
-                          key={cell.id}
+                          key={index}
                           className={cn(
                             index === 0 && "sticky left-0 z-5 max-md:border-r",
-                            index === 0 &&
-                              selected &&
-                              "shadow-[inset_3px_0_0_var(--color-royal)]",
                           )}
                         >
-                          <table.FlexRender cell={cell} />
+                          <Skeleton className="h-4 w-full min-w-16" />
                         </TableCell>
                       ))}
                     </TableRow>
-                  );
-                })}
-          </TableBody>
-        </Table>
-      </div>
+                  ))
+                : rows.map((row) => {
+                    const selected = row.id === selectedRowId;
+                    return (
+                      <TableRow
+                        key={row.id}
+                        data-state={selected ? "selected" : undefined}
+                        className="hover:bg-ice has-[[data-row-action]]:cursor-pointer"
+                      >
+                        {row.getAllCells().map((cell, index) => (
+                          <TableCell
+                            key={cell.id}
+                            className={cn(
+                              index === 0 &&
+                                "sticky left-0 z-5 max-md:border-r",
+                              index === 0 &&
+                                selected &&
+                                "shadow-[inset_3px_0_0_var(--color-royal)]",
+                            )}
+                          >
+                            <table.FlexRender cell={cell} />
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    );
+                  })}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        (error ?? emptyState)
+      )}
+      {/* With an error, still offer "First page" – e.g. for an expired cursor in a shared link. */}
       {!loading && pagination}
     </TableCard>
   );
@@ -289,7 +299,8 @@ function TableCard({
     <div
       ref={ref}
       tabIndex={-1}
-      className="min-w-0 rounded-xl border border-line bg-surface"
+      data-slot="table-card"
+      className="min-w-0 rounded-xl border border-line bg-surface shadow-sm"
     >
       {children}
     </div>
@@ -391,5 +402,25 @@ export function RowAction({
     <button type="button" onClick={onSelect} {...shared}>
       {children}
     </button>
+  );
+}
+
+/**
+ * A row's first cell with a picture before it: an `Avatar` for people, an `IconAvatar` for
+ * records. The picture is for sight only and left out on phones, where the pinned first column
+ * needs the room.
+ */
+export function CellWithPicture({
+  picture,
+  children,
+}: {
+  picture: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="contents max-md:hidden">{picture}</span>
+      <div className="grid min-w-0 justify-items-start">{children}</div>
+    </div>
   );
 }

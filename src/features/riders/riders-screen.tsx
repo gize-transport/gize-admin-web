@@ -3,7 +3,9 @@
 import { PhoneIcon, PlusIcon, SearchIcon, UsersIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Avatar } from "@/components/avatar";
 import {
+  CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
   FilterChips,
@@ -104,10 +106,8 @@ export function RidersScreen() {
     cursor: cursor !== null && cursor === staleCursor ? null : cursor,
   };
   const phoneSearch = search.kind === "phone";
-  const riders = useRiders(
-    filters,
-    !phoneSearch && search.kind !== "partial-phone",
-  );
+  const partialPhone = search.kind === "partial-phone";
+  const riders = useRiders(filters, !phoneSearch && !partialPhone);
   const byPhone = useRidersByPhone(phoneSearch ? search.phone : null);
   const [form, setForm] = useState<{ key: number; phone: string } | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -141,16 +141,18 @@ export function RidersScreen() {
         col.accessor("full_name", {
           header: t("colName"),
           cell: (info) => (
-            <span className="grid gap-0.5">
-              <RowAction {...detail.rowLink(info.row.original.id)}>
-                {info.getValue()}
-              </RowAction>
-              {info.row.original.phone_masked && (
-                <span className="font-mono text-meta text-muted">
-                  {info.row.original.phone_masked}
-                </span>
-              )}
-            </span>
+            <CellWithPicture picture={<Avatar name={info.getValue()} />}>
+              <span className="grid gap-0.5">
+                <RowAction {...detail.rowLink(info.row.original.id)}>
+                  {info.getValue()}
+                </RowAction>
+                {info.row.original.phone_masked && (
+                  <span className="font-mono text-meta text-muted">
+                    {info.row.original.phone_masked}
+                  </span>
+                )}
+              </span>
+            </CellWithPicture>
           ),
         }),
         col.accessor("rider_type", {
@@ -241,7 +243,15 @@ export function RidersScreen() {
       action={addButton}
     />
   );
-  if (phoneSearch) {
+  if (partialPhone) {
+    emptyState = (
+      <EmptyState
+        icon={<PhoneIcon aria-hidden />}
+        title={t("partialPhoneTitle")}
+        description={t("partialPhoneDescription")}
+      />
+    );
+  } else if (phoneSearch) {
     emptyState = (
       <EmptyState
         icon={<PhoneIcon aria-hidden />}
@@ -283,43 +293,6 @@ export function RidersScreen() {
         description={t("description")}
         actions={addButton}
       />
-      <div className="grid gap-4">
-        <RiderSearchField onSearch={changeSearch} />
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-          <FilterChips
-            param="type"
-            label={t("typeFilter")}
-            options={TYPES.map((value) => ({
-              value,
-              label: riderTypeLabel(value, t),
-            }))}
-          />
-          <FilterChips
-            param="seat"
-            label={t("seatFilter")}
-            options={[
-              { value: "active", label: t("seatRiding") },
-              { value: "reserved", label: t("seatReserved") },
-              { value: "none", label: t("noSeat") },
-            ]}
-          />
-        </div>
-        <div className="grid items-start gap-4 lg:max-w-md">
-          <RouteFilter
-            routeId={filters.routeId}
-            labels={{
-              label: t("routeFilter"),
-              anyRoute: t("anyRoute"),
-              loading: t("loadingName"),
-              unknownRoute: t("unknownRoute"),
-              routeUnavailable: t("routeUnavailable"),
-            }}
-          />
-        </div>
-        {phoneSearch && (
-          <p className="text-table text-muted">{t("phoneSearchNote")}</p>
-        )}
-      </div>
       <div
         className={
           detail.panelId
@@ -327,48 +300,83 @@ export function RidersScreen() {
             : "grid"
         }
       >
-        {search.kind === "partial-phone" ? (
-          <EmptyState
-            icon={<PhoneIcon aria-hidden />}
-            title={t("partialPhoneTitle")}
-            description={t("partialPhoneDescription")}
-          />
-        ) : (
-          <DataTable
-            label={t("tableLabel")}
-            columns={columns}
-            data={
-              badFilter
-                ? []
-                : phoneSearch
-                  ? byPhone.data?.items
-                  : riders.data?.items
-            }
-            getRowId={(rider) => rider.id}
-            isLoading={shown.isPending}
-            nextCursor={phoneSearch ? null : (riders.data?.next_cursor ?? null)}
-            selectedRowId={detail.panelId}
-            error={
-              shown.isError && !badFilter ? (
-                <ProblemAlert
-                  message={message(shown.error)}
-                  requestId={
-                    shown.error instanceof ApiError
-                      ? shown.error.requestId
-                      : null
-                  }
-                  retryAfterSeconds={
-                    shown.error instanceof ApiError
-                      ? shown.error.retryAfterSeconds
-                      : null
-                  }
-                  onRetry={() => void shown.refetch()}
+        {/* One table for every search: its toolbar holds the search box, which must stay. */}
+        <DataTable
+          toolbar={
+            <div className="grid gap-4">
+              <RiderSearchField onSearch={changeSearch} />
+              <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+                <FilterChips
+                  param="type"
+                  label={t("typeFilter")}
+                  options={TYPES.map((value) => ({
+                    value,
+                    label: riderTypeLabel(value, t),
+                  }))}
                 />
-              ) : undefined
-            }
-            emptyState={emptyState}
-          />
-        )}
+                <FilterChips
+                  param="seat"
+                  label={t("seatFilter")}
+                  options={[
+                    { value: "active", label: t("seatRiding") },
+                    { value: "reserved", label: t("seatReserved") },
+                    { value: "none", label: t("noSeat") },
+                  ]}
+                />
+              </div>
+              <div className="grid items-start gap-4 lg:max-w-md">
+                <RouteFilter
+                  routeId={filters.routeId}
+                  labels={{
+                    label: t("routeFilter"),
+                    anyRoute: t("anyRoute"),
+                    loading: t("loadingName"),
+                    unknownRoute: t("unknownRoute"),
+                    routeUnavailable: t("routeUnavailable"),
+                  }}
+                />
+              </div>
+              {phoneSearch && (
+                <p className="text-table text-muted">{t("phoneSearchNote")}</p>
+              )}
+            </div>
+          }
+          label={t("tableLabel")}
+          columns={columns}
+          data={
+            badFilter || partialPhone
+              ? []
+              : phoneSearch
+                ? byPhone.data?.items
+                : riders.data?.items
+          }
+          getRowId={(rider) => rider.id}
+          // Part of a phone number is never looked up: nothing loads.
+          isLoading={!partialPhone && shown.isPending}
+          nextCursor={
+            phoneSearch || partialPhone
+              ? null
+              : (riders.data?.next_cursor ?? null)
+          }
+          selectedRowId={detail.panelId}
+          error={
+            shown.isError && !badFilter && !partialPhone ? (
+              <ProblemAlert
+                message={message(shown.error)}
+                requestId={
+                  shown.error instanceof ApiError ? shown.error.requestId : null
+                }
+                retryAfterSeconds={
+                  shown.error instanceof ApiError
+                    ? shown.error.retryAfterSeconds
+                    : null
+                }
+                onRetry={() => void shown.refetch()}
+              />
+            ) : undefined
+          }
+          emptyState={emptyState}
+        />
         {detail.panelId && (
           <div className="xl:sticky xl:top-6">
             <RiderDetail

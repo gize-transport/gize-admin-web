@@ -85,6 +85,21 @@ describe("DriversScreen", () => {
     expect(within(row).getByText(t.active)).toBeVisible();
     expect(within(row).getByText("Nov 5, 2026")).toBeVisible();
     expect(within(table).getByText(t.inactive)).toBeVisible();
+    // Initials beside the name, for sight only: the link is still just the name.
+    expect(within(row).getByText("BT")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("keeps the search and status filter in the table's card", async () => {
+    serveDrivers([bereket]);
+    renderWithProviders(<DriversScreen />);
+
+    const table = await screen.findByRole("table", { name: t.tableLabel });
+    const card = table.closest("[data-slot='table-card']");
+    expect(card).not.toBeNull();
+    expect(card).toContainElement(screen.getByLabelText(t.searchLabel));
+    expect(card).toContainElement(
+      screen.getByRole("button", { name: t.filterInactive }),
+    );
   });
 
   it("sends the status from the URL, and ignores one it doesn't know", async () => {

@@ -3,7 +3,9 @@
 import { UserPlusIcon, UsersIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
+import { Avatar } from "@/components/avatar";
 import {
+  CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
   FilterChips,
@@ -68,19 +70,21 @@ export function StaffScreen() {
         col.accessor("full_name", {
           header: t("colName"),
           cell: (info) => (
-            <span className="grid gap-0.5">
-              <span className="flex flex-wrap items-center gap-2">
-                <RowAction {...detail.rowLink(info.row.original.id)}>
-                  {info.getValue()}
-                </RowAction>
-                {info.row.original.id === me && (
-                  <span className="text-meta text-muted">{t("you")}</span>
-                )}
+            <CellWithPicture picture={<Avatar name={info.getValue()} />}>
+              <span className="grid gap-0.5">
+                <span className="flex flex-wrap items-center gap-2">
+                  <RowAction {...detail.rowLink(info.row.original.id)}>
+                    {info.getValue()}
+                  </RowAction>
+                  {info.row.original.id === me && (
+                    <span className="text-meta text-muted">{t("you")}</span>
+                  )}
+                </span>
+                <span className="text-meta text-muted">
+                  {info.row.original.email}
+                </span>
               </span>
-              <span className="text-meta text-muted">
-                {info.row.original.email}
-              </span>
-            </span>
+            </CellWithPicture>
           ),
         }),
         col.accessor("role", {
@@ -132,24 +136,6 @@ export function StaffScreen() {
         description={t("description")}
         actions={inviteButton}
       />
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-        <FilterChips
-          param="role"
-          label={t("roleFilter")}
-          options={[
-            { value: "admin", label: t("roleAdmin") },
-            { value: "staff", label: t("roleStaff") },
-          ]}
-        />
-        <FilterChips
-          param="is_active"
-          label={t("statusFilter")}
-          options={[
-            { value: "true", label: t("filterActive") },
-            { value: "false", label: t("filterDeactivated") },
-          ]}
-        />
-      </div>
       <div
         className={
           detail.panelId
@@ -158,6 +144,26 @@ export function StaffScreen() {
         }
       >
         <DataTable
+          toolbar={
+            <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+              <FilterChips
+                param="role"
+                label={t("roleFilter")}
+                options={[
+                  { value: "admin", label: t("roleAdmin") },
+                  { value: "staff", label: t("roleStaff") },
+                ]}
+              />
+              <FilterChips
+                param="is_active"
+                label={t("statusFilter")}
+                options={[
+                  { value: "true", label: t("filterActive") },
+                  { value: "false", label: t("filterDeactivated") },
+                ]}
+              />
+            </div>
+          }
           label={t("tableLabel")}
           columns={columns}
           data={badFilter ? [] : members.data?.items}

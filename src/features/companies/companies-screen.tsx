@@ -3,7 +3,9 @@
 import { Building2Icon, PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
+import { IconAvatar } from "@/components/avatar";
 import {
+  CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
   FilterChips,
@@ -66,7 +68,9 @@ export function CompaniesScreen() {
           cell: (info) => {
             const id = info.row.original.id;
             return (
-              <RowAction {...detail.rowLink(id)}>{info.getValue()}</RowAction>
+              <CellWithPicture picture={<IconAvatar icon={Building2Icon} />}>
+                <RowAction {...detail.rowLink(id)}>{info.getValue()}</RowAction>
+              </CellWithPicture>
             );
           },
         }),
@@ -112,21 +116,6 @@ export function CompaniesScreen() {
         description={t("description")}
         actions={addButton}
       />
-      <div className="flex flex-wrap items-end gap-4">
-        <SearchField
-          param="q"
-          label={t("searchLabel")}
-          placeholder={t("searchHint")}
-        />
-        <FilterChips
-          param="is_active"
-          label={t("statusFilter")}
-          options={[
-            { value: "true", label: t("filterActive") },
-            { value: "false", label: t("filterInactive") },
-          ]}
-        />
-      </div>
       <div
         className={
           detail.panelId
@@ -135,6 +124,23 @@ export function CompaniesScreen() {
         }
       >
         <DataTable
+          toolbar={
+            <div className="flex flex-wrap items-end gap-4">
+              <SearchField
+                param="q"
+                label={t("searchLabel")}
+                placeholder={t("searchHint")}
+              />
+              <FilterChips
+                param="is_active"
+                label={t("statusFilter")}
+                options={[
+                  { value: "true", label: t("filterActive") },
+                  { value: "false", label: t("filterInactive") },
+                ]}
+              />
+            </div>
+          }
           label={t("tableLabel")}
           columns={columns}
           data={companies.data?.items}

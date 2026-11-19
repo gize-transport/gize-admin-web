@@ -3,7 +3,9 @@
 import { PlusIcon, SearchIcon, TruckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Avatar } from "@/components/avatar";
 import {
+  CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
   FilterChips,
@@ -105,9 +107,11 @@ export function DriversScreen() {
         col.accessor("full_name", {
           header: t("colName"),
           cell: (info) => (
-            <RowAction {...detail.rowLink(info.row.original.id)}>
-              {info.getValue()}
-            </RowAction>
+            <CellWithPicture picture={<Avatar name={info.getValue()} />}>
+              <RowAction {...detail.rowLink(info.row.original.id)}>
+                {info.getValue()}
+              </RowAction>
+            </CellWithPicture>
           ),
         }),
         col.accessor("plate", {
@@ -188,17 +192,6 @@ export function DriversScreen() {
         description={t("description")}
         actions={addButton}
       />
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-        <DriverSearchField onSearch={changeSearch} />
-        <FilterChips
-          param="is_active"
-          label={t("statusFilter")}
-          options={[
-            { value: "true", label: t("filterActive") },
-            { value: "false", label: t("filterInactive") },
-          ]}
-        />
-      </div>
       <div
         className={
           detail.panelId
@@ -214,6 +207,19 @@ export function DriversScreen() {
           isLoading={drivers.isPending}
           nextCursor={drivers.data?.next_cursor ?? null}
           selectedRowId={detail.panelId}
+          toolbar={
+            <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+              <DriverSearchField onSearch={changeSearch} />
+              <FilterChips
+                param="is_active"
+                label={t("statusFilter")}
+                options={[
+                  { value: "true", label: t("filterActive") },
+                  { value: "false", label: t("filterInactive") },
+                ]}
+              />
+            </div>
+          }
           error={
             drivers.isError ? (
               <ProblemAlert

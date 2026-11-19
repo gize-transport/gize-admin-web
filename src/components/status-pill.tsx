@@ -22,10 +22,16 @@ export function StatusPill({ tone, children }: StatusPillProps) {
     <span
       data-tone={tone}
       className={cn(
-        "inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-meta font-semibold whitespace-nowrap",
+        "inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-meta font-semibold whitespace-nowrap",
         toneClasses[tone],
       )}
     >
+      {/* Since GZW-074; the words carry the status, the dot only supports them. */}
+      <span
+        data-dot
+        aria-hidden="true"
+        className="size-1.5 shrink-0 rounded-full bg-current"
+      />
       {children}
     </span>
   );

@@ -82,6 +82,7 @@ export function RoutesScreen() {
         col.accessor("code", {
           header: t("colRoute"),
           cell: (info) => (
+            // No picture: the widest list, where Status must stay in view (GZW-074).
             <span className="grid gap-0.5">
               <RowAction {...detail.rowLink(info.row.original.id)}>
                 <span className="font-mono">{info.getValue()}</span>
@@ -206,40 +207,6 @@ export function RoutesScreen() {
         description={t("description")}
         actions={addButton}
       />
-      <div className="grid gap-4">
-        <div className="flex flex-wrap items-end gap-4">
-          <SearchField
-            param="q"
-            label={t("searchLabel")}
-            placeholder={t("searchHint")}
-            maxLength={20}
-          />
-          <FilterChips
-            param="route_type"
-            label={t("typeFilter")}
-            options={[
-              { value: "public", label: t("typePublic") },
-              { value: "student", label: t("typeStudent") },
-              { value: "corporate", label: t("typeCorporate") },
-            ]}
-          />
-        </div>
-        <FilterChips
-          param="status"
-          label={t("statusFilter")}
-          options={STATUSES.map((status) => ({
-            value: status,
-            label:
-              status === "forming"
-                ? tStatus("formingNoMinimum")
-                : tStatus(status),
-          }))}
-        />
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <CorridorFilter corridorId={filters.corridorId} />
-          <CompanyFilter companyId={filters.companyId} />
-        </div>
-      </div>
       <div
         className={
           detail.panelId
@@ -248,6 +215,42 @@ export function RoutesScreen() {
         }
       >
         <DataTable
+          toolbar={
+            <div className="grid gap-4">
+              <div className="flex flex-wrap items-end gap-4">
+                <SearchField
+                  param="q"
+                  label={t("searchLabel")}
+                  placeholder={t("searchHint")}
+                  maxLength={20}
+                />
+                <FilterChips
+                  param="route_type"
+                  label={t("typeFilter")}
+                  options={[
+                    { value: "public", label: t("typePublic") },
+                    { value: "student", label: t("typeStudent") },
+                    { value: "corporate", label: t("typeCorporate") },
+                  ]}
+                />
+              </div>
+              <FilterChips
+                param="status"
+                label={t("statusFilter")}
+                options={STATUSES.map((status) => ({
+                  value: status,
+                  label:
+                    status === "forming"
+                      ? tStatus("formingNoMinimum")
+                      : tStatus(status),
+                }))}
+              />
+              <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                <CorridorFilter corridorId={filters.corridorId} />
+                <CompanyFilter companyId={filters.companyId} />
+              </div>
+            </div>
+          }
           label={t("tableLabel")}
           columns={columns}
           data={badFilter ? [] : routes.data?.items}

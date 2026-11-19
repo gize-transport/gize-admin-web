@@ -14,4 +14,14 @@ describe("StatusPill", () => {
       expect(pill).toHaveAttribute("data-tone", tone);
     },
   );
+
+  it("puts a dot before the words, for sight only", () => {
+    renderWithProviders(<StatusPill tone="success">Active</StatusPill>);
+
+    const pill = screen.getByText("Active").closest("[data-tone]");
+    const dot = pill?.querySelector("[data-dot]");
+    expect(dot).not.toBeNull();
+    expect(dot).toHaveAttribute("aria-hidden", "true");
+    expect(pill).toHaveTextContent(/^Active$/);
+  });
 });

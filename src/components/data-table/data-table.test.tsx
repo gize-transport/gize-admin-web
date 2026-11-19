@@ -131,6 +131,70 @@ describe("DataTable", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
+  it("shows the toolbar (filters) above the rows, while loading, when nothing matches and on errors", () => {
+    const toolbar = (
+      <label>
+        Search routes
+        <input />
+      </label>
+    );
+    const { rerender } = renderTable({ toolbar });
+    const box = screen.getByRole("textbox", { name: "Search routes" });
+
+    const states = [
+      { data: undefined, isLoading: true },
+      { data: [] },
+      { error: <div role="alert">Server error</div> },
+      {},
+    ];
+    for (const state of states) {
+      rerender(
+        <DataTable
+          label="Routes"
+          columns={columns}
+          data={routes}
+          getRowId={(route) => route.id}
+          emptyState={<p>No routes yet</p>}
+          toolbar={toolbar}
+          {...state}
+        />,
+      );
+      // The same box, never a new one: typing in it isn't interrupted.
+      expect(screen.getByRole("textbox", { name: "Search routes" })).toBe(box);
+    }
+  });
+
+  it("keeps focus and text in the toolbar while results change", async () => {
+    const user = userEvent.setup();
+    function Searchable({ data }: { data: Route[] | undefined }) {
+      return (
+        <DataTable
+          label="Routes"
+          columns={columns}
+          data={data}
+          getRowId={(route) => route.id}
+          emptyState={<p>No routes yet</p>}
+          toolbar={
+            <label>
+              Search routes
+              <input />
+            </label>
+          }
+        />
+      );
+    }
+    const { rerender } = renderWithProviders(<Searchable data={routes} />);
+    const box = screen.getByRole("textbox", { name: "Search routes" });
+    await user.type(box, "R-0");
+
+    rerender(<Searchable data={undefined} />);
+    rerender(<Searchable data={[]} />);
+    rerender(<Searchable data={routes} />);
+
+    expect(box).toHaveFocus();
+    expect(box).toHaveValue("R-0");
+  });
+
   it("shows the error instead of the table", () => {
     renderTable({ error: <div role="alert">Server error</div> });
 

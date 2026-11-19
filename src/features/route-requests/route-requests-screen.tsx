@@ -3,7 +3,9 @@
 import { InboxIcon, PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useMemo, useRef, useState } from "react";
+import { Avatar } from "@/components/avatar";
 import {
+  CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
   FilterChips,
@@ -96,14 +98,16 @@ export function RouteRequestsScreen() {
         col.accessor("rider_name", {
           header: t("colRider"),
           cell: (info) => (
-            <span className="grid gap-0.5">
-              <RowAction {...detail.rowLink(info.row.original.id)}>
-                {info.getValue()}
-              </RowAction>
-              <span className="text-meta text-muted">
-                {riderLabel(info.row.original, t)}
+            <CellWithPicture picture={<Avatar name={info.getValue()} />}>
+              <span className="grid gap-0.5">
+                <RowAction {...detail.rowLink(info.row.original.id)}>
+                  {info.getValue()}
+                </RowAction>
+                <span className="text-meta text-muted">
+                  {riderLabel(info.row.original, t)}
+                </span>
               </span>
-            </span>
+            </CellWithPicture>
           ),
         }),
         col.display({
@@ -177,62 +181,6 @@ export function RouteRequestsScreen() {
         description={t("description")}
         actions={addButton}
       />
-      <div className="grid gap-4">
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-          <FilterChips
-            param="open"
-            label={t("openFilter")}
-            options={[
-              { value: "true", label: t("filterOpen") },
-              { value: "false", label: t("filterClosed") },
-            ]}
-          />
-          <div ref={kindChips}>
-            <FilterChips
-              param="kind"
-              label={t("kindFilter")}
-              options={[
-                { value: "new_areas", label: t("kindNewAreas") },
-                { value: "route", label: t("kindRoute") },
-              ]}
-            />
-          </div>
-        </div>
-        <FilterChips
-          param="status"
-          label={t("statusFilter")}
-          options={STATUSES.map((status) => ({
-            value: status,
-            label: tStatus(status === "matched" ? "matchedAny" : status),
-          }))}
-        />
-        <div className="grid items-start gap-4 lg:max-w-md">
-          <RouteFilter
-            routeId={filters.routeId}
-            labels={{
-              label: t("routeFilter"),
-              anyRoute: t("anyRoute"),
-              loading: t("loadingName"),
-              unknownRoute: t("unknownRoute"),
-              routeUnavailable: t("routeUnavailable"),
-            }}
-          />
-        </div>
-        {pairFiltered && (
-          <PairFilter
-            from={{ id: filters.fromAreaId, name: filters.fromAreaName }}
-            to={{ id: filters.toAreaId, name: filters.toAreaName }}
-            onClear={() => {
-              kindChips.current
-                ?.querySelector<HTMLElement>('[aria-pressed="true"]')
-                ?.focus();
-              setFilters(
-                Object.fromEntries(AREA_FILTERS.map((key) => [key, null])),
-              );
-            }}
-          />
-        )}
-      </div>
       <div
         className={
           detail.panelId
@@ -241,6 +189,66 @@ export function RouteRequestsScreen() {
         }
       >
         <DataTable
+          toolbar={
+            <div className="grid gap-4">
+              <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+                <FilterChips
+                  param="open"
+                  label={t("openFilter")}
+                  options={[
+                    { value: "true", label: t("filterOpen") },
+                    { value: "false", label: t("filterClosed") },
+                  ]}
+                />
+                <div ref={kindChips}>
+                  <FilterChips
+                    param="kind"
+                    label={t("kindFilter")}
+                    options={[
+                      { value: "new_areas", label: t("kindNewAreas") },
+                      { value: "route", label: t("kindRoute") },
+                    ]}
+                  />
+                </div>
+              </div>
+              <FilterChips
+                param="status"
+                label={t("statusFilter")}
+                options={STATUSES.map((status) => ({
+                  value: status,
+                  label: tStatus(status === "matched" ? "matchedAny" : status),
+                }))}
+              />
+              <div className="grid items-start gap-4 lg:max-w-md">
+                <RouteFilter
+                  routeId={filters.routeId}
+                  labels={{
+                    label: t("routeFilter"),
+                    anyRoute: t("anyRoute"),
+                    loading: t("loadingName"),
+                    unknownRoute: t("unknownRoute"),
+                    routeUnavailable: t("routeUnavailable"),
+                  }}
+                />
+              </div>
+              {pairFiltered && (
+                <PairFilter
+                  from={{ id: filters.fromAreaId, name: filters.fromAreaName }}
+                  to={{ id: filters.toAreaId, name: filters.toAreaName }}
+                  onClear={() => {
+                    kindChips.current
+                      ?.querySelector<HTMLElement>('[aria-pressed="true"]')
+                      ?.focus();
+                    setFilters(
+                      Object.fromEntries(
+                        AREA_FILTERS.map((key) => [key, null]),
+                      ),
+                    );
+                  }}
+                />
+              )}
+            </div>
+          }
           label={t("tableLabel")}
           columns={columns}
           data={badFilter ? [] : requests.data?.items}

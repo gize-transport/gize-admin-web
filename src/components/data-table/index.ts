@@ -1,4 +1,5 @@
 export {
+  CellWithPicture,
   DataTable,
   RowAction,
   createDataTableColumnHelper,

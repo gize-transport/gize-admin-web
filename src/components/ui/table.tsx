@@ -8,7 +8,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     <table
       data-slot="table"
       className={cn(
-        "w-full border-separate border-spacing-0 text-table",
+        "w-full border-separate border-spacing-0 text-table tabular-nums",
         className,
       )}
       {...props}
@@ -49,7 +49,8 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-11 border-b border-line bg-surface px-4 text-left align-middle text-meta font-medium whitespace-nowrap text-muted",
+        // Uppercase by CSS only, so the text stays in its usual case for screen readers.
+        "h-10 border-b border-line bg-canvas px-4 text-left align-middle text-meta font-semibold tracking-wider whitespace-nowrap text-muted uppercase",
         className,
       )}
       {...props}
@@ -62,7 +63,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "border-b border-line bg-inherit px-4 py-3 align-middle whitespace-nowrap",
+        "border-b border-line/70 bg-inherit px-4 py-3.5 align-middle whitespace-nowrap",
         className,
       )}
       {...props}

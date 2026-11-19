@@ -3,8 +3,10 @@
 import { RouteIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Suspense, useMemo, useState, type ReactNode } from "react";
+import { IconAvatar } from "@/components/avatar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
+  CellWithPicture,
   DataTable,
   FilterChips,
   RowAction,
@@ -304,17 +306,19 @@ function DataTableDemo() {
       col.accessor("code", {
         header: t("colRoute"),
         cell: (info) => (
-          <div className="grid min-w-36 gap-0.5">
-            <RowAction
-              onSelect={() => setSelectedId(info.row.original.id)}
-              current={info.row.original.id === selectedId}
-            >
-              {info.getValue()}
-            </RowAction>
-            <span className="text-meta text-muted">
-              {info.row.original.name}
-            </span>
-          </div>
+          <CellWithPicture picture={<IconAvatar icon={RouteIcon} />}>
+            <div className="grid min-w-36 gap-0.5">
+              <RowAction
+                onSelect={() => setSelectedId(info.row.original.id)}
+                current={info.row.original.id === selectedId}
+              >
+                {info.getValue()}
+              </RowAction>
+              <span className="text-meta text-muted">
+                {info.row.original.name}
+              </span>
+            </div>
+          </CellWithPicture>
         ),
       }),
       col.accessor("type", {
@@ -366,21 +370,23 @@ function DataTableDemo() {
   return (
     <div className="grid gap-6">
       <div className="grid gap-4">
-        <FilterChips
-          param="type"
-          label={t("routeTypeFilter")}
-          options={[
-            { value: "public", label: t("typePublic") },
-            { value: "student", label: t("typeStudent") },
-            { value: "corporate", label: t("typeCorporate") },
-          ]}
-        />
         <p className="text-table text-muted">
           {selected
             ? t("selectedRoute", { route: selected.code })
             : t("noRouteSelected")}
         </p>
         <DataTable
+          toolbar={
+            <FilterChips
+              param="type"
+              label={t("routeTypeFilter")}
+              options={[
+                { value: "public", label: t("typePublic") },
+                { value: "student", label: t("typeStudent") },
+                { value: "corporate", label: t("typeCorporate") },
+              ]}
+            />
+          }
           label={t("routesLabel")}
           columns={columns}
           data={pageRows}
