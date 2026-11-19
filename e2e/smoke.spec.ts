@@ -13,7 +13,12 @@ test.describe("smoke", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
       messages.Overview.title,
     );
-    await expect(page.getByText(messages.Overview.description)).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        level: 2,
+        name: messages.Overview.actionTitle,
+      }),
+    ).toBeVisible();
   });
 
   test("page fits the viewport without horizontal scrolling", async ({

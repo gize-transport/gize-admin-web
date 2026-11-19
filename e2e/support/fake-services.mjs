@@ -3177,6 +3177,76 @@ if (drivenRoute) drivenRoute.driverId = drivers[0]?.id ?? null;
 /** @type {Map<string, { route: FakeRoute; fingerprint: string }>} */
 const routeKeys = new Map();
 
+/**
+ * The home page's counts (GZ-064, GZ-080), live records only, as of today in Addis Ababa. A
+ * rider's seat counts as riding once started, starting before that, reserved on a forming route.
+ * @returns {Schemas["Overview"]}
+ */
+function overview() {
+  const today = addisDay();
+  /** @param {Schemas["RouteStatus"]} status */
+  const withStatus = (status) => routes.filter((r) => r.status === status);
+  // Every seat a rider holds today or later (a move holds today's seat and the next), counted
+  // once per rider: one moving on the 1st is riding, not starting.
+  const held = riders
+    .filter((r) => !r.deleted)
+    .map((r) =>
+      [r.seat, r.nextSeat].filter(
+        (seat) => seat !== null && (seat.end_date ?? today) >= today,
+      ),
+    );
+  const riding = held.map((seats) =>
+    seats.some((s) => s?.status === "active" && s.start_date <= today),
+  );
+  return {
+    as_of: today,
+    routes: {
+      draft: withStatus("draft").length,
+      forming: withStatus("forming").length,
+      active: withStatus("active").length,
+      paused: withStatus("paused").length,
+      // The launch's own rule: enough riders reserved for the next launch day.
+      ready_to_launch: withStatus("forming").filter(
+        (r) => r.launch_minimum !== null && r.reserved >= r.launch_minimum,
+      ).length,
+      active_without_driver: withStatus("active").filter((r) => !r.driverId)
+        .length,
+    },
+    riders: {
+      total: held.length,
+      riding: riding.filter(Boolean).length,
+      reserved: held.filter((seats) =>
+        seats.some((s) => s?.status === "reserved"),
+      ).length,
+      starting: held.filter(
+        (seats, index) =>
+          !riding[index] &&
+          seats.some((s) => s?.status === "active" && s.start_date > today),
+      ).length,
+    },
+    route_requests: {
+      open: requests.filter((r) => !r.deleted && isOpen(r)).length,
+    },
+    // Open in time, and their request still open and waiting for the offer's route.
+    seat_offers: {
+      open: offers.filter((o) => {
+        const request = requests.find((r) => r.id === o.requestId);
+        return (
+          offerStatus(o) === "open" &&
+          request !== undefined &&
+          !request.deleted &&
+          isOpen(request) &&
+          (request.routeId === o.routeId ||
+            request.matchedRouteId === o.routeId)
+        );
+      }).length,
+    },
+    drivers: {
+      active: drivers.filter((d) => !d.deleted && d.is_active).length,
+    },
+  };
+}
+
 const api = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://localhost");
   if (request.method === "OPTIONS") return send(response, 204);
@@ -3194,6 +3264,15 @@ const api = createServer(async (request, response) => {
   }
   if (user.staff === "forbidden") return problem(response, 403, "FORBIDDEN");
   const isAdmin = user.staff.role === "admin";
+
+  if (url.pathname === "/v1/overview" && request.method === "GET") {
+    // It takes no parameters: any is a 422, like the API.
+    const [name] = [...url.searchParams.keys()];
+    if (name !== undefined) {
+      return validationProblem(response, `/${name}`, "unknown_field", "query");
+    }
+    return send(response, 200, overview(), { "Cache-Control": "no-store" });
+  }
 
   if (url.pathname === "/v1/audit-log" && request.method === "GET") {
     if (!isAdmin) return problem(response, 403, "FORBIDDEN");
