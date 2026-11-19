@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 let graphemes: Intl.Segmenter | null | undefined;
@@ -51,6 +52,27 @@ export function Avatar({
       )}
     >
       {initials(name)}
+    </span>
+  );
+}
+
+/** A record's kind as an icon in a tile (a route, a company…), beside its name. For sight only. */
+export function IconAvatar({
+  icon: Icon,
+  className,
+}: {
+  icon: LucideIcon;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "grid size-9 shrink-0 place-items-center rounded-lg bg-ice text-royal",
+        className,
+      )}
+    >
+      <Icon className="size-[18px]" />
     </span>
   );
 }

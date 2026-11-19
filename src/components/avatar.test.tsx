@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Avatar, initials } from "./avatar";
+import { RouteIcon } from "lucide-react";
+import { Avatar, IconAvatar, initials } from "./avatar";
 
 describe("initials", () => {
   it.each([
@@ -47,5 +48,15 @@ describe("Avatar", () => {
 
     const avatar = screen.getByText("AA");
     expect(avatar).toHaveAttribute("aria-hidden", "true");
+  });
+});
+
+describe("IconAvatar", () => {
+  it("shows the icon in a tile hidden from screen readers", () => {
+    const { container } = render(<IconAvatar icon={RouteIcon} />);
+
+    const tile = container.firstElementChild;
+    expect(tile).toHaveAttribute("aria-hidden", "true");
+    expect(tile?.querySelector("svg")).not.toBeNull();
   });
 });

@@ -3,8 +3,10 @@
 import { MapPinIcon, PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
+import { IconAvatar } from "@/components/avatar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
+  CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
   RowAction,
@@ -58,12 +60,14 @@ export function AreasScreen() {
         col.accessor("name", {
           header: t("colName"),
           cell: (info) => (
-            <RowAction
-              onSelect={() => openForm(info.row.original)}
-              aria-label={t("renameLabel", { name: info.getValue() })}
-            >
-              {info.getValue()}
-            </RowAction>
+            <CellWithPicture picture={<IconAvatar icon={MapPinIcon} />}>
+              <RowAction
+                onSelect={() => openForm(info.row.original)}
+                aria-label={t("renameLabel", { name: info.getValue() })}
+              >
+                {info.getValue()}
+              </RowAction>
+            </CellWithPicture>
           ),
         }),
         col.accessor("created_at", {
@@ -120,12 +124,14 @@ export function AreasScreen() {
         description={t("description")}
         actions={addButton}
       />
-      <SearchField
-        param="q"
-        label={t("searchLabel")}
-        placeholder={t("searchHint")}
-      />
       <DataTable
+        toolbar={
+          <SearchField
+            param="q"
+            label={t("searchLabel")}
+            placeholder={t("searchHint")}
+          />
+        }
         label={t("tableLabel")}
         columns={columns}
         data={areas.data?.items}

@@ -1,10 +1,12 @@
 "use client";
 
-import { PlusIcon, RouteIcon } from "lucide-react";
+import { ArrowLeftRightIcon, PlusIcon, RouteIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useMemo, useState } from "react";
+import { IconAvatar } from "@/components/avatar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
+  CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
   RowAction,
@@ -79,13 +81,15 @@ export function CorridorsScreen() {
           cell: (info) => (
             // Its name comes from its content: "Edit Bole to Piassa" (the arrow is hidden from
             // screen readers), so the visible text is part of the name (WCAG 2.5.3).
-            <RowAction onSelect={() => openForm(info.row.original)}>
-              {t.rich("rowName", {
-                ...names(info.row.original),
-                spoken: (chunks) => <span className="sr-only">{chunks}</span>,
-                arrow: (chunks) => <span aria-hidden="true">{chunks}</span>,
-              })}
-            </RowAction>
+            <CellWithPicture picture={<IconAvatar icon={ArrowLeftRightIcon} />}>
+              <RowAction onSelect={() => openForm(info.row.original)}>
+                {t.rich("rowName", {
+                  ...names(info.row.original),
+                  spoken: (chunks) => <span className="sr-only">{chunks}</span>,
+                  arrow: (chunks) => <span aria-hidden="true">{chunks}</span>,
+                })}
+              </RowAction>
+            </CellWithPicture>
           ),
         }),
         col.accessor("created_at", {
@@ -146,15 +150,20 @@ export function CorridorsScreen() {
         description={t("description")}
         actions={addButton}
       />
-      <div
-        role="group"
-        aria-label={t("filtersLabel")}
-        className="grid gap-4 sm:grid-cols-2 lg:max-w-2xl"
-      >
-        <AreaFilter param={ORIGIN_PARAM} label={t("originLabel")} />
-        <AreaFilter param={DESTINATION_PARAM} label={t("destinationLabel")} />
-      </div>
       <DataTable
+        toolbar={
+          <div
+            role="group"
+            aria-label={t("filtersLabel")}
+            className="grid gap-4 sm:grid-cols-2 lg:max-w-2xl"
+          >
+            <AreaFilter param={ORIGIN_PARAM} label={t("originLabel")} />
+            <AreaFilter
+              param={DESTINATION_PARAM}
+              label={t("destinationLabel")}
+            />
+          </div>
+        }
         label={t("tableLabel")}
         columns={columns}
         data={badFilter ? [] : corridors.data?.items}

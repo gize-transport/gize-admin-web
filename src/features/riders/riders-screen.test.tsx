@@ -243,11 +243,33 @@ describe("RidersScreen", () => {
     renderWithProviders(<RidersScreen />);
 
     await screen.findByRole("link", { name: "Abel Tesfaye" });
-    await user.type(screen.getByLabelText(t.searchLabel), "0911");
+    const box = screen.getByLabelText(t.searchLabel);
+    await user.type(box, "0911");
 
     expect(await screen.findByText(t.partialPhoneTitle)).toBeVisible();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(seenLookups).toEqual([]);
+    // The box (in the table's card) stays, still being typed in.
+    expect(box).toHaveFocus();
+    await user.type(box, "000201");
+    expect(box).toHaveValue("0911000201");
+  });
+
+  it("offers no next page while a phone is only partly typed", async () => {
+    serveRiders([riding], undefined, "cursor-2");
+    serveLookup([riding]);
+    const user = userEvent.setup();
+    renderWithProviders(<RidersScreen />);
+    expect(
+      await screen.findByRole("link", { name: messages.DataTable.nextPage }),
+    ).toBeVisible();
+
+    await user.type(screen.getByLabelText(t.searchLabel), "0911");
+
+    expect(await screen.findByText(t.partialPhoneTitle)).toBeVisible();
+    expect(
+      screen.queryByRole("link", { name: messages.DataTable.nextPage }),
+    ).toBeNull();
   });
 
   it("offers to record a caller nobody has, with their number filled in", async () => {

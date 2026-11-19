@@ -223,8 +223,11 @@ Visual refresh, part 1 of 3 (owner request 2026-11-19, inspired by a dashboard s
 - A sun count beside Route requests: the open route requests from `overview_get` (the link is described by it, "6 open"; "99+" above 99; none at 0 or after a failed read). It shares the overview's cache: read again once a minute while the tab is visible, when the tab comes back (not before a 429's `Retry-After` is over), and at once after a change that can open or close a request (route requests, seats, offers).
 - The account at the foot is a card: initials (`Avatar`, `src/components/avatar.tsx`), name, role pill and Sign out with an icon. Same in the phone drawer.
 
-### GZW-074 · Tables · Needs backend: none · Status: todo
-Visual refresh, part 2: search and filters in the table card's top bar (kept in loading, empty and error states), a tinted header row with small capitals, initials or an icon at the start of rows, a dot in status pills, roomier rows. No row count (lists have no total).
+### GZW-074 · Tables · Needs backend: none · Status: done
+Visual refresh, part 2, every list at once (Routes, Route requests, Companies, Riders, Drivers, Areas, Corridors, Staff, Audit log).
+- Built: DataTable `toolbar` – each screen's search and filters in the card's top bar, in every state and never remounted (Riders' partly typed phone now shows through the table's empty state, keeping the search box). Header row on `canvas`, uppercase by CSS; roomier rows, lighter dividers, equal-width digits; a light shadow on the card.
+- Row pictures via `CellWithPicture`: initials (`Avatar`) for people, an icon tile (`IconAvatar`) for companies, areas and corridors (not Routes: it is the widest list, and Status must stay in view at 1440 px); hidden on phones. Audit log keeps the date first.
+- StatusPill gains a dot (every pill in the portal). No row count: lists have no total.
 
 ### GZW-075 · Overview cards and charts · Needs backend: none · Status: todo
 Visual refresh, part 3: Needs action as rows in one card, a card per section with an icon header, a bar of routes by status (SVG: the CSP blocks inline styles), each rider count's share of all riders. No chart over time (the API gives today's counts only).
