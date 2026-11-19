@@ -229,8 +229,10 @@ Visual refresh, part 2, every list at once (Routes, Route requests, Companies, R
 - Row pictures via `CellWithPicture`: initials (`Avatar`) for people, an icon tile (`IconAvatar`) for companies, areas and corridors (not Routes: it is the widest list, and Status must stay in view at 1440 px); hidden on phones. Audit log keeps the date first.
 - StatusPill gains a dot (every pill in the portal). No row count: lists have no total.
 
-### GZW-075 · Overview cards and charts · Needs backend: none · Status: todo
-Visual refresh, part 3: Needs action as rows in one card, a card per section with an icon header, a bar of routes by status (SVG: the CSP blocks inline styles), each rider count's share of all riders. No chart over time (the API gives today's counts only).
+### GZW-075 · Overview cards and charts · Needs backend: none · Status: done
+Visual refresh, part 3, from `overview_get` only (nothing new asked of the API).
+- Built: Needs action as rows in one card (sun icon tile, title, hint, links on the right from md, under the text on phones). Routes and Riders as cards side by side from 1280 px, Seat offers and drivers below; each card has an icon heading and its counts split by dividers; Routes links "All routes".
+- Charts (SVG, widths as attributes rather than style attributes): routes by status as one bar, described in words for screen readers and keyed by a dot on each tile; each rider count's share of all riders as a thin bar for sight only. No chart over time (the API gives today's counts only).
 
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.
