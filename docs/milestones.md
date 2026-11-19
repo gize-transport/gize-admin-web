@@ -217,6 +217,18 @@ Counts and "needs action" items from the summary endpoint only.
 - Needs action (sun cards, only while above 0, "Nothing needs action right now." otherwise): routes ready to launch ("See forming routes"), active routes with no driver ("See active routes"), open route requests ("See open requests", "See demand"). The first two open the closest list until backend questions 12 and 13 are answered.
 - Counts, each a link to its filtered list where one holds exactly them: routes by status; riders riding today, starting soon (GZ-080), reserved (`seat=reserved`) and all, with "See riders with a seat" (`seat=active`: riding today and starting soon together); open seat offers (no link: question 14); active drivers (`is_active=true`).
 
+### GZW-073 · Sidebar icons and groups · Needs backend: GZ-064 (in `api-v2.16.0`) · Status: done
+Visual refresh, part 1 of 3 (owner request 2026-11-19, inspired by a dashboard shot, not copied; brand colours unchanged).
+- Built: an icon before every item (for sight only); headings Operations (Routes, Route requests, Demand), People (Companies, Riders, Drivers), Places and Admin (admins only), each a labelled list; Overview on its own at the top.
+- A sun count beside Route requests: the open route requests from `overview_get` (the link is described by it, "6 open"; "99+" above 99; none at 0 or after a failed read). It shares the overview's cache: read again once a minute while the tab is visible, when the tab comes back (not before a 429's `Retry-After` is over), and at once after a change that can open or close a request (route requests, seats, offers).
+- The account at the foot is a card: initials (`Avatar`, `src/components/avatar.tsx`), name, role pill and Sign out with an icon. Same in the phone drawer.
+
+### GZW-074 · Tables · Needs backend: none · Status: todo
+Visual refresh, part 2: search and filters in the table card's top bar (kept in loading, empty and error states), a tinted header row with small capitals, initials or an icon at the start of rows, a dot in status pills, roomier rows. No row count (lists have no total).
+
+### GZW-075 · Overview cards and charts · Needs backend: none · Status: todo
+Visual refresh, part 3: Needs action as rows in one card, a card per section with an icon header, a bar of routes by status (SVG: the CSP blocks inline styles), each rider count's share of all riders. No chart over time (the API gives today's counts only).
+
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.
 

@@ -219,7 +219,11 @@ describe("RouteRequestDetail", () => {
       seen,
     );
     const user = userEvent.setup();
-    await renderPage(matchedStudent);
+    const { queryClient } = await renderPage(matchedStudent);
+    // The open count (sidebar, overview) as last read.
+    queryClient.setQueryData<Partial<Schemas["Overview"]>>(["overview"], {
+      route_requests: { open: 4 },
+    });
 
     await user.click(screen.getByRole("button", { name: t.fulfil }));
     const confirm = await screen.findByRole("alertdialog", {
@@ -230,6 +234,8 @@ describe("RouteRequestDetail", () => {
     await waitFor(() => expect(toast).toHaveBeenCalledWith(t.fulfilled));
     expect(seen).toEqual([{ status: "fulfilled" }]);
     expect(await screen.findByText(t.closedFulfilled)).toBeVisible();
+    // A request closed: the open count is read again.
+    expect(queryClient.getQueryState(["overview"])?.isInvalidated).toBe(true);
   });
 
   it("declines with a reason it checks first", async () => {

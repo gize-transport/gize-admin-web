@@ -5,7 +5,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Suspense,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Sheet,
   SheetClose,
@@ -13,6 +20,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useOpenRequestCount } from "@/features/overview/queries";
 import { isForbidden } from "@/lib/api/problem";
 import { useCurrentStaff } from "@/lib/auth/use-current-staff";
 import { useSignOut } from "@/lib/auth/use-sign-out";
@@ -20,8 +28,10 @@ import { cn } from "@/lib/utils";
 import { AccountPanel } from "./account-panel";
 import {
   isCurrentPath,
+  navGroups,
   navItems,
   visibleNavItems,
+  type NavGroup,
   type NavItem,
 } from "./nav-items";
 
@@ -91,7 +101,8 @@ export function PortalShell({ children, items = navItems }: PortalShellProps) {
             <span className="sr-only">{t("openMenu")}</span>
           </SheetTrigger>
           <SheetContent
-            className="gap-6 bg-navy p-4"
+            // The whole drawer scrolls on short phones: menu and account together.
+            className="gap-6 overflow-y-auto bg-navy p-4"
             aria-describedby={undefined}
           >
             <SheetTitle className="sr-only">{t("menuTitle")}</SheetTitle>
@@ -107,7 +118,7 @@ export function PortalShell({ children, items = navItems }: PortalShellProps) {
                 <span className="sr-only">{t("closeMenu")}</span>
               </SheetClose>
             </div>
-            <SidebarBody items={items} onNavigate={closeMenu} />
+            <SidebarBody items={items} onNavigate={closeMenu} inDrawer />
           </SheetContent>
         </Sheet>
         <Brand />
@@ -170,33 +181,61 @@ function CloseOnNavigation({ onNavigate }: { onNavigate: () => void }) {
   return null;
 }
 
+const groupLabels = {
+  operations: "groupOperations",
+  people: "groupPeople",
+  places: "groupPlaces",
+  admin: "groupAdmin",
+} as const satisfies Record<NavGroup, string>;
+
+/** Above this, the count shows "99+". */
+const MAX_COUNT = 99;
+
 function SidebarBody({
   items,
   onNavigate,
+  inDrawer = false,
 }: {
   items: readonly NavItem[];
   onNavigate?: () => void;
+  /**
+   * In the drawer the whole drawer scrolls. In the sidebar only the menu does, keeping the
+   * account in view.
+   */
+  inDrawer?: boolean;
 }) {
   const t = useTranslations("Shell");
   const { data: staff } = useCurrentStaff();
   const visible = visibleNavItems(items, staff?.role);
-  const ungrouped = visible.filter((item) => !item.group && !item.adminOnly);
-  const places = visible.filter((item) => item.group === "places");
-  const admin = visible.filter((item) => item.adminOnly);
+  const openRequests = useOpenRequestCount();
+  // The items that can show a count, always listed (the count is shown only above 0).
+  const counts: Partial<Record<NavItem["key"], number>> = {
+    routeRequests: openRequests,
+  };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <nav aria-label={t("navLabel")} className="grid gap-4 overflow-y-auto">
-        <NavList items={ungrouped} onNavigate={onNavigate} />
-        {places.length > 0 && (
-          <div className="grid gap-1">
-            <p className="px-3 text-meta font-semibold tracking-wider text-white/70 uppercase">
-              {t("groupPlaces")}
-            </p>
-            <NavList items={places} onNavigate={onNavigate} />
-          </div>
-        )}
-        {admin.length > 0 && <NavList items={admin} onNavigate={onNavigate} />}
+    <div className={cn("flex flex-1 flex-col gap-6", !inDrawer && "min-h-0")}>
+      <nav
+        aria-label={t("navLabel")}
+        className="-mx-1 grid gap-5 overflow-y-auto px-1"
+      >
+        <NavList
+          items={visible.filter((item) => !item.group)}
+          counts={counts}
+          onNavigate={onNavigate}
+        />
+        {navGroups.map((group) => {
+          const grouped = visible.filter((item) => item.group === group);
+          return grouped.length === 0 ? null : (
+            <NavList
+              key={group}
+              heading={t(groupLabels[group])}
+              items={grouped}
+              counts={counts}
+              onNavigate={onNavigate}
+            />
+          );
+        })}
       </nav>
       <div className="mt-auto">
         <AccountPanel />
@@ -206,64 +245,144 @@ function SidebarBody({
 }
 
 function NavList({
+  heading,
   items,
+  counts,
   onNavigate,
 }: {
+  /** Names the list (a group's heading). */
+  heading?: string;
   items: NavItem[];
+  counts: Partial<Record<NavItem["key"], number>>;
   onNavigate?: () => void;
 }) {
+  const id = useId();
+  const headingId = `${id}-heading`;
   return (
-    <ul className="grid gap-0.5">
-      {items.map((item) => (
-        <li key={item.key}>
-          {/*
-            The current page comes from the URL. On pages with an id in it (/companies/[id]) that
-            is only known at request time, so until then the link shows unmarked
-            (node_modules/next/dist/docs: usePathname, "Cache Components"). Only the mark waits:
-            what depends on data (which links show) stays outside, so a boundary that hydrates
-            late can't render differently from the server.
-          */}
-          <Suspense
-            fallback={
-              <NavLink item={item} current={false} onNavigate={onNavigate} />
-            }
-          >
-            <CurrentNavLink item={item} onNavigate={onNavigate} />
-          </Suspense>
-        </li>
-      ))}
-    </ul>
+    <div className="grid gap-1">
+      {heading && (
+        <p
+          id={headingId}
+          className="px-3 text-meta font-semibold tracking-wider text-white/70 uppercase"
+        >
+          {heading}
+        </p>
+      )}
+      <ul
+        aria-labelledby={heading ? headingId : undefined}
+        className="grid gap-0.5"
+      >
+        {items.map((item) => {
+          // Items that can show a count (fixed, whatever the count is right now).
+          const countId = item.key in counts ? `${id}-${item.key}` : undefined;
+          return (
+            <li key={item.key} className="relative">
+              {/*
+                The current page comes from the URL. On pages with an id in it (/companies/[id])
+                that is only known at request time, so until then the link shows unmarked
+                (node_modules/next/dist/docs: usePathname, "Cache Components"). Only the mark
+                waits: what depends on data (which links show, the count) stays outside, so a
+                boundary that hydrates late can't render differently from the server.
+              */}
+              <Suspense
+                fallback={
+                  <NavLink
+                    item={item}
+                    countId={countId}
+                    current={false}
+                    onNavigate={onNavigate}
+                  />
+                }
+              >
+                <CurrentNavLink
+                  item={item}
+                  countId={countId}
+                  onNavigate={onNavigate}
+                />
+              </Suspense>
+              {countId && <NavCount id={countId} count={counts[item.key]} />}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
-function CurrentNavLink(props: { item: NavItem; onNavigate?: () => void }) {
+/**
+ * Waiting work beside a link, e.g. open route requests: a sun count when above 0. The link is
+ * described by it ("Route requests", "6 open"); it sits over the link's right end and lets clicks
+ * through to it.
+ */
+function NavCount({ id, count }: { id: string; count: number | undefined }) {
+  const t = useTranslations("Shell");
+  const shown = count && count > MAX_COUNT ? `${MAX_COUNT}+` : String(count);
+  return (
+    <span
+      id={id}
+      className="pointer-events-none absolute inset-y-0 right-3 flex items-center"
+    >
+      {count ? (
+        <>
+          <span
+            aria-hidden
+            className="min-w-6 rounded-full bg-sun px-1.5 text-center text-meta leading-5 font-semibold text-navy"
+          >
+            {shown}
+          </span>
+          <span className="sr-only">{t("openRequests", { count: shown })}</span>
+        </>
+      ) : null}
+    </span>
+  );
+}
+
+function CurrentNavLink(props: {
+  item: NavItem;
+  countId?: string;
+  onNavigate?: () => void;
+}) {
   const current = isCurrentPath(props.item.href, usePathname());
   return <NavLink {...props} current={current} />;
 }
 
 function NavLink({
   item,
+  countId,
   current,
   onNavigate,
 }: {
   item: NavItem;
+  /** The NavCount that describes this link, if it can have one. */
+  countId?: string;
   current: boolean;
   onNavigate?: () => void;
 }) {
   const t = useTranslations("Shell.nav");
+  const Icon = item.icon;
   return (
     <Link
       href={item.href}
       onClick={onNavigate}
       aria-current={current ? "page" : undefined}
+      aria-describedby={countId}
       className={cn(
-        "relative flex min-h-10 items-center rounded-lg px-3 text-body text-white/85 transition-colors duration-150 hover:bg-white/10 hover:text-white",
+        "relative flex min-h-10 items-center gap-3 rounded-lg px-3 text-body text-white/85 transition-colors duration-150 hover:bg-white/10 hover:text-white",
+        // Room for the count.
+        countId && "pr-14",
         onNavy,
         current &&
           "bg-white/10 font-semibold text-white before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-blue",
       )}
     >
-      {t(item.key)}
+      <Icon
+        aria-hidden
+        className={cn(
+          "size-[18px] shrink-0",
+          current ? "text-white" : "text-white/70",
+        )}
+      />
+      <span className="min-w-0 truncate">{t(item.key)}</span>
     </Link>
   );
 }

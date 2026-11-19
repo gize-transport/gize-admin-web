@@ -3,6 +3,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
+import { overviewKeys } from "@/features/overview/queries";
 import { api, unwrap } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
@@ -86,6 +87,8 @@ function refetchAfterOffer(
       ["route-requests"],
       ["riders"],
       ["companies"],
+      // The open request count (sidebar, overview).
+      overviewKeys.all,
     ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
   ]);
 }
