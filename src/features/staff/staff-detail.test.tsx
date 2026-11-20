@@ -5,6 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import type { Schemas } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import {
+  actionItems,
+  actionsButton,
+  chooseAction,
+} from "../../../tests/utils/actions";
 import { renderWithProviders } from "../../../tests/utils/render";
 import {
   fill,
@@ -86,7 +91,7 @@ describe("StaffDetail", () => {
     const user = userEvent.setup();
     await renderPage(pending);
 
-    await user.click(screen.getByRole("button", { name: t.makeAdmin }));
+    await chooseAction(user, t.makeAdmin);
     const confirm = await screen.findByRole("alertdialog", {
       name: fill(t.makeAdminTitle, { name: "Hana Tesfaye" }),
     });
@@ -97,8 +102,9 @@ describe("StaffDetail", () => {
     await waitFor(() => expect(toast).toHaveBeenCalledWith(t.roleChanged));
     expect(seen).toEqual([{ role: "admin" }]);
     expect(fact(t.role)).toHaveTextContent(t.roleAdmin);
-    // The same button, now the other way: focus came back to it.
-    expect(screen.getByRole("button", { name: t.makeStaff })).toHaveFocus();
+    // Focus came back to the menu, which now offers the other way.
+    await waitFor(() => expect(actionsButton()).toHaveFocus());
+    expect(await actionItems(user)).toContain(t.makeStaff);
   });
 
   it("warns an admin demoting themselves, and explains the last active admin", async () => {
@@ -107,7 +113,7 @@ describe("StaffDetail", () => {
     await renderPage(me);
 
     expect(await screen.findByText(t.you)).toBeVisible();
-    await user.click(screen.getByRole("button", { name: t.makeStaff }));
+    await chooseAction(user, t.makeStaff);
     const confirm = await screen.findByRole("alertdialog");
     expect(confirm).toHaveTextContent(t.makeStaffSelf);
     await user.click(
@@ -124,7 +130,7 @@ describe("StaffDetail", () => {
     await renderPage(me);
 
     await screen.findByText(t.you);
-    await user.click(screen.getByRole("button", { name: t.makeStaff }));
+    await chooseAction(user, t.makeStaff);
     const confirm = await screen.findByRole("alertdialog");
     await user.click(
       within(confirm).getByRole("button", { name: t.makeStaff }),
@@ -143,7 +149,7 @@ describe("StaffDetail", () => {
     const user = userEvent.setup();
     await renderPage(otherAdmin);
 
-    await user.click(screen.getByRole("button", { name: t.deactivate }));
+    await chooseAction(user, t.deactivate);
     const confirm = await screen.findByRole("alertdialog", {
       name: fill(t.deactivateTitle, { name: "Meron Admin" }),
     });
@@ -152,18 +158,20 @@ describe("StaffDetail", () => {
       within(confirm).getByRole("button", { name: t.deactivate }),
     );
     await waitFor(() => expect(toast).toHaveBeenCalledWith(t.deactivated));
-    const reactivate = await screen.findByRole("button", {
-      name: t.reactivate,
-    });
-    await waitFor(() => expect(reactivate).toHaveFocus());
+    // Focus is back on the menu (not on Reactivate, which a repeated key press could undo it
+    // with); Reactivate shows beside Edit name, and Deactivate is gone from the menu.
+    await waitFor(() => expect(actionsButton()).toHaveFocus());
+    const reactivate = screen.getByRole("button", { name: t.reactivate });
+    expect(await actionItems(user)).not.toContain(t.deactivate);
 
-    // Right away (a repeated key press), it does nothing; a moment later it reactivates.
-    await user.click(reactivate);
-    expect(seen).toHaveLength(1);
-    await new Promise((resolve) => setTimeout(resolve, 850));
     await user.click(reactivate);
     await waitFor(() => expect(toast).toHaveBeenCalledWith(t.reactivated));
     expect(seen).toEqual([{ is_active: false }, { is_active: true }]);
+    // Its button goes away: focus moves to the menu beside it.
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: t.reactivate })).toBeNull(),
+    );
+    expect(actionsButton()).toHaveFocus();
   });
 
   it("explains a failed reactivation with its reference", async () => {

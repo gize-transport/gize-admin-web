@@ -1,13 +1,20 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { PencilIcon, PowerOffIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
+  ActionsMenu,
+  ActionsMenuItem,
+  ActionsMenuSeparator,
+  CopyLinkItem,
+} from "@/components/detail/actions-menu";
+import { DetailHeader } from "@/components/detail/detail-header";
+import {
   DetailFrame,
-  DetailHeading,
   Fact,
   Facts,
   type DetailLayout,
@@ -81,7 +88,7 @@ export function DriverDetail({
 
 function Loaded({
   driver,
-  layout: { variant, headingId, SectionHeading, backLink },
+  layout,
   onDeleted,
 }: {
   driver: DriverRead;
@@ -89,6 +96,7 @@ function Loaded({
   onDeleted?: () => void;
 }) {
   const t = useTranslations("Drivers");
+  const { variant } = layout;
   const { date } = useTimestampFormat();
   const isAdmin = useCurrentStaff().data?.role === "admin";
   const [formKey, setFormKey] = useState<number | null>(null);
@@ -98,15 +106,70 @@ function Loaded({
   // the driver has changed.
   const [deactivating, setDeactivating] = useState(driver.is_active);
   const routes = useDriverRoutes(driver.id);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  function openStatusDialog() {
+    setDeactivating(driver.is_active);
+    setConfirm("status");
+  }
 
   return (
     <>
-      <div className="grid gap-2">
-        {backLink}
-        <DetailHeading id={headingId} variant={variant}>
-          {driver.full_name}
-        </DetailHeading>
-      </div>
+      <DetailHeader
+        layout={layout}
+        title={driver.full_name}
+        status={
+          driver.is_active ? (
+            <StatusPill tone="success">{t("active")}</StatusPill>
+          ) : (
+            <StatusPill tone="neutral">{t("inactive")}</StatusPill>
+          )
+        }
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setFormKey((key) => (key ?? 0) + 1);
+                setFormOpen(true);
+              }}
+            >
+              <PencilIcon aria-hidden />
+              {t("edit")}
+            </Button>
+            {/* The likely next step for an inactive driver, so not hidden in the menu. */}
+            {!driver.is_active && (
+              <Button variant="secondary" onClick={openStatusDialog}>
+                {t("reactivate")}
+              </Button>
+            )}
+          </>
+        }
+        menu={
+          <ActionsMenu name={driver.full_name} ref={menuButton}>
+            {driver.is_active && (
+              <ActionsMenuItem
+                icon={<PowerOffIcon aria-hidden />}
+                onSelect={openStatusDialog}
+              >
+                {t("deactivate")}
+              </ActionsMenuItem>
+            )}
+            <CopyLinkItem path={`/drivers/${driver.id}`} />
+            {isAdmin && (
+              <>
+                <ActionsMenuSeparator />
+                <ActionsMenuItem
+                  tone="danger"
+                  icon={<Trash2Icon aria-hidden />}
+                  onSelect={() => setConfirm("delete")}
+                >
+                  {t("delete")}
+                </ActionsMenuItem>
+              </>
+            )}
+          </ActionsMenu>
+        }
+      />
 
       <Facts label={t("detailLabel")} variant={variant}>
         <Fact label={t("phone")}>
@@ -118,56 +181,12 @@ function Loaded({
         <Fact label={t("address")} wide>
           <span className="break-words">{driver.address}</span>
         </Fact>
-        <Fact label={t("status")}>
-          {driver.is_active ? (
-            <StatusPill tone="success">{t("active")}</StatusPill>
-          ) : (
-            <StatusPill tone="neutral">{t("inactive")}</StatusPill>
-          )}
-        </Fact>
         <Fact label={t("routes")} wide>
           <TheirRoutes routes={routes} />
         </Fact>
         <Fact label={t("added")}>{date(driver.created_at)}</Fact>
         <Fact label={t("updated")}>{date(driver.updated_at)}</Fact>
       </Facts>
-
-      <section className="grid gap-4 border-t border-line pt-5">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setFormKey((key) => (key ?? 0) + 1);
-              setFormOpen(true);
-            }}
-          >
-            {t("edit")}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setDeactivating(driver.is_active);
-              setConfirm("status");
-            }}
-          >
-            {driver.is_active ? t("deactivate") : t("reactivate")}
-          </Button>
-        </div>
-        {isAdmin && (
-          <div className="grid gap-2 border-t border-line pt-4">
-            <SectionHeading className="text-table font-semibold text-danger">
-              {t("dangerZone")}
-            </SectionHeading>
-            <Button
-              variant="destructive"
-              className="w-fit"
-              onClick={() => setConfirm("delete")}
-            >
-              {t("delete")}
-            </Button>
-          </div>
-        )}
-      </section>
 
       {formKey !== null && (
         <DriverFormDialog
@@ -183,6 +202,8 @@ function Loaded({
         routes={routes}
         open={confirm === "status"}
         onClose={() => setConfirm(null)}
+        // A reactivation removes its button: focus goes to the actions beside it.
+        focusAfterChange={() => menuButton.current}
       />
       <DeleteDialog
         driver={driver}
@@ -202,6 +223,7 @@ function StatusDialog({
   routes,
   open,
   onClose,
+  focusAfterChange,
 }: {
   driver: DriverRead;
   /** Deactivate (true) or reactivate (false), as when the dialog opened. */
@@ -209,6 +231,8 @@ function StatusDialog({
   routes: DriverRoutes;
   open: boolean;
   onClose: () => void;
+  /** Where focus goes once the change is made (the button that opened it may be gone). */
+  focusAfterChange?: () => HTMLElement | null;
 }) {
   const t = useTranslations("Drivers");
   const { message } = useApiErrorMessages();
@@ -237,6 +261,9 @@ function StatusDialog({
         deactivating ? "deactivateDescription" : "reactivateDescription",
       )}
       confirmLabel={action}
+      focusOnClose={() =>
+        update.isSuccess ? (focusAfterChange?.() ?? null) : null
+      }
       pending={update.isPending}
       confirmDisabled={waiting}
       onConfirm={() =>

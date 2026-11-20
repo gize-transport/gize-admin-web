@@ -1,13 +1,20 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { PencilIcon, PowerOffIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
+  ActionsMenu,
+  ActionsMenuItem,
+  ActionsMenuSeparator,
+  CopyLinkItem,
+} from "@/components/detail/actions-menu";
+import { DetailHeader } from "@/components/detail/detail-header";
+import {
   DetailFrame,
-  DetailHeading,
   Fact,
   Facts,
   type DetailLayout,
@@ -89,7 +96,7 @@ export function CompanyDetail({
 
 function Loaded({
   company,
-  layout: { variant, headingId, SectionHeading, backLink },
+  layout,
   onDeleted,
 }: {
   company: CompanyRead;
@@ -97,6 +104,7 @@ function Loaded({
   onDeleted?: () => void;
 }) {
   const t = useTranslations("Companies");
+  const { variant, SectionHeading } = layout;
   const { date } = useTimestampFormat();
   const isAdmin = useCurrentStaff().data?.role === "admin";
   const update = useUpdateCompany();
@@ -105,13 +113,17 @@ function Loaded({
   const [formKey, setFormKey] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [confirm, setConfirm] = useState<"deactivate" | "delete" | null>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
 
   function reactivate() {
     update.mutate(
       { id: company.id, change: { is_active: true } },
       {
-        onSuccess: (saved) =>
-          showSuccessToast(t("reactivated", { name: saved.name })),
+        onSuccess: (saved) => {
+          showSuccessToast(t("reactivated", { name: saved.name }));
+          // Reactivate goes away with the change: focus moves to the actions beside it.
+          menuButton.current?.focus();
+        },
       },
     );
   }
@@ -124,12 +136,65 @@ function Loaded({
 
   return (
     <>
-      <div className="grid gap-2">
-        {backLink}
-        <DetailHeading id={headingId} variant={variant}>
-          {company.name}
-        </DetailHeading>
-      </div>
+      <DetailHeader
+        layout={layout}
+        title={company.name}
+        status={status}
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setFormKey((key) => (key ?? 0) + 1);
+                setFormOpen(true);
+              }}
+            >
+              <PencilIcon aria-hidden />
+              {t("edit")}
+            </Button>
+            {/* The likely next step for an inactive company, so not hidden in the menu. */}
+            {!company.is_active && (
+              <Button
+                variant="secondary"
+                pending={update.isPending}
+                aria-disabled={reactivateWaiting || undefined}
+                onClick={reactivate}
+              >
+                {t("reactivate")}
+              </Button>
+            )}
+          </>
+        }
+        menu={
+          <ActionsMenu name={company.name} ref={menuButton}>
+            {company.is_active && (
+              <ActionsMenuItem
+                icon={<PowerOffIcon aria-hidden />}
+                onSelect={() => setConfirm("deactivate")}
+              >
+                {t("deactivate")}
+              </ActionsMenuItem>
+            )}
+            <CopyLinkItem path={`/companies/${company.id}`} />
+            {isAdmin && (
+              <>
+                <ActionsMenuSeparator />
+                <ActionsMenuItem
+                  tone="danger"
+                  icon={<Trash2Icon aria-hidden />}
+                  onSelect={() => setConfirm("delete")}
+                >
+                  {t("delete")}
+                </ActionsMenuItem>
+              </>
+            )}
+          </ActionsMenu>
+        }
+      />
+      {/* A failed reactivation (deactivation shows its errors in its dialog). */}
+      {!company.is_active && update.error && (
+        <MutationProblem error={update.error} />
+      )}
 
       <Facts label={t("detailLabel")} variant={variant}>
         <Fact label={t("contactName")}>{company.contact_name}</Fact>
@@ -140,7 +205,6 @@ function Loaded({
           <span className="break-all">{company.contact_email}</span>
         </Fact>
         <Fact label={t("billing")}>{t("billingPostpaid")}</Fact>
-        <Fact label={t("status")}>{status}</Fact>
         <Fact label={t("added")}>{date(company.created_at)}</Fact>
         <Fact label={t("notes")} wide>
           {company.notes ? (
@@ -156,55 +220,6 @@ function Loaded({
           {t("routesTitle")}
         </SectionHeading>
         <CompanyRoutes company={company} />
-      </section>
-
-      <section className="grid gap-4 border-t border-line pt-5">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setFormKey((key) => (key ?? 0) + 1);
-              setFormOpen(true);
-            }}
-          >
-            {t("edit")}
-          </Button>
-          {company.is_active ? (
-            <Button
-              variant="secondary"
-              onClick={() => setConfirm("deactivate")}
-            >
-              {t("deactivate")}
-            </Button>
-          ) : (
-            <Button
-              variant="secondary"
-              pending={update.isPending}
-              aria-disabled={reactivateWaiting || undefined}
-              onClick={reactivate}
-            >
-              {t("reactivate")}
-            </Button>
-          )}
-        </div>
-        {/* A failed reactivation (deactivation shows its errors in its dialog). */}
-        {!company.is_active && update.error && (
-          <MutationProblem error={update.error} />
-        )}
-        {isAdmin && (
-          <div className="grid gap-2 border-t border-line pt-4">
-            <SectionHeading className="text-table font-semibold text-danger">
-              {t("dangerZone")}
-            </SectionHeading>
-            <Button
-              variant="destructive"
-              className="w-fit"
-              onClick={() => setConfirm("delete")}
-            >
-              {t("delete")}
-            </Button>
-          </div>
-        )}
       </section>
 
       {formKey !== null && (

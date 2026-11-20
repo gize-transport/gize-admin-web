@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
+import { PencilIcon, PowerOffIcon, ShieldIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useId, useMemo, useRef, useState } from "react";
@@ -9,8 +10,13 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
+  ActionsMenu,
+  ActionsMenuItem,
+  CopyLinkItem,
+} from "@/components/detail/actions-menu";
+import { DetailHeader } from "@/components/detail/detail-header";
+import {
   DetailFrame,
-  DetailHeading,
   Fact,
   Facts,
   type DetailLayout,
@@ -80,12 +86,13 @@ type Confirm = "role" | "deactivate";
 
 function Loaded({
   member,
-  layout: { variant, headingId, backLink },
+  layout,
 }: {
   member: StaffRead;
   layout: DetailLayout;
 }) {
   const t = useTranslations("Staff");
+  const { variant } = layout;
   const { dateTime, date } = useTimestampFormat();
   const isMe = useCurrentStaff().data?.id === member.id;
   const update = useUpdateStaff();
@@ -98,30 +105,77 @@ function Loaded({
   const [nameKey, setNameKey] = useState<number | null>(null);
   const [nameOpen, setNameOpen] = useState(false);
   const status = staffStatus(member);
-  // Just deactivated: the same button now says Reactivate under the user's focus; a repeated
-  // key press from the confirmation mustn't undo it unconfirmed.
-  const deactivatedAt = useRef(0);
+  const menuButton = useRef<HTMLButtonElement>(null);
 
   function reactivate() {
-    if (Date.now() - deactivatedAt.current < 800) return;
     update.mutate(
       { id: member.id, change: { is_active: true } },
-      { onSuccess: () => showSuccessToast(t("reactivated")) },
+      {
+        onSuccess: () => {
+          showSuccessToast(t("reactivated"));
+          // Reactivate goes away with the change: focus moves to the actions beside it.
+          menuButton.current?.focus();
+        },
+      },
     );
   }
 
   return (
     <>
-      <div className="grid gap-2">
-        {backLink}
-        <div className="flex flex-wrap items-center gap-3">
-          <DetailHeading id={headingId} variant={variant}>
-            {member.full_name}
-          </DetailHeading>
-          <StaffStatusPill member={member} />
-          {isMe && <span className="text-meta text-muted">{t("you")}</span>}
-        </div>
-      </div>
+      <DetailHeader
+        layout={layout}
+        title={member.full_name}
+        status={<StaffStatusPill member={member} />}
+        note={isMe && <span className="text-meta text-muted">{t("you")}</span>}
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setNameKey((key) => (key ?? 0) + 1);
+                setNameOpen(true);
+              }}
+            >
+              <PencilIcon aria-hidden />
+              {t("editName")}
+            </Button>
+            {/* The likely next step for a deactivated member, so not hidden in the menu. */}
+            {!member.is_active && (
+              <Button
+                variant="secondary"
+                pending={update.isPending}
+                aria-disabled={reactivateWaiting || undefined}
+                onClick={reactivate}
+              >
+                {t("reactivate")}
+              </Button>
+            )}
+          </>
+        }
+        menu={
+          <ActionsMenu name={member.full_name} ref={menuButton}>
+            <ActionsMenuItem
+              icon={<ShieldIcon aria-hidden />}
+              onSelect={() => setConfirm({ kind: "role", member })}
+            >
+              {t(member.role === "admin" ? "makeStaff" : "makeAdmin")}
+            </ActionsMenuItem>
+            {member.is_active && (
+              <ActionsMenuItem
+                icon={<PowerOffIcon aria-hidden />}
+                onSelect={() => setConfirm({ kind: "deactivate", member })}
+              >
+                {t("deactivate")}
+              </ActionsMenuItem>
+            )}
+            <CopyLinkItem path={`/staff/${member.id}`} />
+          </ActionsMenu>
+        }
+      />
+      {/* A failed reactivation (the other changes show their errors in their dialogs). */}
+      {!member.is_active && update.error && (
+        <UpdateProblem error={update.error} />
+      )}
 
       <Facts label={t("detailLabel")} variant={variant}>
         <Fact label={t("email")}>{member.email}</Fact>
@@ -158,46 +212,6 @@ function Loaded({
         <Fact label={t("added")}>{date(member.created_at)}</Fact>
       </Facts>
 
-      <section className="grid gap-4 border-t border-line pt-5">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setNameKey((key) => (key ?? 0) + 1);
-              setNameOpen(true);
-            }}
-          >
-            {t("editName")}
-          </Button>
-          {/* One button each (its words change): it stays the same element, so focus can
-              return to it after the change. */}
-          <Button
-            variant="secondary"
-            onClick={() => setConfirm({ kind: "role", member })}
-          >
-            {t(member.role === "admin" ? "makeStaff" : "makeAdmin")}
-          </Button>
-          <Button
-            variant="secondary"
-            pending={!member.is_active && update.isPending}
-            aria-disabled={
-              (!member.is_active && reactivateWaiting) || undefined
-            }
-            onClick={() =>
-              member.is_active
-                ? setConfirm({ kind: "deactivate", member })
-                : reactivate()
-            }
-          >
-            {t(member.is_active ? "deactivate" : "reactivate")}
-          </Button>
-        </div>
-        {/* A failed reactivation (the other changes show their errors in their dialogs). */}
-        {!member.is_active && update.error && (
-          <UpdateProblem error={update.error} />
-        )}
-      </section>
-
       {confirm?.kind === "role" && (
         <RoleDialog
           member={confirm.member}
@@ -210,9 +224,6 @@ function Loaded({
           member={confirm.member}
           isMe={isMe}
           onClose={() => setConfirm(null)}
-          onDeactivated={() => {
-            deactivatedAt.current = Date.now();
-          }}
         />
       )}
       {nameKey !== null && (
@@ -319,12 +330,10 @@ function DeactivateDialog({
   member,
   isMe,
   onClose,
-  onDeactivated,
 }: {
   member: StaffRead;
   isMe: boolean;
   onClose: () => void;
-  onDeactivated: () => void;
 }) {
   const t = useTranslations("Staff");
   const queryClient = useQueryClient();
@@ -362,7 +371,6 @@ function DeactivateDialog({
           {
             onSuccess: () => {
               showSuccessToast(t("deactivated"));
-              onDeactivated();
               onClose();
             },
           },

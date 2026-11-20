@@ -1,13 +1,20 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { PencilIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
+  ActionsMenu,
+  ActionsMenuItem,
+  ActionsMenuSeparator,
+  CopyLinkItem,
+} from "@/components/detail/actions-menu";
+import { DetailHeader } from "@/components/detail/detail-header";
+import {
   DetailFrame,
-  DetailHeading,
   Fact,
   Facts,
   type DetailLayout,
@@ -84,7 +91,7 @@ export function RiderDetail({
 
 function Loaded({
   rider,
-  layout: { variant, headingId, SectionHeading, backLink },
+  layout,
   onDeleted,
 }: {
   rider: RiderRead;
@@ -92,8 +99,8 @@ function Loaded({
   onDeleted?: () => void;
 }) {
   const t = useTranslations("Riders");
+  const { variant, SectionHeading } = layout;
   const { date } = useTimestampFormat();
-  const uid = useId();
   const [formKey, setFormKey] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -127,19 +134,44 @@ function Loaded({
 
   return (
     <>
-      <div className="grid gap-2">
-        {backLink}
-        <div className="flex flex-wrap items-center gap-3">
-          <DetailHeading id={headingId} variant={variant}>
-            {rider.full_name}
-          </DetailHeading>
-        </div>
-        <p className="text-table text-muted">
-          {rider.company
+      <DetailHeader
+        layout={layout}
+        title={rider.full_name}
+        summary={
+          rider.company
             ? t("typeCompanyAt", { company: rider.company.name })
-            : riderTypeLabel(rider.rider_type, t)}
-        </p>
-      </div>
+            : riderTypeLabel(rider.rider_type, t)
+        }
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setFormKey((key) => (key ?? 0) + 1);
+              setFormOpen(true);
+            }}
+          >
+            <PencilIcon aria-hidden />
+            {t("edit")}
+          </Button>
+        }
+        menu={
+          <ActionsMenu name={rider.full_name}>
+            <CopyLinkItem path={`/riders/${rider.id}`} />
+            {isAdmin && (
+              <>
+                <ActionsMenuSeparator />
+                <ActionsMenuItem
+                  tone="danger"
+                  icon={<Trash2Icon aria-hidden />}
+                  onSelect={() => setDeleting(true)}
+                >
+                  {t("deleteRider")}
+                </ActionsMenuItem>
+              </>
+            )}
+          </ActionsMenu>
+        }
+      />
 
       <Facts label={t("detailLabel")} variant={variant}>
         <Fact label={t("phone")}>
@@ -220,39 +252,6 @@ function Loaded({
             </Button>
           )}
         </div>
-      </section>
-
-      <section className="grid gap-4 border-t border-line pt-5">
-        <Button
-          variant="secondary"
-          className="w-fit"
-          onClick={() => {
-            setFormKey((key) => (key ?? 0) + 1);
-            setFormOpen(true);
-          }}
-        >
-          {t("edit")}
-        </Button>
-        {isAdmin && (
-          <div className="grid gap-2 border-t border-line pt-4">
-            <SectionHeading className="text-table font-semibold text-danger">
-              {t("deleteSection")}
-            </SectionHeading>
-            {rider.seat && (
-              <p id={`${uid}-delete-seat`} className="text-table text-muted">
-                {t("deleteHasSeat", { code: rider.seat.route_code })}
-              </p>
-            )}
-            <Button
-              variant="destructive"
-              className="w-fit"
-              aria-describedby={rider.seat ? `${uid}-delete-seat` : undefined}
-              onClick={() => setDeleting(true)}
-            >
-              {t("deleteRider")}
-            </Button>
-          </div>
-        )}
       </section>
 
       {seatDialog?.kind === "place" && (
@@ -387,6 +386,12 @@ function DeleteRiderDialog({
         })
       }
     >
+      {/* Before trying: the API refuses while they hold a seat. */}
+      {rider.seat && !hasSeat && (
+        <p className="text-table text-muted">
+          {t("deleteHasSeat", { code: rider.seat.route_code })}
+        </p>
+      )}
       {error && (
         <ProblemAlert
           message={hasSeat ? t("deleteRefusedSeat") : message(error)}

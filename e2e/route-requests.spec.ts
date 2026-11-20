@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
 import { signIn } from "./support/auth";
+import { actionItems, chooseAction } from "./support/actions";
 
 const t = messages.RouteRequests;
 const tStatus = messages.RequestStatus;
@@ -213,7 +214,7 @@ test.describe("route requests", () => {
     ).toBeVisible();
     await expect(details.getByText(t.closedDeclined)).toBeVisible();
 
-    await details.getByRole("button", { name: t.deleteRequest }).click();
+    await chooseAction(page, details, t.deleteRequest);
     const confirm = page.getByRole("alertdialog", { name: t.deleteTitle });
     await confirm.getByRole("button", { name: t.deleteRequest }).click();
     await expect(page.getByText(t.deleted)).toBeVisible();
@@ -236,9 +237,7 @@ test.describe("route requests", () => {
     await signIn(page, "staff", `/sign-in?next=%2Froute-requests%2F${SELAM}`);
     const details = page.getByRole("article", { name: "Selam Bekele" });
     await expect(details.getByText("+251911000101")).toBeVisible();
-    await expect(
-      details.getByRole("button", { name: t.deleteRequest }),
-    ).toHaveCount(0);
+    expect(await actionItems(page, details)).not.toContain(t.deleteRequest);
     expect(page.url()).not.toContain("Selam");
     expect(page.url()).not.toContain("251911");
   });

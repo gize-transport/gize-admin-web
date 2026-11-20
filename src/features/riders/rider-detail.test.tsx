@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import { actionItems, chooseAction } from "../../../tests/utils/actions";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { fill, problemResponse, serveRole } from "../routes/test-support";
 import { RiderDetail } from "./rider-detail";
@@ -116,9 +117,23 @@ describe("RiderDetail", () => {
     expect(screen.getByText(t.noSeatDetail)).toBeVisible();
   });
 
-  it("offers delete to admins only", async () => {
-    await renderPage(noSeat);
+  it("keeps Edit beside the name; its menu offers delete to admins only", async () => {
+    const user = userEvent.setup();
+    const { unmount } = await renderPage(noSeat);
     expect(screen.getByRole("button", { name: t.edit })).toBeVisible();
+    expect(await actionItems(user)).toEqual([messages.Detail.copyLink]);
+    unmount();
+
+    serveRole("admin");
+    await renderPage(noSeat);
+    await user.click(
+      screen.getByRole("button", {
+        name: fill(messages.Detail.actions, { name: "Selam Girma" }),
+      }),
+    );
+    expect(
+      await screen.findByRole("menuitem", { name: t.deleteRider }),
+    ).toBeVisible();
     expect(
       screen.queryByRole("button", { name: t.deleteRider }),
     ).not.toBeInTheDocument();
@@ -137,9 +152,7 @@ describe("RiderDetail", () => {
     const user = userEvent.setup();
     await renderPage(noSeat, onDeleted);
 
-    await user.click(
-      await screen.findByRole("button", { name: t.deleteRider }),
-    );
+    await chooseAction(user, t.deleteRider);
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent(
       fill(t.deleteDescription, { name: "Selam Girma" }),
@@ -165,11 +178,12 @@ describe("RiderDetail", () => {
     const user = userEvent.setup();
     await renderPage(riding, onDeleted);
 
-    expect(
-      await screen.findByText(fill(t.deleteHasSeat, { code: "R-03" })),
-    ).toBeVisible();
-    await user.click(screen.getByRole("button", { name: t.deleteRider }));
+    await chooseAction(user, t.deleteRider);
     const dialog = await screen.findByRole("alertdialog");
+    // Said before trying, in the confirmation.
+    expect(
+      within(dialog).getByText(fill(t.deleteHasSeat, { code: "R-03" })),
+    ).toBeVisible();
     await user.click(
       within(dialog).getByRole("button", { name: t.deleteRider }),
     );
@@ -194,9 +208,7 @@ describe("RiderDetail", () => {
     const user = userEvent.setup();
     await renderPage(noSeat);
 
-    await user.click(
-      await screen.findByRole("button", { name: t.deleteRider }),
-    );
+    await chooseAction(user, t.deleteRider);
     const dialog = await screen.findByRole("alertdialog");
     await user.click(
       within(dialog).getByRole("button", { name: t.deleteRider }),
