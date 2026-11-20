@@ -11,7 +11,7 @@ import {
   ActionsMenuSeparator,
   CopyLinkItem,
 } from "@/components/detail/actions-menu";
-import { DetailCard } from "@/components/detail/detail-card";
+import { DetailCard, detailSurface } from "@/components/detail/detail-card";
 import { DetailHeader } from "@/components/detail/detail-header";
 import { DetailTabs, type DetailTab } from "@/components/detail/detail-tabs";
 import {
@@ -20,6 +20,7 @@ import {
   Facts,
   isNotFound,
   type DetailLayout,
+  type DetailVariant,
 } from "@/components/detail/detail-frame";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { LaunchProgress } from "@/components/launch-progress";
@@ -137,6 +138,7 @@ function Loaded({
           <DetailCard
             title={t("scheduleTitle")}
             SectionHeading={SectionHeading}
+            variant={variant}
           >
             <Facts label={t("detailLabel")} variant={variant} compact>
               {route.school_name !== null && (
@@ -190,6 +192,7 @@ function Loaded({
             <DetailCard
               title={t("areasServed")}
               SectionHeading={SectionHeading}
+              variant={variant}
               action={<EditAreas route={route} />}
             >
               {route.served_areas.length === 0 ? (
@@ -203,6 +206,7 @@ function Loaded({
             <DetailCard
               title={t("prices")}
               SectionHeading={SectionHeading}
+              variant={variant}
               action={<PricesButton route={route} />}
             >
               <Prices route={route} />
@@ -316,7 +320,7 @@ function Loaded({
         }
       />
 
-      <RouteGlance route={route} />
+      <RouteGlance route={route} variant={variant} />
 
       <DetailTabs label={t("tabsLabel", { code: route.code })} tabs={tabs} />
 
@@ -372,34 +376,53 @@ export function typeLabel(
  * The route at a glance (GZW-078): seats taken this month and next, riders still needed while
  * it's forming, and its driver (chosen or changed right there).
  */
-function RouteGlance({ route }: { route: RouteRead }) {
+function RouteGlance({
+  route,
+  variant,
+}: {
+  route: RouteRead;
+  variant: DetailVariant;
+}) {
   const t = useTranslations("Routes");
+  const forming = route.status === "forming" && route.launch_minimum !== null;
   return (
     <div role="group" aria-label={t("glanceLabel")}>
       <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3">
-        <Tile label={t("tileThisMonth")}>
+        <Tile variant={variant} label={t("tileThisMonth")}>
           <SeatsValue
             taken={route.seats_taken.this_month}
             free={route.seats_free.this_month}
             seats={route.seats}
           />
         </Tile>
-        <Tile label={t("tileNextMonth")}>
+        <Tile variant={variant} label={t("tileNextMonth")}>
           <SeatsValue
             taken={route.seats_taken.next_month}
             free={route.seats_free.next_month}
             seats={route.seats}
           />
         </Tile>
-        {route.status === "forming" && route.launch_minimum !== null && (
-          <Tile label={t("tileLaunch")}>
+        {forming && route.launch_minimum !== null && (
+          <Tile variant={variant} label={t("tileLaunch")}>
             <LaunchProgress
               reserved={route.reserved}
               minimum={route.launch_minimum}
             />
           </Tile>
         )}
-        <Tile label={t("driver")}>
+        <Tile
+          variant={variant}
+          label={t("driver")}
+          // The third of three, where tiles sit two to a row (the panel, phones): the whole row,
+          // so its name and buttons sit side by side instead of stacked in half the width.
+          className={
+            forming
+              ? undefined
+              : variant === "panel"
+                ? "col-span-full"
+                : "max-sm:col-span-full"
+          }
+        >
           <RouteDriver route={route} />
         </Tile>
       </dl>
@@ -407,9 +430,25 @@ function RouteGlance({ route }: { route: RouteRead }) {
   );
 }
 
-function Tile({ label, children }: { label: string; children: ReactNode }) {
+function Tile({
+  variant,
+  label,
+  className,
+  children,
+}: {
+  variant: DetailVariant;
+  label: string;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="grid content-start gap-1 rounded-lg bg-canvas px-3 py-2.5 ring-1 ring-line/70">
+    <div
+      className={cn(
+        "grid content-start gap-1 rounded-lg px-3 py-2.5",
+        detailSurface(variant),
+        className,
+      )}
+    >
       <dt className="text-meta font-semibold text-muted">{label}</dt>
       <dd className="text-body text-ink">{children}</dd>
     </div>
