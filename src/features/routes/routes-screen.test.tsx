@@ -15,6 +15,7 @@ import {
   fill,
   forming,
   problemResponse,
+  route,
   servePlaces,
   serveRole,
   serveRoute,
@@ -336,6 +337,58 @@ describe("RoutesScreen", () => {
     expect(screen.getByRole("link", { name: "B-01" })).toHaveAttribute(
       "aria-current",
       "true",
+    );
+  });
+
+  it("forgets the panel's tab when the panel closes", async () => {
+    wideScreen();
+    navigation().search = `?route=${forming.id}&tab=status`;
+    serveRoutes([forming]);
+    serveRoute(forming);
+    const user = userEvent.setup();
+    renderWithProviders(<RoutesScreen />);
+
+    const panel = await screen.findByRole("region", { name: "B-01" });
+    expect(
+      await within(panel).findByRole("tab", { name: t.tabStatus }),
+    ).toHaveAttribute("aria-selected", "true");
+    await user.click(
+      within(panel).getByRole("button", { name: t.closeDetail }),
+    );
+
+    expect(navigation().push).toHaveBeenLastCalledWith("/routes", {
+      scroll: false,
+    });
+  });
+
+  it("keeps the panel's tab when another route opens in it", async () => {
+    wideScreen();
+    const other = route("B-02", 4, { status: "active" });
+    navigation().search = `?route=${forming.id}&tab=offers`;
+    serveRoutes([forming, other]);
+    serveRoute(forming);
+    const user = userEvent.setup();
+    renderWithProviders(<RoutesScreen />);
+    await screen.findByRole("region", { name: "B-01" });
+
+    await user.click(screen.getByRole("link", { name: "B-02" }));
+
+    expect(navigation().push).toHaveBeenLastCalledWith(
+      `/routes?route=${other.id}&tab=offers`,
+      { scroll: false },
+    );
+  });
+
+  it("on narrower screens, a shared panel link opens the route's page on its tab", async () => {
+    navigation().search = `?route=${forming.id}&tab=offers&type=public`;
+    serveRoutes([forming]);
+    renderWithProviders(<RoutesScreen />);
+
+    // The tab goes along; the list's filter doesn't.
+    await waitFor(() =>
+      expect(navigation().replace).toHaveBeenCalledWith(
+        `/routes/${forming.id}?tab=offers`,
+      ),
     );
   });
 

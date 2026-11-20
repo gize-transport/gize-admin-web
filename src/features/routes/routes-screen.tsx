@@ -50,6 +50,9 @@ function oneOf<T extends string>(value: string | null, allowed: T[]) {
   return allowed.includes(value as T) ? (value as T) : null;
 }
 
+/** The open route's tab (route-detail.tsx) goes with it: cleared on close, kept on its page. */
+const ROUTE_PARAMS = ["tab"] as const;
+
 /**
  * Routes (GZW-021): list with code search, type, status, corridor and company filters; add for
  * staff. A route's details are its own page (`/routes/[id]`); on wide screens a row opens them in
@@ -60,7 +63,11 @@ export function RoutesScreen() {
   const tStatus = useTranslations("RouteStatus");
   const { message } = useApiErrorMessages();
   const { cursor, get, setFilters } = useListParams();
-  const detail = useDetailPanel({ param: "route", basePath: "/routes" });
+  const detail = useDetailPanel({
+    param: "route",
+    basePath: "/routes",
+    recordParams: ROUTE_PARAMS,
+  });
   const filters = {
     q: get("q"),
     routeType: oneOf(get("route_type"), TYPES),

@@ -251,10 +251,13 @@ export function BackLink({
 export function Facts({
   label,
   variant,
+  compact = false,
   children,
 }: {
   label: string;
   variant: DetailVariant;
+  /** In a card: as many columns as fit (two in the side panel and on most phones). */
+  compact?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -262,7 +265,9 @@ export function Facts({
       <dl
         className={cn(
           "grid gap-x-6 gap-y-4",
-          variant === "page" && "sm:grid-cols-2 lg:grid-cols-3",
+          compact
+            ? "grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-y-3"
+            : variant === "page" && "sm:grid-cols-2 lg:grid-cols-3",
         )}
       >
         {children}

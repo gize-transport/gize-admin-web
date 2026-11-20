@@ -3,7 +3,9 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
 import { chooseFilter } from "./support/filters";
 import { signIn } from "./support/auth";
+import { expectNoSeriousA11yViolations } from "./support/axe";
 import { actionItems, actionsButton, chooseAction } from "./support/actions";
+import { openTab } from "./support/tabs";
 
 const t = messages.Routes;
 const tField = messages.CorridorField;
@@ -198,8 +200,12 @@ test.describe("routes", () => {
     await expect(
       page.getByText(fill(t.savedToast, { code: code.toUpperCase() })),
     ).toBeVisible();
+    // The seats tiles count against the new total.
     await expect(
-      details.getByText(fill(t.seatsTotal, { seats: 16 })),
+      details
+        .getByRole("group", { name: t.glanceLabel })
+        .getByText(/ of 16 taken$/)
+        .first(),
     ).toBeVisible();
 
     // S-03 has open route requests: its school is fixed.
@@ -445,9 +451,11 @@ test.describe("routes", () => {
     const startForming = details.getByRole("button", {
       name: t.moveStartForming,
     });
+    await openTab(details, t.tabStatus);
     await expect(startForming).toHaveAttribute("aria-disabled", "true");
     await expect(details.getByText(t.blockedPrices)).toBeVisible();
 
+    await openTab(details, t.tabDetails);
     await details.getByRole("button", { name: t.setPrices }).click();
     const prices = page.getByRole("dialog", {
       name: fill(t.pricesTitle, { code: upper }),
@@ -457,6 +465,7 @@ test.describe("routes", () => {
     await prices.getByRole("button", { name: t.save }).click();
     await expect(prices).toBeHidden();
 
+    await openTab(details, t.tabStatus);
     await expect(startForming).not.toHaveAttribute("aria-disabled");
     await startForming.click();
     const confirm = page.getByRole("alertdialog", {
@@ -502,7 +511,8 @@ test.describe("routes", () => {
       ? ["00000000-0000-4000-d000-000000000006", "B-04"]
       : ["00000000-0000-4000-d000-000000000007", "B-05"];
     await signIn(page, "staff");
-    await page.goto(`/routes/${id}`);
+    // Straight to the route's status tab, from the address.
+    await page.goto(`/routes/${id}?tab=status`);
     const details = page.getByRole("article", { name: code });
 
     // A launch can't be undone: on a retry (CI) the route is already active, so go on to pause.
@@ -590,12 +600,54 @@ test.describe("routes", () => {
       await page.keyboard.press("Escape");
     }
   });
+  test("a route's details, status and seat offers sit in tabs kept in the address", async ({
+    page,
+  }) => {
+    await signIn(page, "staff");
+    await page.goto(`/routes/${B01}`);
+    const details = page.getByRole("article", { name: "B-01" });
+    const tabs = details.getByRole("tablist", {
+      name: fill(t.tabsLabel, { code: "B-01" }),
+    });
+    await expect(tabs.getByRole("tab")).toHaveText([
+      t.tabDetails,
+      t.tabStatus,
+      t.tabOffers,
+    ]);
+    // At a glance, above the tabs: seats, riders to launch, the driver.
+    const glance = details.getByRole("group", { name: t.glanceLabel });
+    await expect(glance).toContainText(t.tileThisMonth);
+    await expect(
+      glance.getByRole("button", { name: t.chooseDriver }),
+    ).toBeVisible();
+    await expect(details.getByRole("group", { name: t.prices })).toBeVisible();
+
+    await openTab(details, t.tabStatus);
+    await expect(page).toHaveURL(new RegExp(`/routes/${B01}\\?tab=status$`));
+    await expect(
+      details.getByRole("button", { name: t.moveLaunch }),
+    ).toBeVisible();
+    await expect(details.getByRole("group", { name: t.prices })).toBeHidden();
+
+    // Arrow keys move between tabs; a reload keeps the one shown.
+    await page.keyboard.press("ArrowRight");
+    await expect(tabs.getByRole("tab", { name: t.tabOffers })).toBeFocused();
+    await expect(page).toHaveURL(new RegExp(`/routes/${B01}\\?tab=offers$`));
+    await page.reload();
+    await expect(
+      details.getByRole("tab", { name: t.tabOffers }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      details.getByRole("button", { name: messages.Offers.offer }),
+    ).toBeVisible();
+    await expectNoSeriousA11yViolations(page);
+  });
   test("a route's name and buttons stay in view while its details scroll", async ({
     page,
   }) => {
     // A short window, so the details are longer than it at both widths.
     const width = page.viewportSize()?.width ?? 1440;
-    await page.setViewportSize({ width, height: 600 });
+    await page.setViewportSize({ width, height: 420 });
     await signIn(page, "staff");
     await page.goto(`/routes/${B01}`);
     const details = page.getByRole("article", { name: "B-01" });
@@ -613,7 +665,7 @@ test.describe("routes", () => {
       details.getByRole("link", { name: t.backToList }),
     ).not.toBeInViewport();
     await expect(
-      details.getByRole("button", { name: messages.Offers.offer }),
+      details.getByRole("group", { name: t.prices }),
     ).toBeInViewport();
     await expect(
       details.getByRole("heading", { level: 1, name: "B-01" }),
@@ -638,7 +690,7 @@ test.describe("routes", () => {
       });
       await expect(panelRow).toHaveAttribute("data-stuck", "");
       await expect(
-        panel.getByRole("button", { name: messages.Offers.offer }),
+        panel.getByRole("group", { name: t.prices }),
       ).toBeInViewport();
       await expect(
         panel.getByRole("button", { name: t.closeDetail }),
@@ -650,7 +702,7 @@ test.describe("routes", () => {
     page,
   }) => {
     await signIn(page, "staff");
-    await page.goto(`/routes/${B01}`);
+    await page.goto(`/routes/${B01}?tab=status`);
     const details = page.getByRole("article", { name: "B-01" });
     const launchButton = details.getByRole("button", { name: t.moveLaunch });
     // The reason stays shown, and the button can still be used.

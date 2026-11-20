@@ -18,7 +18,7 @@ test("staff see how a launch's texts went and send the failed and unsent ones ag
   const route =
     testInfo.project.name === "mobile" ? ROUTES.mobile : ROUTES.desktop;
   await signIn(page, "staff");
-  await page.goto(`/routes/${route.id}`);
+  await page.goto(`/routes/${route.id}?tab=status`);
 
   const list = page.getByRole("list", { name: t.listLabel });
   const item = (name: string) =>
