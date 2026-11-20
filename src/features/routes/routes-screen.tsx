@@ -10,7 +10,9 @@ import {
   FilterMenu,
   ListToolbar,
   RowAction,
+  SortMenu,
   useListParams,
+  useListSort,
 } from "@/components/data-table";
 import { isNotFound } from "@/components/detail/detail-frame";
 import { useDetailPanel } from "@/components/detail/use-detail-panel";
@@ -29,7 +31,12 @@ import { useCorridor } from "@/features/corridors/queries";
 import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError, isForbidden } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
-import { useRoutes, type RouteStatus, type RouteType } from "./queries";
+import {
+  useRoutes,
+  type RouteStatus,
+  type RouteType,
+  ROUTE_SORTS,
+} from "./queries";
 import { RouteCorridor } from "./route-corridor";
 import { RouteDetail, typeLabel } from "./route-detail";
 import { RouteFormDialog } from "./route-form-dialog";
@@ -61,6 +68,7 @@ const ROUTE_PARAMS = ["tab"] as const;
 export function RoutesScreen() {
   const t = useTranslations("Routes");
   const tStatus = useTranslations("RouteStatus");
+  const tTable = useTranslations("DataTable");
   const { message } = useApiErrorMessages();
   const { cursor, get, setFilters } = useListParams();
   const detail = useDetailPanel({
@@ -74,6 +82,7 @@ export function RoutesScreen() {
     status: oneOf(get("status"), STATUSES),
     corridorId: get("corridor_id") || null,
     companyId: get("company_id") || null,
+    sort: useListSort(ROUTE_SORTS),
     cursor,
   };
   const routes = useRoutes(filters);
@@ -251,6 +260,13 @@ export function RoutesScreen() {
               <CorridorFilter corridorId={filters.corridorId} />
               <CompanyFilter companyId={filters.companyId} />
               <ClearFilters params={FILTERS} />
+              <SortMenu
+                options={[
+                  { value: "newest", label: tTable("sortNewest") },
+                  { value: "code", label: t("sortCode") },
+                  { value: "morning_time", label: t("sortMorning") },
+                ]}
+              />
             </ListToolbar>
           }
           label={t("tableLabel")}

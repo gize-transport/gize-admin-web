@@ -6,6 +6,13 @@ import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
 
 type AreaRef = components["schemas"]["AreaRef"];
+type NameSortValue = components["schemas"]["NameSort"];
+
+/** The orders `areas_list` takes (GZ-081), its default first. */
+export const AREA_SORTS = [
+  "newest",
+  "name",
+] as const satisfies readonly NameSortValue[];
 
 /** What a picker search returns: the first matches, and whether more areas match. */
 export type AreaSearchResult = PickerResult<AreaRef>;
@@ -16,21 +23,29 @@ export const AREAS_PAGE_SIZE = 25;
 
 export const areaKeys = {
   all: ["areas"] as const,
-  list: (params: { q: string | null; cursor: string | null }) =>
-    ["areas", "list", params] as const,
+  list: (params: {
+    q: string | null;
+    sort: NameSortValue | null;
+    cursor: string | null;
+  }) => ["areas", "list", params] as const,
   detail: (id: string) => ["areas", "detail", id] as const,
 };
 
-/** One page of areas (`areas_list`): `q` matches the start of a name, newest first. */
+/**
+ * One page of areas (`areas_list`): `q` matches the start of a name; newest first, or in `sort`'s
+ * order.
+ */
 export function useAreas({
   q,
+  sort,
   cursor,
 }: {
   q: string | null;
+  sort: NameSortValue | null;
   cursor: string | null;
 }) {
   return useQuery({
-    queryKey: areaKeys.list({ q, cursor }),
+    queryKey: areaKeys.list({ q, sort, cursor }),
     queryFn: () =>
       unwrap(
         api.GET("/v1/areas", {
@@ -39,6 +54,7 @@ export function useAreas({
               limit: AREAS_PAGE_SIZE,
               // An empty `?q=` or `?cursor=` in the address means none.
               q: q || undefined,
+              sort: sort ?? undefined,
               cursor: cursor || undefined,
             },
           },
@@ -61,11 +77,13 @@ export function useArea(id: string | null) {
   });
 }
 
-/** For pickers: the first areas whose name starts with `q` (all areas when it's empty). */
+/** For pickers: the first areas, A to Z, whose name starts with `q` (all areas when it's empty). */
 export async function searchAreas(q: string): Promise<AreaSearchResult> {
   const page = await unwrap(
     api.GET("/v1/areas", {
-      params: { query: { limit: PICKER_LIMIT, q: q.trim() || undefined } },
+      params: {
+        query: { limit: PICKER_LIMIT, q: q.trim() || undefined, sort: "name" },
+      },
     }),
   );
   return {

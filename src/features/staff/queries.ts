@@ -5,6 +5,13 @@ import type { components } from "@/lib/api/schema";
 
 type StaffInvite = components["schemas"]["StaffInvite"];
 type StaffUpdate = components["schemas"]["StaffUpdate"];
+type NameSortValue = components["schemas"]["NameSort"];
+
+/** The orders `staff_list` takes (GZ-081), its default first. */
+export const STAFF_SORTS = [
+  "newest",
+  "name",
+] as const satisfies readonly NameSortValue[];
 export type StaffRole = components["schemas"]["StaffRole"];
 
 export const STAFF_PAGE_SIZE = 25;
@@ -12,6 +19,8 @@ export const STAFF_PAGE_SIZE = 25;
 export type StaffFilters = {
   role: StaffRole | null;
   isActive: boolean | null;
+  /** The order, or null for the list's default (newest first). */
+  sort: NameSortValue | null;
   cursor: string | null;
 };
 
@@ -23,7 +32,7 @@ export const staffKeys = {
   byEmail: (email: string) => ["staff", "by-email", email] as const,
 };
 
-/** One page of staff members (`staff_list`, admins), newest first; the filters combine (AND). */
+/** One page of staff members (`staff_list`, admins), newest first or in `sort`'s order; the filters combine (AND). */
 export function useStaffMembers(filters: StaffFilters) {
   return useQuery({
     queryKey: staffKeys.list(filters),
@@ -35,6 +44,7 @@ export function useStaffMembers(filters: StaffFilters) {
               limit: STAFF_PAGE_SIZE,
               role: filters.role ?? undefined,
               is_active: filters.isActive ?? undefined,
+              sort: filters.sort ?? undefined,
               cursor: filters.cursor || undefined,
             },
           },

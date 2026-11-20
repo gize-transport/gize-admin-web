@@ -9,12 +9,21 @@ import { ApiError } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
 
 type CorridorUpdate = components["schemas"]["CorridorUpdate"];
+type NameSortValue = components["schemas"]["NameSort"];
+
+/** The orders `corridors_list` takes (GZ-081), its default first. */
+export const CORRIDOR_SORTS = [
+  "newest",
+  "name",
+] as const satisfies readonly NameSortValue[];
 
 export const CORRIDORS_PAGE_SIZE = 25;
 
 export type CorridorFilters = {
   originAreaId: string | null;
   destinationAreaId: string | null;
+  /** The order, or null for the list's default (newest first). */
+  sort: NameSortValue | null;
   cursor: string | null;
 };
 
@@ -70,7 +79,7 @@ export function fetchCorridorBetween(
   });
 }
 
-/** One page of corridors (`corridors_list`), newest first; both filters together (AND). */
+/** One page of corridors (`corridors_list`), newest first or in `sort`'s order; both filters together (AND). */
 export function useCorridors(filters: CorridorFilters) {
   return useQuery({
     queryKey: corridorKeys.list(filters),
@@ -83,6 +92,7 @@ export function useCorridors(filters: CorridorFilters) {
               // An empty value in the address means no filter.
               origin_area_id: filters.originAreaId || undefined,
               destination_area_id: filters.destinationAreaId || undefined,
+              sort: filters.sort ?? undefined,
               cursor: filters.cursor || undefined,
             },
           },

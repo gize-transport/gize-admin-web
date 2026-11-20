@@ -165,6 +165,57 @@ test.describe("routes", () => {
     await expect(row("B-01")).toBeHidden();
   });
 
+  test("staff sort routes by code, kept in the address, and back to newest first", async ({
+    page,
+  }) => {
+    await signIn(page, "staff", "/sign-in?next=%2Froutes");
+    const table = page.getByRole("table", { name: t.tableLabel });
+    // Other tests add routes: the sample B- ones are found by searching.
+    await page.getByLabel(t.searchLabel).fill("b-");
+    await expect(table.getByRole("link", { name: "B-01" })).toBeVisible();
+    // Each row's code, in the first column.
+    const rowCodes = () =>
+      table
+        .locator("tbody tr > :first-child")
+        .getByRole("link")
+        .allTextContents();
+    const codes = async () =>
+      (await rowCodes()).filter((code) =>
+        ["B-01", "B-02", "B-07"].includes(code),
+      );
+
+    await page
+      .getByRole("button", { name: messages.DataTable.sort, exact: true })
+      .click();
+    await expect(
+      page.getByRole("menu", { name: messages.DataTable.sort }),
+    ).toBeVisible();
+    await expectNoSeriousA11yViolations(page);
+    await page.keyboard.press("Escape");
+    await chooseFilter(page, messages.DataTable.sort, t.sortCode);
+    await expect(page).toHaveURL(/[?&]sort=code/);
+    await expect.poll(codes).toEqual(["B-01", "B-02", "B-07"]);
+
+    // A reload keeps the order; the search box starts empty again.
+    await page.reload();
+    await expect(
+      page.getByRole("button", {
+        name: `${messages.DataTable.sort}: ${t.sortCode}`,
+      }),
+    ).toBeVisible();
+    await expect.poll(codes).toEqual(["B-01", "B-02", "B-07"]);
+
+    await chooseFilter(
+      page,
+      messages.DataTable.sort,
+      messages.DataTable.sortNewest,
+    );
+    await expect(page).not.toHaveURL(/[?&]sort=/);
+    await expect(
+      page.getByRole("button", { name: messages.DataTable.sort, exact: true }),
+    ).toBeVisible();
+  });
+
   test("staff add a route of each type, and a taken code is explained", async ({
     page,
   }) => {

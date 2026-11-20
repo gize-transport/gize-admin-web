@@ -181,6 +181,45 @@ describe("RouteRequestsScreen", () => {
     expect(screen.getByText(t.noMatchesTitle)).toBeVisible();
   });
 
+  it("lists the oldest first unless asked for the newest, from the first page", async () => {
+    navigation().search = "?kind=route&cursor=page-2";
+    const seen: URL[] = [];
+    serveRequests([newAreas], seen);
+    const user = userEvent.setup();
+    renderWithProviders(<RouteRequestsScreen />);
+
+    await screen.findByRole("link", { name: "Selam Bekele" });
+    expect(seen[0]?.searchParams.has("sort")).toBe(false);
+    await user.click(
+      screen.getByRole("button", { name: messages.DataTable.sort }),
+    );
+    expect(
+      (await screen.findAllByRole("menuitemradio")).map(
+        (item) => item.textContent,
+      ),
+    ).toEqual([messages.DataTable.sortOldest, messages.DataTable.sortNewest]);
+    await user.click(
+      screen.getByRole("menuitemradio", {
+        name: messages.DataTable.sortNewest,
+      }),
+    );
+
+    expect(navigation().push).toHaveBeenLastCalledWith(
+      "/route-requests?kind=route&sort=newest",
+      { scroll: false },
+    );
+  });
+
+  it("sends the newest-first order from the URL", async () => {
+    navigation().search = "?sort=newest";
+    const seen: URL[] = [];
+    serveRequests([newAreas], seen);
+    renderWithProviders(<RouteRequestsScreen />);
+
+    await screen.findByRole("link", { name: "Selam Bekele" });
+    expect(seen[0]?.searchParams.get("sort")).toBe("newest");
+  });
+
   it("ignores filters in the URL it doesn't know", async () => {
     navigation().search = "?status=lost&kind=bus&open=maybe";
     const seen: URL[] = [];

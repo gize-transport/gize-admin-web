@@ -23,7 +23,12 @@
     "pagination": "Pages",
     "nextPage": "Next page",
     "firstPage": "First page",
-    "clearFilters": "Clear filters"
+    "clearFilters": "Clear filters",
+    "sort": "Sort",
+    "sortBy": "Sort: {order}",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first",
+    "sortName": "Name A to Z"
   },
   "Detail": {
     "actions": "Actions for {name}",
@@ -738,7 +743,9 @@
     "tabOffers": "Seat offers",
     "tabReady": "Ready",
     "tabReadySpoken": ", ready to launch",
-    "scheduleTitle": "Schedule"
+    "scheduleTitle": "Schedule",
+    "sortCode": "Code A to Z",
+    "sortMorning": "Morning departure"
   },
   "RouteRequests": {
     "metaTitle": "Route requests",
@@ -1318,7 +1325,7 @@
     "loadingName": "Loading…",
     "unknownRoute": "This route no longer exists. Choose another, or clear the filter.",
     "routeUnavailable": "The route's code couldn't be loaded. The list is still filtered by it.",
-    "phoneSearchNote": "Showing riders with this phone number. The filters don't apply to a phone search.",
+    "phoneSearchNote": "Showing riders with this phone number. The filters and the order don't apply to a phone search.",
     "partialPhoneTitle": "Type the whole phone number",
     "partialPhoneDescription": "A phone search needs the full number, for example 0911 23 45 67 or +251 911 23 45 67.",
     "tableLabel": "Riders",

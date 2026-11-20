@@ -6,6 +6,13 @@ import type { components } from "@/lib/api/schema";
 
 type DriverCreate = components["schemas"]["DriverCreate"];
 type DriverUpdate = components["schemas"]["DriverUpdate"];
+type NameSortValue = components["schemas"]["NameSort"];
+
+/** The orders `drivers_list` takes (GZ-081), its default first. */
+export const DRIVER_SORTS = [
+  "newest",
+  "name",
+] as const satisfies readonly NameSortValue[];
 
 export const DRIVERS_PAGE_SIZE = 25;
 const PICKER_LIMIT = 20;
@@ -17,6 +24,8 @@ export type DriverFilters = {
   /** The start of a name or plate; it stays on the page, never in its address. */
   q: string | null;
   isActive: boolean | null;
+  /** The order, or null for the list's default (newest first). */
+  sort: NameSortValue | null;
   cursor: string | null;
 };
 
@@ -26,7 +35,7 @@ export const driverKeys = {
   detail: (id: string) => ["drivers", "detail", id] as const,
 };
 
-/** One page of drivers (`drivers_list`), newest first. */
+/** One page of drivers (`drivers_list`), newest first or in `sort`'s order. */
 export function useDrivers(filters: DriverFilters) {
   return useQuery({
     queryKey: driverKeys.list(filters),
@@ -38,6 +47,7 @@ export function useDrivers(filters: DriverFilters) {
               limit: DRIVERS_PAGE_SIZE,
               q: filters.q || undefined,
               is_active: filters.isActive ?? undefined,
+              sort: filters.sort ?? undefined,
               cursor: filters.cursor || undefined,
             },
           },
@@ -59,7 +69,7 @@ export function useDriver(id: string) {
   });
 }
 
-/** For DriverPicker: the first active drivers whose name or plate starts with `q`. */
+/** For DriverPicker: the first active drivers, A to Z, whose name or plate starts with `q`. */
 export async function searchDrivers(
   q: string,
 ): Promise<PickerResult<DriverOption>> {
@@ -70,6 +80,7 @@ export async function searchDrivers(
           limit: PICKER_LIMIT,
           is_active: true,
           q: q.trim() || undefined,
+          sort: "name",
         },
       },
     }),

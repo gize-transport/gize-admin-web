@@ -99,6 +99,9 @@ const entries = [
   }),
 ];
 
+/** Requests for the Done by names. */
+const staffRequests: URL[] = [];
+
 function serveLog(items: Schemas["AuditEntryRead"][], seen?: URL[]) {
   server.use(
     http.get(apiUrl("/v1/audit-log"), ({ request }) => {
@@ -108,12 +111,13 @@ function serveLog(items: Schemas["AuditEntryRead"][], seen?: URL[]) {
         next_cursor: null,
       });
     }),
-    http.get(apiUrl("/v1/staff"), () =>
-      HttpResponse.json<Schemas["StaffPage"]>({
+    http.get(apiUrl("/v1/staff"), ({ request }) => {
+      staffRequests.push(new URL(request.url));
+      return HttpResponse.json<Schemas["StaffPage"]>({
         items: [me, otherAdmin],
         next_cursor: null,
-      }),
-    ),
+      });
+    }),
   );
 }
 
@@ -307,7 +311,8 @@ describe("AuditLogScreen", () => {
     expect(navigation().push).toHaveBeenLastCalledWith(
       `/audit-log?actor_staff_id=${otherAdmin.id}`,
       { scroll: false },
-    );
+    ); // The names A to Z.
+    expect(staffRequests.at(-1)?.searchParams.get("sort")).toBe("name");
   });
 
   it("shows one record's history from an entry, and back to all", async () => {

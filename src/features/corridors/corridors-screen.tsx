@@ -11,8 +11,10 @@ import {
   ClearFilters,
   DataTable,
   ListToolbar,
+  NameSortMenu,
   RowAction,
   useListParams,
+  useListSort,
 } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { NoPermission } from "@/components/no-permission";
@@ -30,7 +32,7 @@ import { useRetryWait } from "@/lib/api/use-retry-wait";
 import { useCurrentStaff } from "@/lib/auth/use-current-staff";
 import { useTimestampFormat } from "@/lib/time";
 import { CorridorFormDialog } from "./corridor-form-dialog";
-import { useCorridors, useDeleteCorridor } from "./queries";
+import { useCorridors, useDeleteCorridor, CORRIDOR_SORTS } from "./queries";
 
 type AreaRef = components["schemas"]["AreaRef"];
 type CorridorRead = components["schemas"]["CorridorRead"];
@@ -61,7 +63,13 @@ export function CorridorsScreen() {
   const { cursor, get, setFilters } = useListParams();
   const originAreaId = get(ORIGIN_PARAM) || null;
   const destinationAreaId = get(DESTINATION_PARAM) || null;
-  const corridors = useCorridors({ originAreaId, destinationAreaId, cursor });
+  const sort = useListSort(CORRIDOR_SORTS);
+  const corridors = useCorridors({
+    originAreaId,
+    destinationAreaId,
+    sort,
+    cursor,
+  });
   // Delete shows for admins only; the API still refuses others.
   const isAdmin = useCurrentStaff().data?.role === "admin";
 
@@ -168,6 +176,7 @@ export function CorridorsScreen() {
               />
             </div>
             <ClearFilters params={[ORIGIN_PARAM, DESTINATION_PARAM]} />
+            <NameSortMenu />
           </ListToolbar>
         }
         label={t("tableLabel")}

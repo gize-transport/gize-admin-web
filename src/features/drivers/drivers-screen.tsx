@@ -11,8 +11,10 @@ import {
   ClearFilters,
   FilterMenu,
   ListToolbar,
+  NameSortMenu,
   RowAction,
   useListParams,
+  useListSort,
 } from "@/components/data-table";
 import { useDetailPanel } from "@/components/detail/use-detail-panel";
 import { EmptyState } from "@/components/empty-state";
@@ -30,7 +32,7 @@ import type { components } from "@/lib/api/schema";
 import { useTimestampFormat } from "@/lib/time";
 import { DriverDetail } from "./driver-detail";
 import { DriverFormDialog } from "./driver-form-dialog";
-import { useDrivers } from "./queries";
+import { useDrivers, DRIVER_SORTS } from "./queries";
 
 type DriverRead = components["schemas"]["DriverRead"];
 
@@ -74,9 +76,11 @@ export function DriversScreen() {
   );
   if (staleCursor !== null && cursor !== staleCursor) setStaleCursor(null);
   const isActive = activeFilter(get("is_active"));
+  const sort = useListSort(DRIVER_SORTS);
   const drivers = useDrivers({
     q: search || null,
     isActive,
+    sort,
     cursor: cursor !== null && cursor === staleCursor ? null : cursor,
   });
   const [formKey, setFormKey] = useState<number | null>(null);
@@ -218,6 +222,7 @@ export function DriversScreen() {
                 ]}
               />
               <ClearFilters params={["is_active"]} />
+              <NameSortMenu />
             </ListToolbar>
           }
           error={

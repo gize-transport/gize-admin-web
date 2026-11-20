@@ -261,6 +261,10 @@ Owner feedback 2026-11-20: they didn't like the Overview's Routes and Riders car
   - Riders as rows of bars out of all riders.
   - Seat offers and drivers as a slim row.
 
+### GZW-081 · Sort the lists · Needs backend: GZ-081, GZ-082 (in `api-v2.22.0`) · Status: done
+Owner request 2026-11-20 ("the backend adds sorting capability"); the owner approved a Sort menu over clickable column headers (each list takes only some orders, one way).
+- Built: contract synced to `api-v2.22.0` (`sort` on eight lists; cursors up to 1200 characters). A Sort menu in the toolbar of Riders and Drivers, Companies, Areas, Corridors and Staff (Newest first, Name A to Z), Routes (also Code A to Z, Morning departure) and Route requests (Oldest first, Newest first), kept in the URL as `?sort=`. The route, area, company and driver pickers, the request forms' route pickers and the audit log's Done by list ask for A to Z. The audit log and seat offers keep their fixed order (the API has no sort there).
+
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.
 

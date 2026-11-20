@@ -38,11 +38,15 @@ export function useAuditLog(filters: AuditFilters) {
   });
 }
 
-/** Staff members for the "Done by" filter (the first 100, deactivated ones included). */
+/** Staff members for the "Done by" filter (the first 100 A to Z, deactivated ones included). */
 export function useAuditActors() {
   return useQuery({
     queryKey: ["staff", "audit-actors"],
     queryFn: () =>
-      unwrap(api.GET("/v1/staff", { params: { query: { limit: 100 } } })),
+      unwrap(
+        api.GET("/v1/staff", {
+          params: { query: { limit: 100, sort: "name" } },
+        }),
+      ),
   });
 }

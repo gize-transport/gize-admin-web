@@ -127,6 +127,7 @@ function FromCache({ id }: { id: string }) {
     status: null,
     corridorId: null,
     companyId: null,
+    sort: null,
     cursor: null,
   });
   return found.data ? <RouteDriver route={found.data} /> : null;
@@ -167,6 +168,8 @@ describe("RouteDriver", () => {
     await chooseIn(user, dialog, bereket);
     // Only active drivers are offered.
     expect(seen.at(-1)?.searchParams.get("is_active")).toBe("true");
+    // A to Z.
+    expect(seen.at(-1)?.searchParams.get("sort")).toBe("name");
     await user.click(
       within(dialog).getByRole("button", { name: t.driverSave }),
     );

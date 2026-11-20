@@ -214,6 +214,10 @@ describe("AreaPicker", () => {
     expect(seen[0]?.searchParams.get("limit")).toBe("20");
     expect(seen[0]?.searchParams.has("q")).toBe(false);
     expect(seen.at(-1)?.searchParams.get("q")).toBe("me");
+    // A to Z, every time.
+    expect(seen.every((url) => url.searchParams.get("sort") === "name")).toBe(
+      true,
+    );
   });
 
   it("can clear a chosen area", async () => {

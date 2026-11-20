@@ -105,6 +105,22 @@ describe("CompaniesScreen", () => {
     });
   });
 
+  it("sends the order from the URL, and keeps it when the filters are cleared", async () => {
+    navigation().search = "?is_active=false&sort=name";
+    const seen: URL[] = [];
+    serveCompanies([ceramics], seen);
+    renderWithProviders(<CompaniesScreen />);
+
+    await screen.findByRole("link", { name: "Ethio Ceramics" });
+    expect(seen[0]?.searchParams.get("sort")).toBe("name");
+    await userEvent.click(
+      screen.getByRole("button", { name: messages.DataTable.clearFilters }),
+    );
+    expect(navigation().push).toHaveBeenLastCalledWith("/companies?sort=name", {
+      scroll: false,
+    });
+  });
+
   it("ignores a status in the URL it doesn't know", async () => {
     navigation().search = "?is_active=maybe";
     const seen: URL[] = [];
@@ -157,6 +173,16 @@ describe("CompaniesScreen", () => {
     expect(
       await screen.findByRole("link", { name: messages.DataTable.nextPage }),
     ).toHaveAttribute("href", "/companies?cursor=page-2");
+  });
+
+  it("pages a sorted list with the cursor made for its order", async () => {
+    navigation().search = "?sort=name";
+    serveCompanies([brewery], undefined, "page-2");
+    renderWithProviders(<CompaniesScreen />);
+
+    expect(
+      await screen.findByRole("link", { name: messages.DataTable.nextPage }),
+    ).toHaveAttribute("href", "/companies?sort=name&cursor=page-2");
   });
 
   it("shows a failed load with its reference and a retry", async () => {

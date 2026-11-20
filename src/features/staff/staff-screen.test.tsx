@@ -87,6 +87,16 @@ describe("StaffScreen", () => {
     expect(seen[0]?.searchParams.get("is_active")).toBe("false");
   });
 
+  it("sends the order from the URL", async () => {
+    navigation().search = "?sort=name";
+    const seen: URL[] = [];
+    serveMembers([former], seen);
+    renderWithProviders(<StaffScreen />);
+
+    await screen.findByRole("link", { name: "Dawit Former" });
+    expect(seen[0]?.searchParams.get("sort")).toBe("name");
+  });
+
   it("filters from a menu", async () => {
     serveMembers([me]);
     const user = userEvent.setup();

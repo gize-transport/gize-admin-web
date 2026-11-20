@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
 import { signIn } from "./support/auth";
 import { actionItems, chooseAction } from "./support/actions";
+import { chooseFilter } from "./support/filters";
 
 const t = messages.Riders;
 
@@ -50,6 +51,51 @@ async function search(page: Page, text: string) {
 }
 
 test.describe("riders", () => {
+  test("staff sort riders by name, with a name search kept out of the address", async ({
+    page,
+  }) => {
+    await signIn(page, "staff", "/sign-in?next=%2Friders");
+    const table = page.getByRole("table", { name: t.tableLabel });
+    const names = () =>
+      table
+        .locator("tbody tr > :first-child")
+        .getByRole("link")
+        .allTextContents();
+    await expect(table).toBeVisible();
+
+    await chooseFilter(
+      page,
+      messages.DataTable.sort,
+      messages.DataTable.sortName,
+    );
+    await expect(page).toHaveURL(/[?&]sort=name/);
+    await expect(
+      page.getByRole("button", {
+        name: `${messages.DataTable.sort}: ${messages.DataTable.sortName}`,
+      }),
+    ).toBeVisible();
+    // Sample riders whose order no text rules dispute (the real API sorts by the database's
+    // rules, which may treat spaces and punctuation differently); other tests add more.
+    const sample = ["Abel Tesfaye", "Hirut Bekele", "Kidus Alemu"];
+    // Abel first, and the others (unless riders added meanwhile pushed them to page 2) after,
+    // in order.
+    await expect
+      .poll(async () => {
+        const shown = (await names()).filter((name) => sample.includes(name));
+        return (
+          shown.length > 1 &&
+          shown.join() === sample.slice(0, shown.length).join()
+        );
+      })
+      .toBe(true);
+    expect((await names())[0]).toBe("Abel Tesfaye");
+
+    await search(page, "a");
+    await expect.poll(names).toEqual(["Abel Tesfaye"]);
+    await expect(page).toHaveURL(/[?&]sort=name/);
+    expect(page.url()).not.toMatch(/[?&]q=/);
+  });
+
   test("staff find a caller by phone, record a new one and correct their plan", async ({
     page,
   }) => {

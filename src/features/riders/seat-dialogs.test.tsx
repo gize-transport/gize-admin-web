@@ -338,6 +338,7 @@ describe("PlaceSeatDialog", () => {
     ).toBeVisible();
     expect(seenRoutes[0]?.searchParams.get("company_id")).toBe(brewery.id);
     expect(seenRoutes[0]?.searchParams.get("route_type")).toBe("corporate");
+    expect(seenRoutes[0]?.searchParams.get("sort")).toBe("code");
     expect(within(dialog).getByLabelText(t.seatStartDay)).toHaveValue(TODAY);
     await user.click(within(dialog).getByRole("button", { name: t.placeSave }));
 

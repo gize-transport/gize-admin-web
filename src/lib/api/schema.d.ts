@@ -1713,6 +1713,11 @@ export interface components {
             this_month: number;
         };
         /**
+         * NameSort
+         * @enum {string}
+         */
+        NameSort: "newest" | "name";
+        /**
          * NotOfferable
          * @description Why a request waiting for a route can't be offered its seat (GZ-075): it has an open
          *     offer (on any route), or it's a student's (seats are offered to adults).
@@ -2210,6 +2215,11 @@ export interface components {
             updated_at: string;
         };
         /**
+         * RiderSort
+         * @enum {string}
+         */
+        RiderSort: "newest" | "name";
+        /**
          * RiderSource
          * @enum {string}
          */
@@ -2601,6 +2611,11 @@ export interface components {
             updated_at: string;
         };
         /**
+         * RouteRequestSort
+         * @enum {string}
+         */
+        RouteRequestSort: "oldest" | "newest";
+        /**
          * RouteRequestStatusSet
          * @description The status to move to. `matched` names the route (`matched_route_id`, a live route
          *     for this rider, any status: a van to come may still be a draft); `declined` gives a
@@ -2664,6 +2679,11 @@ export interface components {
             /** School Name */
             school_name?: string;
         };
+        /**
+         * RouteSort
+         * @enum {string}
+         */
+        RouteSort: "newest" | "code" | "morning_time";
         /**
          * RouteStatus
          * @enum {string}
@@ -3003,6 +3023,8 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string | null;
+                /** @description `newest` first, or by `name` A to Z ignoring case. A cursor pages the sort it was made with: 422 INVALID_CURSOR with another. */
+                sort?: components["schemas"]["NameSort"];
                 q?: string | null;
             };
             header?: never;
@@ -3614,6 +3636,8 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string | null;
+                /** @description `newest` first, or by `name` A to Z ignoring case. A cursor pages the sort it was made with: 422 INVALID_CURSOR with another. */
+                sort?: components["schemas"]["NameSort"];
                 q?: string | null;
                 is_active?: boolean | null;
             };
@@ -4148,6 +4172,8 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string | null;
+                /** @description `newest` first, or by `name`: the A area's name A to Z ignoring case, then the B area's. A cursor pages the sort it was made with: 422 INVALID_CURSOR with another. */
+                sort?: components["schemas"]["NameSort"];
                 origin_area_id?: string | null;
                 destination_area_id?: string | null;
             };
@@ -4686,6 +4712,8 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string | null;
+                /** @description `newest` first, or by `name` A to Z ignoring case. A cursor pages the sort it was made with: 422 INVALID_CURSOR with another. */
+                sort?: components["schemas"]["NameSort"];
                 q?: string | null;
                 is_active?: boolean | null;
             };
@@ -6047,6 +6075,8 @@ export interface operations {
                 rider_type?: components["schemas"]["gize_api__riders__models__RiderType"] | null;
                 seat?: components["schemas"]["SeatState"] | null;
                 route_id?: string | null;
+                /** @description `newest` first, or by `name` A to Z ignoring case (GZ-081). A cursor pages the sort it was made with: 422 INVALID_CURSOR with another. */
+                sort?: components["schemas"]["RiderSort"];
             };
             header?: never;
             path?: never;
@@ -7081,6 +7111,8 @@ export interface operations {
                 to_area_id?: string | null;
                 /** @description An area typed as not listed at B, ignoring case. */
                 to_area_name?: string | null;
+                /** @description `oldest` first (the order requests are served in) or `newest` first (GZ-081). A cursor pages the sort it was made with: 422 INVALID_CURSOR with another. */
+                sort?: components["schemas"]["RouteRequestSort"];
             };
             header?: never;
             path?: never;
@@ -7896,6 +7928,8 @@ export interface operations {
                 company_id?: string | null;
                 /** @description Routes this driver drives. */
                 driver_id?: string | null;
+                /** @description `newest` first, by `code` A to Z, or by `morning_time` (leaving A) earliest first (GZ-081). A cursor pages the sort it was made with: 422 INVALID_CURSOR with another. */
+                sort?: components["schemas"]["RouteSort"];
             };
             header?: never;
             path?: never;
@@ -10196,6 +10230,8 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string | null;
+                /** @description `newest` first, or by `name` A to Z ignoring case. A cursor pages the sort it was made with: 422 INVALID_CURSOR with another. */
+                sort?: components["schemas"]["NameSort"];
                 role?: components["schemas"]["StaffRole"] | null;
                 is_active?: boolean | null;
             };

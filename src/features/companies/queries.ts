@@ -6,6 +6,13 @@ import type { components } from "@/lib/api/schema";
 
 type CompanyRef = components["schemas"]["CompanyRef"];
 type CompanyCreate = components["schemas"]["CompanyCreate"];
+type NameSortValue = components["schemas"]["NameSort"];
+
+/** The orders `companies_list` takes (GZ-081), its default first. */
+export const COMPANY_SORTS = [
+  "newest",
+  "name",
+] as const satisfies readonly NameSortValue[];
 type CompanyUpdate = components["schemas"]["CompanyUpdate"];
 
 export const COMPANIES_PAGE_SIZE = 25;
@@ -17,6 +24,8 @@ export type CompanyFilters = {
   q: string | null;
   /** "true" / "false" from the URL; anything else is no filter. */
   isActive: boolean | null;
+  /** The order, or null for the list's default (newest first). */
+  sort: NameSortValue | null;
   cursor: string | null;
 };
 
@@ -27,7 +36,7 @@ export const companyKeys = {
   routes: (id: string) => ["companies", "routes", id] as const,
 };
 
-/** One page of companies (`companies_list`), newest first. */
+/** One page of companies (`companies_list`), newest first or in `sort`'s order. */
 export function useCompanies(filters: CompanyFilters) {
   return useQuery({
     queryKey: companyKeys.list(filters),
@@ -40,6 +49,7 @@ export function useCompanies(filters: CompanyFilters) {
               // An empty value in the address means no filter.
               q: filters.q || undefined,
               is_active: filters.isActive ?? undefined,
+              sort: filters.sort ?? undefined,
               cursor: filters.cursor || undefined,
             },
           },
@@ -75,7 +85,7 @@ export function useCompanyRoutes(id: string) {
   });
 }
 
-/** For CompanyPicker: the first companies whose name starts with `q` (active ones only, or all). */
+/** For CompanyPicker: the first companies, A to Z, whose name starts with `q` (active ones only, or all). */
 export async function searchCompanies(
   q: string,
   { activeOnly }: { activeOnly: boolean },
@@ -87,6 +97,7 @@ export async function searchCompanies(
           limit: PICKER_LIMIT,
           is_active: activeOnly ? true : undefined,
           q: q.trim() || undefined,
+          sort: "name",
         },
       },
     }),

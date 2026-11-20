@@ -170,6 +170,48 @@ describe("RidersScreen", () => {
     expect(seen[0]?.searchParams.has("seat")).toBe(false);
   });
 
+  it("sorts by name, from the first page, the name search kept out of the address", async () => {
+    navigation().search = "?type=adult&cursor=page-2";
+    const seen: URL[] = [];
+    serveRiders([riding], seen);
+    const user = userEvent.setup();
+    renderWithProviders(<RidersScreen />);
+    await screen.findByRole("link", { name: "Abel Tesfaye" });
+    await user.type(screen.getByLabelText(t.searchLabel), "Abe");
+    await waitFor(() => expect(seen.at(-1)?.searchParams.get("q")).toBe("Abe"));
+
+    await chooseFilter(
+      user,
+      messages.DataTable.sort,
+      messages.DataTable.sortName,
+    );
+
+    expect(navigation().push).toHaveBeenLastCalledWith(
+      "/riders?type=adult&searched=1&sort=name",
+      { scroll: false },
+    );
+    expect(addresses().join(" ")).not.toContain("Abe");
+  });
+
+  it("sends the order from the URL with the name search", async () => {
+    navigation().search = "?sort=name";
+    const seen: URL[] = [];
+    serveRiders([riding], seen);
+    const user = userEvent.setup();
+    renderWithProviders(<RidersScreen />);
+
+    await screen.findByRole("link", { name: "Abel Tesfaye" });
+    expect(seen[0]?.searchParams.get("sort")).toBe("name");
+    expect(
+      screen.getByRole("button", {
+        name: `Sort: ${messages.DataTable.sortName}`,
+      }),
+    ).toBeVisible();
+    await user.type(screen.getByLabelText(t.searchLabel), "Abe");
+    await waitFor(() => expect(seen.at(-1)?.searchParams.get("q")).toBe("Abe"));
+    expect(seen.at(-1)?.searchParams.get("sort")).toBe("name");
+  });
+
   it("searches by name without putting it in the address, from the first page", async () => {
     navigation().search = "?type=adult&cursor=page-2";
     const seen: URL[] = [];

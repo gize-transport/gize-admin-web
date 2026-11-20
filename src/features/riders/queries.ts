@@ -6,6 +6,13 @@ import type { components } from "@/lib/api/schema";
 
 type RiderCreate = components["schemas"]["RiderCreate"];
 type RiderUpdate = components["schemas"]["RiderUpdate"];
+type RiderSortValue = components["schemas"]["RiderSort"];
+
+/** The orders `riders_list` takes (GZ-081), its default first. */
+export const RIDER_SORTS = [
+  "newest",
+  "name",
+] as const satisfies readonly RiderSortValue[];
 export type RiderType =
   components["schemas"]["gize_api__riders__models__RiderType"];
 export type SeatState = components["schemas"]["SeatState"];
@@ -19,6 +26,8 @@ export type RiderFilters = {
   riderType: RiderType | null;
   seat: SeatState | null;
   routeId: string | null;
+  /** The order, or null for the list's default (newest first). */
+  sort: RiderSortValue | null;
   cursor: string | null;
 };
 
@@ -30,7 +39,7 @@ export const riderKeys = {
   byPhone: (phone: string) => ["riders", "by-phone", phone] as const,
 };
 
-/** One page of riders (`riders_list`), newest first; the filters combine (AND). */
+/** One page of riders (`riders_list`), newest first or in `sort`'s order; the filters combine (AND). */
 export function useRiders(filters: RiderFilters, enabled = true) {
   return useQuery({
     queryKey: riderKeys.list(filters),
@@ -45,6 +54,7 @@ export function useRiders(filters: RiderFilters, enabled = true) {
               seat: filters.seat ?? undefined,
               // An empty value in the address means no filter.
               route_id: filters.routeId || undefined,
+              sort: filters.sort ?? undefined,
               cursor: filters.cursor || undefined,
             },
           },
@@ -215,7 +225,7 @@ export function useTripRoutes(fromId: string | null, toId: string | null) {
   });
 }
 
-/** A company's corporate routes (`routes_list`), for placing one of its riders. */
+/** A company's corporate routes (`routes_list`) by code, for placing one of its riders. */
 export function useCompanySeatRoutes(companyId: string | null) {
   return useQuery({
     queryKey: ["routes", "company-seats", companyId ?? ""] as const,
@@ -227,6 +237,7 @@ export function useCompanySeatRoutes(companyId: string | null) {
               company_id: companyId ?? "",
               route_type: "corporate",
               limit: SEAT_ROUTES_LIMIT,
+              sort: "code",
             },
           },
         }),

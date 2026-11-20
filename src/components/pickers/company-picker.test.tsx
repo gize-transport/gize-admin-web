@@ -72,5 +72,6 @@ describe("CompanyPicker", () => {
     ).toBe(true);
     expect(seen.at(-1)?.searchParams.get("q")).toBe("add");
     expect(seen.at(-1)?.searchParams.get("limit")).toBe("20");
+    expect(seen.at(-1)?.searchParams.get("sort")).toBe("name");
   });
 });

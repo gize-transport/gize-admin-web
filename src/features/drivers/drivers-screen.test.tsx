@@ -118,6 +118,25 @@ describe("DriversScreen", () => {
     expect(seen.at(-1)?.searchParams.has("is_active")).toBe(false);
   });
 
+  it("sends the order from the URL with a search, from the first page", async () => {
+    navigation().search = "?sort=name";
+    const seen: URL[] = [];
+    serveDrivers([sara], seen);
+    const user = userEvent.setup();
+    renderWithProviders(<DriversScreen />);
+
+    await screen.findByRole("link", { name: "Sara Mohammed" });
+    expect(seen[0]?.searchParams.get("sort")).toBe("name");
+    expect(
+      screen.getByRole("button", {
+        name: `${messages.DataTable.sort}: ${messages.DataTable.sortName}`,
+      }),
+    ).toBeVisible();
+    await user.type(screen.getByLabelText(t.searchLabel), "Sar");
+    await waitFor(() => expect(seen.at(-1)?.searchParams.get("q")).toBe("Sar"));
+    expect(seen.at(-1)?.searchParams.get("sort")).toBe("name");
+  });
+
   it("filters by status from its menu", async () => {
     serveDrivers([bereket]);
     const user = userEvent.setup();
