@@ -251,6 +251,9 @@ The route detail fits one screen (the side panel's Details tab fits a 1440 × 90
   - Seat offers: public routes only.
 - The tab is kept in the address (`?tab=status|offers`, replacing the entry). An unknown or unavailable value shows Details. The tab is kept when another route opens in the panel, cleared when the panel closes, and carried to the route's page on a narrow screen (`useDetailPanel` `recordParams`). Every tab stays mounted (hidden when not shown), so launch texts keep being watched.
 
+### GZW-079 · Detail cards with a background · Needs backend: none · Status: done
+Owner feedback 2026-11-20 on GZW-078 ("I like the layout"): the cards were border lines only on the grey page. Built: route cards and tiles get a surface – white with a small shadow on a page, canvas grey in the white side panel (`detailSurface`); the Driver tile spans the row when it's the odd third tile.
+
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.
 
