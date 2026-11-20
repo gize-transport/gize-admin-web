@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
+import { chooseFilter } from "./support/filters";
 import { signIn } from "./support/auth";
 
 const t = messages.Companies;
@@ -70,7 +71,7 @@ test.describe("companies", () => {
     ).toBeHidden();
 
     await page.getByLabel(t.searchLabel).fill("");
-    await page.getByRole("button", { name: t.filterInactive }).click();
+    await chooseFilter(page, t.statusFilter, t.filterInactive);
     await expect(page).toHaveURL(/[?&]is_active=false/);
     await expect(
       table.getByRole("link", { name: "Bole Logistics" }),

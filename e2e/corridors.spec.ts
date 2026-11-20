@@ -41,7 +41,10 @@ async function pickWithKeyboard(page: Page, picker: Locator, name: string) {
   await expect(page.getByRole("option", { name, exact: true })).toBeVisible();
   // While a search runs there are no options to pick, so Enter picks the match shown.
   await page.keyboard.press("Enter");
-  await expect(picker).toHaveText(name);
+  // A form's picker shows the name; a toolbar's, "From: Piassa".
+  await expect(picker).toHaveText(
+    new RegExp(`(^|: )${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`),
+  );
   await expect(picker).toBeFocused();
 }
 
@@ -84,7 +87,7 @@ test.describe("corridors", () => {
     await page.reload();
     await expect(
       filters.getByRole("combobox", { name: t.originLabel }),
-    ).toHaveText("Piassa");
+    ).toHaveText(`${t.originShort}: Piassa`);
     await expect(
       table.getByRole("button", {
         name: editName({ origin: "Piassa", destination: "Bole" }),

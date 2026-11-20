@@ -8,7 +8,9 @@ import {
   CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
-  FilterChips,
+  ClearFilters,
+  FilterMenu,
+  ListToolbar,
   RowAction,
   useListParams,
 } from "@/components/data-table";
@@ -16,6 +18,7 @@ import { useDetailPanel } from "@/components/detail/use-detail-panel";
 import { EmptyState } from "@/components/empty-state";
 import { NoPermission } from "@/components/no-permission";
 import { PageHeader } from "@/components/page-header";
+import { SearchHint } from "@/components/search-field";
 import { ProblemAlert } from "@/components/problem-alert";
 import { StatusPill } from "@/components/status-pill";
 import { Button } from "@/components/ui/button";
@@ -187,11 +190,7 @@ export function DriversScreen() {
 
   return (
     <>
-      <PageHeader
-        title={t("title")}
-        description={t("description")}
-        actions={addButton}
-      />
+      <PageHeader title={t("title")} description={t("description")} />
       <div
         className={
           detail.panelId
@@ -208,9 +207,9 @@ export function DriversScreen() {
           nextCursor={drivers.data?.next_cursor ?? null}
           selectedRowId={detail.panelId}
           toolbar={
-            <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+            <ListToolbar action={addButton}>
               <DriverSearchField onSearch={changeSearch} />
-              <FilterChips
+              <FilterMenu
                 param="is_active"
                 label={t("statusFilter")}
                 options={[
@@ -218,7 +217,8 @@ export function DriversScreen() {
                   { value: "false", label: t("filterInactive") },
                 ]}
               />
-            </div>
+              <ClearFilters params={["is_active"]} />
+            </ListToolbar>
           }
           error={
             drivers.isError ? (
@@ -293,8 +293,11 @@ function DriverSearchField({
   }, [text]);
 
   return (
-    <div className="grid w-full max-w-sm gap-1.5">
-      <Label htmlFor={`${uid}-search`}>{t("searchLabel")}</Label>
+    // A toolbar's search (GZW-076): see SearchField.
+    <div className="group relative w-full sm:w-64">
+      <Label htmlFor={`${uid}-search`} className="sr-only">
+        {t("searchLabel")}
+      </Label>
       <div className="relative">
         <SearchIcon
           aria-hidden
@@ -310,12 +313,10 @@ function DriverSearchField({
           aria-describedby={`${uid}-search-hint`}
           maxLength={SEARCH_MAX}
           autoComplete="off"
-          className="pl-9"
+          className="h-9 pl-9 text-table"
         />
       </div>
-      <p id={`${uid}-search-hint`} className="text-table text-muted">
-        {t("searchHint")}
-      </p>
+      <SearchHint id={`${uid}-search-hint`}>{t("searchHint")}</SearchHint>
     </div>
   );
 }

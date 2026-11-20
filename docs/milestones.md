@@ -234,6 +234,10 @@ Visual refresh, part 3, from `overview_get` only (nothing new asked of the API).
 - Built: Needs action as rows in one card (sun icon tile, title, hint, links on the right from md, under the text on phones). Routes and Riders as cards side by side from 1280 px, Seat offers and drivers below; each card has an icon heading and its counts split by dividers; Routes links "All routes".
 - Charts (SVG, widths as attributes rather than style attributes): routes by status as one bar, described in words for screen readers and keyed by a dot on each tile; each rider count's share of all riders as a thin bar for sight only. No chart over time (the API gives today's counts only).
 
+### GZW-076 · Compact list toolbar · Needs backend: none · Status: done
+Owner feedback 2026-11-20 on the Routes filters ("too much button noise, placement and alignment issues"), with Nextcloud's files toolbar as the reference for placement and space.
+- Built: every list's search, filters, Clear filters and main action in one toolbar row (`ListToolbar`); chips replaced by `FilterMenu` dropdowns showing the choice ("Status: Forming"); pickers and the corridor pair as compact buttons (`toolbarLabel`, `CorridorField toolbar`); search hints shown under the box while it has focus. Page headers on lists are now just the title and description. Same URL params as before, so links and Back are unchanged. `FilterChips` removed.
+
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.
 

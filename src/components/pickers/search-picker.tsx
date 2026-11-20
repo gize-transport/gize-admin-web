@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronsUpDownIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState, type Ref } from "react";
 import {
   Command,
@@ -16,6 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { toolbarButtonClass } from "@/components/data-table/toolbar-button";
 import { ProblemAlert } from "@/components/problem-alert";
 import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError } from "@/lib/api/problem";
@@ -65,6 +66,13 @@ export type PickerFieldProps<T extends PickerOption> = {
   disabled?: boolean;
   "aria-describedby"?: string;
   /**
+   * In a list toolbar (GZW-076): a compact button showing this short name ("Company"), then
+   * "Company: Addis Brewery" once chosen. The field's own label stays its accessible name.
+   */
+  toolbarLabel?: string;
+  /** In a toolbar: whether its filter is on, when that isn't simply "something is chosen". */
+  active?: boolean;
+  /**
    * Where the options come from; each picker defaults to its API list. Tests and the gallery
    * pass their own (one source per page: the results are cached by the search text only).
    */
@@ -99,6 +107,8 @@ export function SearchPicker<T extends PickerOption>({
   invalid,
   disabled,
   "aria-describedby": describedBy,
+  toolbarLabel,
+  active,
   search,
   queryKey,
   labels,
@@ -149,15 +159,31 @@ export function SearchPicker<T extends PickerOption>({
           aria-invalid={invalid || undefined}
           aria-disabled={disabled || undefined}
           aria-describedby={describedBy}
-          className="flex h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 text-left text-body hover:border-muted aria-disabled:cursor-not-allowed aria-disabled:opacity-70 aria-invalid:border-danger"
+          data-active={toolbarLabel && (active ?? value) ? "" : undefined}
+          className={
+            toolbarLabel
+              ? toolbarButtonClass
+              : "flex h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 text-left text-body hover:border-muted aria-disabled:cursor-not-allowed aria-disabled:opacity-70 aria-invalid:border-danger"
+          }
         >
-          <span className={cn("truncate", !value && "text-muted")}>
-            {value?.name ?? placeholder ?? labels.placeholder}
-          </span>
-          <ChevronsUpDownIcon
-            aria-hidden
-            className="size-4 shrink-0 text-muted"
-          />
+          {toolbarLabel ? (
+            <>
+              <span className="truncate">
+                {value ? `${toolbarLabel}: ${value.name}` : toolbarLabel}
+              </span>
+              <ChevronDownIcon aria-hidden />
+            </>
+          ) : (
+            <>
+              <span className={cn("truncate", !value && "text-muted")}>
+                {value?.name ?? placeholder ?? labels.placeholder}
+              </span>
+              <ChevronsUpDownIcon
+                aria-hidden
+                className="size-4 shrink-0 text-muted"
+              />
+            </>
+          )}
         </PopoverTrigger>
         <PopoverContent
           aria-label={labels.searchLabel}
@@ -228,7 +254,10 @@ export function SearchPicker<T extends PickerOption>({
             onChange(null);
             triggerRef.current?.focus();
           }}
-          className="grid size-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-ice hover:text-navy"
+          className={cn(
+            "grid shrink-0 place-items-center rounded-lg text-muted hover:bg-ice hover:text-navy",
+            toolbarLabel ? "size-9" : "size-10",
+          )}
         >
           <XIcon aria-hidden className="size-4" />
           <span className="sr-only">{labels.clear(value.name)}</span>

@@ -9,6 +9,7 @@ import {
   CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
+  ListToolbar,
   RowAction,
   useListParams,
 } from "@/components/data-table";
@@ -119,18 +120,16 @@ export function AreasScreen() {
 
   return (
     <>
-      <PageHeader
-        title={t("title")}
-        description={t("description")}
-        actions={addButton}
-      />
+      <PageHeader title={t("title")} description={t("description")} />
       <DataTable
         toolbar={
-          <SearchField
-            param="q"
-            label={t("searchLabel")}
-            placeholder={t("searchHint")}
-          />
+          <ListToolbar action={addButton}>
+            <SearchField
+              param="q"
+              label={t("searchLabel")}
+              placeholder={t("searchHint")}
+            />
+          </ListToolbar>
         }
         label={t("tableLabel")}
         columns={columns}

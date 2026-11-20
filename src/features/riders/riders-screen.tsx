@@ -8,7 +8,9 @@ import {
   CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
-  FilterChips,
+  ClearFilters,
+  FilterMenu,
+  ListToolbar,
   RowAction,
   useListParams,
 } from "@/components/data-table";
@@ -16,6 +18,7 @@ import { useDetailPanel } from "@/components/detail/use-detail-panel";
 import { EmptyState } from "@/components/empty-state";
 import { NoPermission } from "@/components/no-permission";
 import { PageHeader } from "@/components/page-header";
+import { SearchHint } from "@/components/search-field";
 import { RouteFilter } from "@/components/pickers/route-filter";
 import { ProblemAlert } from "@/components/problem-alert";
 import { Button } from "@/components/ui/button";
@@ -288,11 +291,7 @@ export function RidersScreen() {
 
   return (
     <>
-      <PageHeader
-        title={t("title")}
-        description={t("description")}
-        actions={addButton}
-      />
+      <PageHeader title={t("title")} description={t("description")} />
       <div
         className={
           detail.panelId
@@ -303,43 +302,46 @@ export function RidersScreen() {
         {/* One table for every search: its toolbar holds the search box, which must stay. */}
         <DataTable
           toolbar={
-            <div className="grid gap-4">
+            <ListToolbar
+              action={addButton}
+              below={
+                phoneSearch && (
+                  <p className="text-table text-muted">
+                    {t("phoneSearchNote")}
+                  </p>
+                )
+              }
+            >
               <RiderSearchField onSearch={changeSearch} />
-              <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-                <FilterChips
-                  param="type"
-                  label={t("typeFilter")}
-                  options={TYPES.map((value) => ({
-                    value,
-                    label: riderTypeLabel(value, t),
-                  }))}
-                />
-                <FilterChips
-                  param="seat"
-                  label={t("seatFilter")}
-                  options={[
-                    { value: "active", label: t("seatRiding") },
-                    { value: "reserved", label: t("seatReserved") },
-                    { value: "none", label: t("noSeat") },
-                  ]}
-                />
-              </div>
-              <div className="grid items-start gap-4 lg:max-w-md">
-                <RouteFilter
-                  routeId={filters.routeId}
-                  labels={{
-                    label: t("routeFilter"),
-                    anyRoute: t("anyRoute"),
-                    loading: t("loadingName"),
-                    unknownRoute: t("unknownRoute"),
-                    routeUnavailable: t("routeUnavailable"),
-                  }}
-                />
-              </div>
-              {phoneSearch && (
-                <p className="text-table text-muted">{t("phoneSearchNote")}</p>
-              )}
-            </div>
+              <FilterMenu
+                param="type"
+                label={t("typeFilter")}
+                options={TYPES.map((value) => ({
+                  value,
+                  label: riderTypeLabel(value, t),
+                }))}
+              />
+              <FilterMenu
+                param="seat"
+                label={t("seatFilter")}
+                options={[
+                  { value: "active", label: t("seatRiding") },
+                  { value: "reserved", label: t("seatReserved") },
+                  { value: "none", label: t("noSeat") },
+                ]}
+              />
+              <RouteFilter
+                routeId={filters.routeId}
+                labels={{
+                  label: t("routeFilter"),
+                  anyRoute: t("anyRoute"),
+                  loading: t("loadingName"),
+                  unknownRoute: t("unknownRoute"),
+                  routeUnavailable: t("routeUnavailable"),
+                }}
+              />
+              <ClearFilters params={FILTERS} />
+            </ListToolbar>
           }
           label={t("tableLabel")}
           columns={columns}
@@ -431,8 +433,11 @@ function RiderSearchField({
   }, [text]);
 
   return (
-    <div className="grid w-full max-w-sm gap-1.5">
-      <Label htmlFor={`${uid}-search`}>{t("searchLabel")}</Label>
+    // A toolbar's search (GZW-076): see SearchField.
+    <div className="group relative w-full sm:w-64">
+      <Label htmlFor={`${uid}-search`} className="sr-only">
+        {t("searchLabel")}
+      </Label>
       <div className="relative">
         <SearchIcon
           aria-hidden
@@ -448,12 +453,10 @@ function RiderSearchField({
           aria-describedby={`${uid}-search-hint`}
           maxLength={Math.max(NAME_MAX, PHONE_TYPED_MAX)}
           autoComplete="off"
-          className="pl-9"
+          className="h-9 pl-9 text-table"
         />
       </div>
-      <p id={`${uid}-search-hint`} className="text-table text-muted">
-        {t("searchHint")}
-      </p>
+      <SearchHint id={`${uid}-search-hint`}>{t("searchHint")}</SearchHint>
     </div>
   );
 }

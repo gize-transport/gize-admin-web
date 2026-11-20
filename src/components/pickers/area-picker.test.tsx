@@ -233,3 +233,40 @@ describe("AreaPicker", () => {
     ).toHaveTextContent(t.placeholder);
   });
 });
+
+describe("AreaPicker in a toolbar", () => {
+  it("shows its short label, then the label with the choice, marked active", async () => {
+    const user = userEvent.setup();
+    function Toolbar() {
+      const [value, setValue] = useState<AreaRef | null>(null);
+      return (
+        <>
+          <label htmlFor="from" className="sr-only">
+            From (origin area)
+          </label>
+          <AreaPicker
+            id="from"
+            toolbarLabel="From"
+            value={value}
+            onChange={setValue}
+            search={searchAreas}
+          />
+        </>
+      );
+    }
+    renderWithProviders(<Toolbar />);
+
+    // Named by its label; the button shows the short one.
+    const trigger = screen.getByRole("combobox", {
+      name: "From (origin area)",
+    });
+    expect(trigger).toHaveTextContent(/^From$/);
+    expect(trigger).not.toHaveAttribute("data-active");
+
+    await user.click(trigger);
+    await user.click(await screen.findByRole("option", { name: "Piassa" }));
+
+    expect(trigger).toHaveTextContent(/^From: Piassa$/);
+    expect(trigger).toHaveAttribute("data-active");
+  });
+});

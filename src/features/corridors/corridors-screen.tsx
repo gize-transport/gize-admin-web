@@ -8,7 +8,9 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   CellWithPicture,
   createDataTableColumnHelper,
+  ClearFilters,
   DataTable,
+  ListToolbar,
   RowAction,
   useListParams,
 } from "@/components/data-table";
@@ -145,24 +147,28 @@ export function CorridorsScreen() {
     corridors.error.code === "VALIDATION_FAILED";
   return (
     <>
-      <PageHeader
-        title={t("title")}
-        description={t("description")}
-        actions={addButton}
-      />
+      <PageHeader title={t("title")} description={t("description")} />
       <DataTable
         toolbar={
-          <div
-            role="group"
-            aria-label={t("filtersLabel")}
-            className="grid gap-4 sm:grid-cols-2 lg:max-w-2xl"
-          >
-            <AreaFilter param={ORIGIN_PARAM} label={t("originLabel")} />
-            <AreaFilter
-              param={DESTINATION_PARAM}
-              label={t("destinationLabel")}
-            />
-          </div>
+          <ListToolbar action={addButton}>
+            <div
+              role="group"
+              aria-label={t("filtersLabel")}
+              className="flex flex-wrap items-center gap-2"
+            >
+              <AreaFilter
+                param={ORIGIN_PARAM}
+                label={t("originLabel")}
+                shortLabel={t("originShort")}
+              />
+              <AreaFilter
+                param={DESTINATION_PARAM}
+                label={t("destinationLabel")}
+                shortLabel={t("destinationShort")}
+              />
+            </div>
+            <ClearFilters params={[ORIGIN_PARAM, DESTINATION_PARAM]} />
+          </ListToolbar>
         }
         label={t("tableLabel")}
         columns={columns}
@@ -239,7 +245,16 @@ export function CorridorsScreen() {
  * One area filter, kept in the URL as the area's id. The name comes from the area just picked,
  * or (after a reload or a shared link) from `areas_get`.
  */
-function AreaFilter({ param, label }: { param: string; label: string }) {
+function AreaFilter({
+  param,
+  label,
+  shortLabel,
+}: {
+  param: string;
+  label: string;
+  /** What its toolbar button shows ("From"). */
+  shortLabel: string;
+}) {
   const t = useTranslations("Corridors");
   const { get, setFilter } = useListParams();
   const areaId = get(param) || null;
@@ -263,10 +278,15 @@ function AreaFilter({ param, label }: { param: string; label: string }) {
   // Unique ids: Next can keep earlier pages in the document (see SearchField).
   const id = useId();
   return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
+    <div className="flex">
+      <Label htmlFor={id} className="sr-only">
+        {label}
+      </Label>
       <AreaPicker
         id={id}
+        toolbarLabel={
+          loading ? `${shortLabel}: ${t("loadingArea")}` : shortLabel
+        }
         value={value}
         placeholder={t(loading ? "loadingArea" : "anyArea")}
         onChange={(next) => {

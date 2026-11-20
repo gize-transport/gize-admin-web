@@ -8,7 +8,9 @@ import {
   CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
-  FilterChips,
+  ClearFilters,
+  FilterMenu,
+  ListToolbar,
   RowAction,
   useListParams,
 } from "@/components/data-table";
@@ -83,8 +85,8 @@ export function RouteRequestsScreen() {
   };
   const requests = useRouteRequests(filters);
   const [formKey, setFormKey] = useState<number | null>(null);
-  // The kind chips: where focus goes when the pair filter (and its button) goes away.
-  const kindChips = useRef<HTMLDivElement>(null);
+  // The kind menu: where focus goes when the pair filter (and its button) goes away.
+  const kindMenu = useRef<HTMLButtonElement>(null);
   const [formOpen, setFormOpen] = useState(false);
 
   function openForm() {
@@ -176,11 +178,7 @@ export function RouteRequestsScreen() {
     requests.error.code === "VALIDATION_FAILED";
   return (
     <>
-      <PageHeader
-        title={t("title")}
-        description={t("description")}
-        actions={addButton}
-      />
+      <PageHeader title={t("title")} description={t("description")} />
       <div
         className={
           detail.panelId
@@ -190,28 +188,46 @@ export function RouteRequestsScreen() {
       >
         <DataTable
           toolbar={
-            <div className="grid gap-4">
-              <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-                <FilterChips
-                  param="open"
-                  label={t("openFilter")}
-                  options={[
-                    { value: "true", label: t("filterOpen") },
-                    { value: "false", label: t("filterClosed") },
-                  ]}
-                />
-                <div ref={kindChips}>
-                  <FilterChips
-                    param="kind"
-                    label={t("kindFilter")}
-                    options={[
-                      { value: "new_areas", label: t("kindNewAreas") },
-                      { value: "route", label: t("kindRoute") },
-                    ]}
+            <ListToolbar
+              action={addButton}
+              below={
+                pairFiltered && (
+                  <PairFilter
+                    from={{
+                      id: filters.fromAreaId,
+                      name: filters.fromAreaName,
+                    }}
+                    to={{ id: filters.toAreaId, name: filters.toAreaName }}
+                    onClear={() => {
+                      kindMenu.current?.focus();
+                      setFilters(
+                        Object.fromEntries(
+                          AREA_FILTERS.map((key) => [key, null]),
+                        ),
+                      );
+                    }}
                   />
-                </div>
-              </div>
-              <FilterChips
+                )
+              }
+            >
+              <FilterMenu
+                param="open"
+                label={t("openFilter")}
+                options={[
+                  { value: "true", label: t("filterOpen") },
+                  { value: "false", label: t("filterClosed") },
+                ]}
+              />
+              <FilterMenu
+                ref={kindMenu}
+                param="kind"
+                label={t("kindFilter")}
+                options={[
+                  { value: "new_areas", label: t("kindNewAreas") },
+                  { value: "route", label: t("kindRoute") },
+                ]}
+              />
+              <FilterMenu
                 param="status"
                 label={t("statusFilter")}
                 options={STATUSES.map((status) => ({
@@ -219,35 +235,18 @@ export function RouteRequestsScreen() {
                   label: tStatus(status === "matched" ? "matchedAny" : status),
                 }))}
               />
-              <div className="grid items-start gap-4 lg:max-w-md">
-                <RouteFilter
-                  routeId={filters.routeId}
-                  labels={{
-                    label: t("routeFilter"),
-                    anyRoute: t("anyRoute"),
-                    loading: t("loadingName"),
-                    unknownRoute: t("unknownRoute"),
-                    routeUnavailable: t("routeUnavailable"),
-                  }}
-                />
-              </div>
-              {pairFiltered && (
-                <PairFilter
-                  from={{ id: filters.fromAreaId, name: filters.fromAreaName }}
-                  to={{ id: filters.toAreaId, name: filters.toAreaName }}
-                  onClear={() => {
-                    kindChips.current
-                      ?.querySelector<HTMLElement>('[aria-pressed="true"]')
-                      ?.focus();
-                    setFilters(
-                      Object.fromEntries(
-                        AREA_FILTERS.map((key) => [key, null]),
-                      ),
-                    );
-                  }}
-                />
-              )}
-            </div>
+              <RouteFilter
+                routeId={filters.routeId}
+                labels={{
+                  label: t("routeFilter"),
+                  anyRoute: t("anyRoute"),
+                  loading: t("loadingName"),
+                  unknownRoute: t("unknownRoute"),
+                  routeUnavailable: t("routeUnavailable"),
+                }}
+              />
+              <ClearFilters params={FILTERS} />
+            </ListToolbar>
           }
           label={t("tableLabel")}
           columns={columns}

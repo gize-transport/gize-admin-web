@@ -15,7 +15,10 @@ export function EmptyState({
   icon,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+    <div
+      data-slot="empty-state"
+      className="flex flex-col items-center gap-3 px-6 py-12 text-center"
+    >
       {icon && (
         <div className="flex size-12 items-center justify-center rounded-full bg-ice text-navy [&_svg]:size-6">
           {icon}

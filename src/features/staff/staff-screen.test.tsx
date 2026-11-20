@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import { chooseFilter } from "../../../tests/utils/filters";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { problemResponse } from "../routes/test-support";
 import { StaffScreen } from "./staff-screen";
@@ -86,16 +87,13 @@ describe("StaffScreen", () => {
     expect(seen[0]?.searchParams.get("is_active")).toBe("false");
   });
 
-  it("filters with a chip", async () => {
+  it("filters from a menu", async () => {
     serveMembers([me]);
     const user = userEvent.setup();
     renderWithProviders(<StaffScreen />);
 
-    await user.click(
-      within(
-        await screen.findByRole("group", { name: t.roleFilter }),
-      ).getByRole("button", { name: t.roleAdmin }),
-    );
+    await screen.findByRole("table", { name: t.tableLabel });
+    await chooseFilter(user, t.roleFilter, t.roleAdmin);
     expect(navigation().push).toHaveBeenLastCalledWith("/staff?role=admin", {
       scroll: false,
     });

@@ -6,7 +6,9 @@ import { useId, useMemo, useState } from "react";
 import {
   createDataTableColumnHelper,
   DataTable,
-  FilterChips,
+  ClearFilters,
+  FilterMenu,
+  ListToolbar,
   RowAction,
   useListParams,
 } from "@/components/data-table";
@@ -202,11 +204,7 @@ export function RoutesScreen() {
     routes.error.code === "VALIDATION_FAILED";
   return (
     <>
-      <PageHeader
-        title={t("title")}
-        description={t("description")}
-        actions={addButton}
-      />
+      <PageHeader title={t("title")} description={t("description")} />
       <div
         className={
           detail.panelId
@@ -216,25 +214,23 @@ export function RoutesScreen() {
       >
         <DataTable
           toolbar={
-            <div className="grid gap-4">
-              <div className="flex flex-wrap items-end gap-4">
-                <SearchField
-                  param="q"
-                  label={t("searchLabel")}
-                  placeholder={t("searchHint")}
-                  maxLength={20}
-                />
-                <FilterChips
-                  param="route_type"
-                  label={t("typeFilter")}
-                  options={[
-                    { value: "public", label: t("typePublic") },
-                    { value: "student", label: t("typeStudent") },
-                    { value: "corporate", label: t("typeCorporate") },
-                  ]}
-                />
-              </div>
-              <FilterChips
+            <ListToolbar action={addButton}>
+              <SearchField
+                param="q"
+                label={t("searchLabel")}
+                placeholder={t("searchHint")}
+                maxLength={20}
+              />
+              <FilterMenu
+                param="route_type"
+                label={t("typeFilter")}
+                options={[
+                  { value: "public", label: t("typePublic") },
+                  { value: "student", label: t("typeStudent") },
+                  { value: "corporate", label: t("typeCorporate") },
+                ]}
+              />
+              <FilterMenu
                 param="status"
                 label={t("statusFilter")}
                 options={STATUSES.map((status) => ({
@@ -245,11 +241,10 @@ export function RoutesScreen() {
                       : tStatus(status),
                 }))}
               />
-              <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-                <CorridorFilter corridorId={filters.corridorId} />
-                <CompanyFilter companyId={filters.companyId} />
-              </div>
-            </div>
+              <CorridorFilter corridorId={filters.corridorId} />
+              <CompanyFilter companyId={filters.companyId} />
+              <ClearFilters params={FILTERS} />
+            </ListToolbar>
           }
           label={t("tableLabel")}
           columns={columns}
@@ -347,9 +342,11 @@ function CorridorFilter({ corridorId }: { corridorId: string | null }) {
   const loading = corridorId !== null && value === null && corridor.isPending;
   const unknown = corridorId !== null && known === null && corridor.isError;
   return (
-    <div className="grid gap-1">
+    <div className="contents">
       <CorridorField
         id={`${uid}-corridor`}
+        toolbar
+        loadingLabel={loading ? t("loadingName") : undefined}
         legend={t("corridorFilter")}
         value={value}
         onChange={(next) => {
@@ -365,7 +362,10 @@ function CorridorFilter({ corridorId }: { corridorId: string | null }) {
         aria-describedby={unknown ? `${uid}-corridor-unknown` : undefined}
       />
       {unknown && (
-        <p id={`${uid}-corridor-unknown`} className="text-table text-muted">
+        <p
+          id={`${uid}-corridor-unknown`}
+          className="basis-full text-table text-muted"
+        >
           {t(
             isNotFound(corridor.error)
               ? "unknownCorridor"
@@ -400,10 +400,17 @@ function CompanyFilter({ companyId }: { companyId: string | null }) {
   const loading = companyId !== null && value === null;
 
   return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={`${uid}-company`}>{t("companyFilter")}</Label>
+    <div className="flex">
+      <Label htmlFor={`${uid}-company`} className="sr-only">
+        {t("companyFilter")}
+      </Label>
       <CompanyPicker
         id={`${uid}-company`}
+        toolbarLabel={
+          loading
+            ? `${t("companyFilter")}: ${t("loadingName")}`
+            : t("companyFilter")
+        }
         includeInactive
         value={value}
         placeholder={t(loading ? "loadingName" : "anyCompany")}

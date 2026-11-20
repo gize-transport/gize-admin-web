@@ -8,7 +8,9 @@ import {
   CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
-  FilterChips,
+  ClearFilters,
+  FilterMenu,
+  ListToolbar,
   RowAction,
   useListParams,
 } from "@/components/data-table";
@@ -111,11 +113,7 @@ export function CompaniesScreen() {
   const filtered = Boolean(q) || isActive !== null;
   return (
     <>
-      <PageHeader
-        title={t("title")}
-        description={t("description")}
-        actions={addButton}
-      />
+      <PageHeader title={t("title")} description={t("description")} />
       <div
         className={
           detail.panelId
@@ -125,13 +123,13 @@ export function CompaniesScreen() {
       >
         <DataTable
           toolbar={
-            <div className="flex flex-wrap items-end gap-4">
+            <ListToolbar action={addButton}>
               <SearchField
                 param="q"
                 label={t("searchLabel")}
                 placeholder={t("searchHint")}
               />
-              <FilterChips
+              <FilterMenu
                 param="is_active"
                 label={t("statusFilter")}
                 options={[
@@ -139,7 +137,8 @@ export function CompaniesScreen() {
                   { value: "false", label: t("filterInactive") },
                 ]}
               />
-            </div>
+              <ClearFilters params={["q", "is_active"]} />
+            </ListToolbar>
           }
           label={t("tableLabel")}
           columns={columns}

@@ -8,7 +8,9 @@ import {
   CellWithPicture,
   createDataTableColumnHelper,
   DataTable,
-  FilterChips,
+  ClearFilters,
+  FilterMenu,
+  ListToolbar,
   RowAction,
   useListParams,
 } from "@/components/data-table";
@@ -131,11 +133,7 @@ export function StaffScreen() {
     members.error.code === "VALIDATION_FAILED";
   return (
     <>
-      <PageHeader
-        title={t("title")}
-        description={t("description")}
-        actions={inviteButton}
-      />
+      <PageHeader title={t("title")} description={t("description")} />
       <div
         className={
           detail.panelId
@@ -145,8 +143,8 @@ export function StaffScreen() {
       >
         <DataTable
           toolbar={
-            <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-              <FilterChips
+            <ListToolbar action={inviteButton}>
+              <FilterMenu
                 param="role"
                 label={t("roleFilter")}
                 options={[
@@ -154,7 +152,7 @@ export function StaffScreen() {
                   { value: "staff", label: t("roleStaff") },
                 ]}
               />
-              <FilterChips
+              <FilterMenu
                 param="is_active"
                 label={t("statusFilter")}
                 options={[
@@ -162,7 +160,8 @@ export function StaffScreen() {
                   { value: "false", label: t("filterDeactivated") },
                 ]}
               />
-            </div>
+              <ClearFilters params={["role", "is_active"]} />
+            </ListToolbar>
           }
           label={t("tableLabel")}
           columns={columns}

@@ -75,7 +75,9 @@ test.describe("drivers", () => {
     ).toHaveCount(0);
     // The address is marked a moment after the search (a replace): wait for it.
     await expect(page).toHaveURL(/searched=1/);
-    expect(decodeURIComponent(page.url()).toLowerCase()).not.toContain(
+    // The path and query only: the host's port (3100) can share digits with the plate.
+    const { pathname, search } = new URL(page.url());
+    expect(decodeURIComponent(pathname + search).toLowerCase()).not.toContain(
       typed.slice(4),
     );
     await table.getByRole("link", { name: who.name }).click();

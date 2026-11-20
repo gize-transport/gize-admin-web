@@ -12,8 +12,11 @@ import {
   type Ref,
 } from "react";
 import {
+  ClearFilters,
   createDataTableColumnHelper,
   DataTable,
+  FilterMenu,
+  ListToolbar,
   useListParams,
 } from "@/components/data-table";
 import { isNotFound } from "@/components/detail/detail-frame";
@@ -22,7 +25,6 @@ import { NoPermission } from "@/components/no-permission";
 import { PageHeader } from "@/components/page-header";
 import { ProblemAlert } from "@/components/problem-alert";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { useStaffMember } from "@/features/staff/queries";
 import { useApiErrorMessages } from "@/lib/api/errors";
 import { ApiError, isForbidden } from "@/lib/api/problem";
@@ -107,7 +109,7 @@ export function AuditLogScreen() {
   // what replaced it once rendered – the record banner, or the "Done by" select.
   const focusNext = useRef<"banner" | "actor" | null>(null);
   const bannerRef = useRef<HTMLDivElement>(null);
-  const actorRef = useRef<HTMLSelectElement>(null);
+  const actorRef = useRef<HTMLButtonElement>(null);
   const entityKey = filters.entity
     ? `${filters.entity.type}:${filters.entity.id}`
     : "";
@@ -196,43 +198,50 @@ export function AuditLogScreen() {
       <PageHeader title={t("title")} description={t("description")} />
       <DataTable
         toolbar={
-          <div className="grid gap-4">
+          <ListToolbar
+            below={
+              filters.entity &&
+              entity && (
+                <div
+                  ref={bannerRef}
+                  tabIndex={-1}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-ice px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-royal"
+                >
+                  <p className="text-body text-ink">
+                    {t("recordFilter", { type: t(`entity.${entity}`) })}
+                  </p>
+                  {recordPage && (
+                    <Link
+                      href={`${recordPage}/${filters.entity.id}`}
+                      className="text-table font-semibold text-royal underline-offset-4 hover:underline"
+                    >
+                      {t("openRecord", { type: t(`entity.${entity}`) })}
+                    </Link>
+                  )}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      focusNext.current = "actor";
+                      setFilters({ entity_type: null, entity_id: null });
+                    }}
+                  >
+                    {t("showAll")}
+                  </Button>
+                </div>
+              )
+            }
+          >
             <ActorFilter
               ref={actorRef}
               actorId={filters.actorId}
               actors={actors}
               names={names}
             />
-            {filters.entity && entity && (
-              <div
-                ref={bannerRef}
-                tabIndex={-1}
-                className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-ice px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-royal"
-              >
-                <p className="text-body text-ink">
-                  {t("recordFilter", { type: t(`entity.${entity}`) })}
-                </p>
-                {recordPage && (
-                  <Link
-                    href={`${recordPage}/${filters.entity.id}`}
-                    className="text-table font-semibold text-royal underline-offset-4 hover:underline"
-                  >
-                    {t("openRecord", { type: t(`entity.${entity}`) })}
-                  </Link>
-                )}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    focusNext.current = "actor";
-                    setFilters({ entity_type: null, entity_id: null });
-                  }}
-                >
-                  {t("showAll")}
-                </Button>
-              </div>
-            )}
-          </div>
+            <ClearFilters
+              params={["actor_staff_id", "entity_type", "entity_id"]}
+            />
+          </ListToolbar>
         }
         label={t("tableLabel")}
         columns={columns}
@@ -502,21 +511,20 @@ function Muted({ children }: { children: ReactNode }) {
   return <span className="text-muted">{children}</span>;
 }
 
-/** "Done by": the staff list as a select, kept in the URL as the person's ID. */
+/** "Done by": the staff list as a filter menu, kept in the URL as the person's ID. */
 function ActorFilter({
   ref,
   actorId,
   actors,
   names,
 }: {
-  ref: Ref<HTMLSelectElement>;
+  ref: Ref<HTMLButtonElement>;
   actorId: string | null;
   actors: ReturnType<typeof useAuditActors>;
   names: Map<string, string>;
 }) {
   const t = useTranslations("AuditLog");
   const uid = useId();
-  const { setFilter } = useListParams();
   const listed = actorId !== null && names.has(actorId);
   // The one in the address but not in the list (past the first 100, or the list failed).
   const other = useStaffMember(
@@ -530,33 +538,27 @@ function ActorFilter({
       : t("nameUnavailable");
   }
   return (
-    <div className="grid max-w-sm gap-1.5">
-      <Label htmlFor={`${uid}-actor`}>{t("actorFilter")}</Label>
-      <select
+    <>
+      <FilterMenu
         ref={ref}
-        id={`${uid}-actor`}
-        value={actorId ?? ""}
-        aria-describedby={actors.isError ? `${uid}-actor-error` : undefined}
-        onChange={(event) =>
-          setFilter("actor_staff_id", event.target.value || null)
-        }
-        className="h-10 rounded-lg border border-line bg-surface px-3 text-body text-ink"
-      >
-        <option value="">{t("anyone")}</option>
-        {actorId !== null && !listed && (
-          <option value={actorId}>{otherName}</option>
-        )}
-        {[...names].map(([id, name]) => (
-          <option key={id} value={id}>
-            {name}
-          </option>
-        ))}
-      </select>
+        param="actor_staff_id"
+        label={t("actorFilter")}
+        aria-describedby={actors.isError ? `${uid}-actors-error` : undefined}
+        options={[
+          ...(actorId !== null && !listed
+            ? [{ value: actorId, label: otherName }]
+            : []),
+          ...[...names].map(([id, name]) => ({ value: id, label: name })),
+        ]}
+      />
       {actors.isError && (
-        <p id={`${uid}-actor-error`} className="text-table text-muted">
+        <p
+          id={`${uid}-actors-error`}
+          className="basis-full text-table text-muted"
+        >
           {t("actorsUnavailable")}
         </p>
       )}
-    </div>
+    </>
   );
 }

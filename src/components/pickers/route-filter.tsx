@@ -41,10 +41,16 @@ export function RouteFilter({ routeId, labels }: RouteFilterProps) {
   const loading = routeId !== null && value === null && !unknown;
 
   return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={`${uid}-route`}>{labels.label}</Label>
+    // In a list toolbar (GZW-076): a compact button; "unknown route" on a line of its own.
+    <div className="contents">
+      <Label htmlFor={`${uid}-route`} className="sr-only">
+        {labels.label}
+      </Label>
       <RoutePicker
         id={`${uid}-route`}
+        toolbarLabel={
+          loading ? `${labels.label}: ${labels.loading}` : labels.label
+        }
         value={value}
         placeholder={loading ? labels.loading : labels.anyRoute}
         aria-describedby={unknown ? `${uid}-route-unknown` : undefined}
@@ -54,7 +60,10 @@ export function RouteFilter({ routeId, labels }: RouteFilterProps) {
         }}
       />
       {unknown && (
-        <p id={`${uid}-route-unknown`} className="text-table text-muted">
+        <p
+          id={`${uid}-route-unknown`}
+          className="basis-full text-table text-muted"
+        >
           {isNotFound(route.error)
             ? labels.unknownRoute
             : labels.routeUnavailable}
