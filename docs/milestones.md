@@ -242,8 +242,14 @@ Owner feedback 2026-11-20 on the Routes filters ("too much button noise, placeme
 Owner feedback 2026-11-20: a route's details are long, and Edit, Add a van and Delete sat at the very bottom (the route panel was about two screens tall at 1440 × 900).
 - Built: one header for all six details (`DetailHeader`): "← All …" on a page, then a row pinned to the top while the record scrolls (name, status, Edit, the "⋯" menu and in a panel the close button), then a summary line. `ActionsMenu` holds the record's other actions (Add a van, Deactivate, Make admin/staff, Copy link; Delete in red after a divider, admins only); an item's action runs once the menu has closed, so its dialog returns focus to "⋯". An inactive company, driver or staff member shows Reactivate beside Edit; when it goes away focus moves to "⋯". Seat, status and driver actions stay beside what they change. The rider's "holds a seat" note moved into the delete confirmation; company and driver status moved from the facts to the header.
 
-### GZW-078 · Route detail tabs and summary tiles · Needs backend: none · Status: todo
-The route detail fits one screen: tiles under the header (seats this month and next, riders to launch while forming, driver), then tabs – Details (schedule, areas served, prices, driver, each card with its own edit), Status and launch (moves with their reasons, launch texts; "Ready" badge from the API), Seat offers (public routes). The tab is kept in the URL (`tab=`), kept when another route opens, cleared when the panel closes.
+### GZW-078 · Route detail tabs and summary tiles · Needs backend: none · Status: done
+The route detail fits one screen (the side panel's Details tab fits a 1440 × 900 window with no scrolling).
+- Built: tiles under the header, at a glance: seats this month and next ("9 of 14 taken", "5 free"); riders to launch while forming (the launch progress meter); the driver, with Choose/Change/Remove right there.
+- Then tabs (`DetailTabs`, Radix Tabs):
+  - Details: a Schedule card with the runs, school or company, the launch minimum once not forming, and copied-from; Areas served and Prices cards, each with its edit button in its heading (`DetailCard`).
+  - Status and launch: the moves with their reasons, and the launch texts; a "Ready" badge when the API says the launch is ready.
+  - Seat offers: public routes only.
+- The tab is kept in the address (`?tab=status|offers`, replacing the entry). An unknown or unavailable value shows Details. The tab is kept when another route opens in the panel, cleared when the panel closes, and carried to the route's page on a narrow screen (`useDetailPanel` `recordParams`). Every tab stays mounted (hidden when not shown), so launch texts keep being watched.
 
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.

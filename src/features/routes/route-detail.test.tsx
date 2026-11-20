@@ -25,13 +25,12 @@ import {
   student,
 } from "./test-support";
 
-vi.mock("next/navigation", async () => {
-  const { createNavigationState, mockNavigation } =
-    await import("../../../tests/utils/navigation");
-  const state = createNavigationState();
-  state.pathname = "/routes";
-  return mockNavigation(state);
+// vi.hoisted runs before imports, so the helper is imported inside it.
+const { nav, mockNavigation } = await vi.hoisted(async () => {
+  const helpers = await import("../../../tests/utils/navigation");
+  return { nav: helpers.createNavigationState(), ...helpers };
 });
+vi.mock("next/navigation", () => mockNavigation(nav));
 vi.mock("@/lib/auth/supabase-browser", () => ({
   getSupabaseBrowserClient: () => ({ auth: { signOut: vi.fn() } }),
   getAccessToken: async () => "access-token",
@@ -46,7 +45,30 @@ startMswServer();
 beforeEach(() => {
   serveRole("staff");
   servePlaces();
+  nav.pathname = "/routes";
+  nav.search = "";
+  nav.replace.mockClear();
 });
+
+/** The route's tabs ("Details", "Status and launch", "Seat offers"). */
+function tab(name: string | RegExp) {
+  return screen.getByRole("tab", { name });
+}
+
+/** Shows one of the route's tabs. */
+async function openTab(
+  user: ReturnType<typeof userEvent.setup>,
+  name: string | RegExp,
+) {
+  await user.click(await screen.findByRole("tab", { name }));
+}
+
+/** The tiles under the header: "Seats this month" → its tile. */
+function tile(label: string) {
+  const tiles = screen.getByRole("group", { name: t.glanceLabel });
+  return within(tiles).getByText(label, { selector: "dt" })
+    .nextElementSibling as HTMLElement;
+}
 
 /** The line under the route's code: corridor, type and when it was added. */
 function summary() {
@@ -87,13 +109,27 @@ describe("RouteDetail", () => {
         arrive: "18:15",
       }),
     );
-    expect(fact(t.seats)).toHaveTextContent(fill(t.seatsTotal, { seats: 14 }));
-    expect(fact(t.driver)).toHaveTextContent(t.driverNone);
-    expect(fact(t.launchMinimum)).toHaveTextContent(
-      fill(t.launchMinimumValue, { minimum: 10 }),
-    );
+    // The seats and the launch minimum are said by the tiles ("of 14", "7 of 10 needed").
     expect(
-      screen.getByRole("meter", {
+      within(screen.getByRole("group", { name: t.detailLabel })).queryByText(
+        t.launchMinimum,
+      ),
+    ).toBeNull();
+    // At a glance: this month's and next month's seats, riders to launch, the driver.
+    expect(tile(t.tileThisMonth)).toHaveTextContent(
+      fill(t.tileSeats, { taken: 9, seats: 14 }) +
+        fill(t.tileFree, { free: 5 }),
+    );
+    expect(tile(t.tileNextMonth)).toHaveTextContent(
+      fill(t.tileSeats, { taken: 4, seats: 14 }) +
+        fill(t.tileFree, { free: 10 }),
+    );
+    expect(tile(t.driver)).toHaveTextContent(t.driverNone);
+    expect(
+      within(tile(t.driver)).getByRole("button", { name: t.chooseDriver }),
+    ).toBeVisible();
+    expect(
+      within(tile(t.tileLaunch)).getByRole("meter", {
         name: fill(messages.LaunchProgress.needed, {
           reserved: 7,
           minimum: 10,
@@ -165,19 +201,178 @@ describe("RouteDetail", () => {
     ).toBeNull();
   });
 
-  it("shows a public route's seat offers", async () => {
+  it("shows a public route's seat offers in their own tab", async () => {
     serveRoute(forming);
     server.use(
       http.get(apiUrl("/v1/routes/{route_id}/offers"), () =>
         HttpResponse.json({ items: [], next_cursor: null }),
       ),
     );
+    const user = userEvent.setup();
     renderWithProviders(<RouteDetail routeId={forming.id} variant="page" />);
 
+    await openTab(user, t.tabOffers);
+
     expect(
-      await screen.findByRole("heading", { name: messages.Offers.title }),
+      screen.getByRole("heading", { name: messages.Offers.title }),
     ).toBeVisible();
     expect(await screen.findByText(messages.Offers.none)).toBeVisible();
+  });
+
+  it("splits the route into Details, Status and launch, and Seat offers", async () => {
+    serveRoute(forming);
+    const user = userEvent.setup();
+    renderWithProviders(<RouteDetail routeId={forming.id} variant="page" />);
+
+    const tablist = await screen.findByRole("tablist", {
+      name: fill(t.tabsLabel, { code: "B-01" }),
+    });
+    expect(
+      within(tablist)
+        .getAllByRole("tab")
+        .map((element) => element.textContent),
+    ).toEqual([t.tabDetails, t.tabStatus, t.tabOffers]);
+    // Details first: areas and prices; the status moves wait in their tab.
+    expect(tab(t.tabDetails)).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("group", { name: t.prices })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: t.status })).toBeNull();
+
+    await openTab(user, t.tabStatus);
+
+    expect(tab(t.tabStatus)).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: t.status })).toBeVisible();
+    expect(screen.queryByRole("group", { name: t.prices })).toBeNull();
+    // The tab goes in the address (replacing it: Back doesn't step through tabs).
+    expect(nav.replace).toHaveBeenLastCalledWith("/routes?tab=status", {
+      scroll: false,
+    });
+
+    await openTab(user, t.tabDetails);
+    expect(nav.replace).toHaveBeenLastCalledWith("/routes", { scroll: false });
+  });
+
+  it("keeps the panel's route in the address beside its tab", async () => {
+    nav.search = `route=${forming.id}`;
+    serveRoute(forming);
+    const user = userEvent.setup();
+    renderWithProviders(<RouteDetail routeId={forming.id} variant="panel" />);
+
+    await openTab(user, t.tabOffers);
+
+    expect(nav.replace).toHaveBeenLastCalledWith(
+      `/routes?route=${forming.id}&tab=offers`,
+      { scroll: false },
+    );
+  });
+
+  it("opens the tab named in the address; an unknown one shows Details", async () => {
+    for (const [search, selected] of [
+      ["tab=status", t.tabStatus],
+      ["tab=offers", t.tabOffers],
+      ["tab=nope", t.tabDetails],
+    ] as const) {
+      nav.search = search;
+      serveRoute(forming);
+      const { unmount } = renderWithProviders(
+        <RouteDetail routeId={forming.id} variant="page" />,
+      );
+      expect(
+        await screen.findByRole("tab", { name: selected }),
+      ).toHaveAttribute("aria-selected", "true");
+      unmount();
+    }
+  });
+
+  it("follows the address when it changes (Back, a link)", async () => {
+    nav.search = "tab=offers";
+    serveRoute(forming);
+    const { rerender } = renderWithProviders(
+      <RouteDetail routeId={forming.id} variant="page" />,
+    );
+    expect(
+      await screen.findByRole("tab", { name: t.tabOffers }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    nav.search = "tab=status";
+    rerender(<RouteDetail routeId={forming.id} variant="page" />);
+    expect(tab(t.tabStatus)).toHaveAttribute("aria-selected", "true");
+
+    nav.search = "";
+    rerender(<RouteDetail routeId={forming.id} variant="page" />);
+    expect(tab(t.tabDetails)).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("group", { name: t.prices })).toBeVisible();
+  });
+
+  it("has no Seat offers tab on a student or company route, even when asked for", async () => {
+    nav.search = "tab=offers";
+    for (const found of [student, corporate]) {
+      serveRoute(found);
+      const { unmount } = renderWithProviders(
+        <RouteDetail routeId={found.id} variant="page" />,
+      );
+      await screen.findByRole("tablist");
+      expect(screen.queryByRole("tab", { name: t.tabOffers })).toBeNull();
+      expect(tab(t.tabDetails)).toHaveAttribute("aria-selected", "true");
+      unmount();
+    }
+  });
+
+  it("marks Status and launch when the route can launch", async () => {
+    const ready = route("B-04", 9, {
+      status: "forming",
+      launch_minimum: 5,
+      reserved: 6,
+      status_changes: [
+        {
+          to: "active",
+          ready: true,
+          blocked_by: [],
+          launch_date: "2026-12-01",
+        },
+      ],
+    });
+    serveRoute(ready);
+    const { unmount } = renderWithProviders(
+      <RouteDetail routeId={ready.id} variant="page" />,
+    );
+    expect(
+      await screen.findByRole("tab", {
+        name: `${t.tabStatus}${t.tabReadySpoken}`,
+      }),
+    ).toBeVisible();
+    unmount();
+
+    // Not ready (7 of 10): no mark.
+    serveRoute(forming);
+    renderWithProviders(<RouteDetail routeId={forming.id} variant="page" />);
+    expect(await screen.findByRole("tab", { name: t.tabStatus })).toBeVisible();
+    expect(screen.queryByText(t.tabReady)).toBeNull();
+  });
+
+  it("says a running route's launch minimum among its facts", async () => {
+    const running = route("B-09", 12, { status: "active" });
+    serveRoute(running);
+    renderWithProviders(<RouteDetail routeId={running.id} variant="page" />);
+
+    await screen.findByRole("heading", { name: "B-09" });
+    expect(fact(t.launchMinimum)).toHaveTextContent(
+      fill(t.launchMinimumValue, { minimum: 10 }),
+    );
+  });
+
+  it("shows no launch tile once a route is running", async () => {
+    serveRoute(corporate);
+    renderWithProviders(<RouteDetail routeId={corporate.id} variant="page" />);
+
+    await screen.findByRole("heading", { name: "R-21" });
+    expect(
+      within(screen.getByRole("group", { name: t.glanceLabel })).queryByText(
+        t.tileLaunch,
+      ),
+    ).toBeNull();
+    expect(tile(t.tileThisMonth)).toHaveTextContent(
+      fill(t.tileSeats, { taken: 9, seats: 14 }),
+    );
   });
 
   it("links to the route it was copied from, or says it was deleted", async () => {
@@ -427,6 +622,7 @@ describe("RouteDetail", () => {
       <RouteDetail routeId={readyRoute.id} variant="panel" />,
     );
 
+    await openTab(user, new RegExp(`^${t.tabStatus}`));
     await user.click(await screen.findByRole("button", { name: t.moveLaunch }));
     const dialog = await screen.findByRole("dialog", {
       name: fill(t.launchTitle, { code: "B-04" }),

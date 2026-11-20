@@ -18,9 +18,15 @@ const PANEL_QUERY = "(min-width: 1280px)";
 export function useDetailPanel({
   param,
   basePath,
+  recordParams = NONE,
 }: {
   param: string;
   basePath: string;
+  /**
+   * Params that belong to the open record (a route's `tab`): cleared when the panel closes, and
+   * taken along to the record's page on a narrow screen.
+   */
+  recordParams?: readonly string[];
 }) {
   const router = useRouter();
   const { get, setParams } = useListParams();
@@ -31,13 +37,22 @@ export function useDetailPanel({
   // in it isn't thrown away), and widening shows it again. Not while the width is unknown
   // (hydration), or a wide screen would be sent to the page.
   const checkedWidth = useRef(false);
+  // The open record's own params, as a query for its page ("tab=offers").
+  const kept = new URLSearchParams();
+  for (const key of recordParams) {
+    const value = get(key);
+    if (value !== null) kept.set(key, value);
+  }
+  const recordQuery = kept.toString();
   useEffect(() => {
     if (wide === null || checkedWidth.current) return;
     checkedWidth.current = true;
     if (selectedId && !wide) {
-      router.replace(`${basePath}/${encodeURIComponent(selectedId)}`);
+      router.replace(
+        `${basePath}/${encodeURIComponent(selectedId)}${recordQuery ? `?${recordQuery}` : ""}`,
+      );
     }
-  }, [selectedId, wide, router, basePath]);
+  }, [selectedId, wide, router, basePath, recordQuery]);
 
   // Back to the row that opened the panel (WCAG 2.4.3), once the navigation that closes it has
   // rendered; after a delete (the row is gone), to the page content.
@@ -85,7 +100,7 @@ export function useDetailPanel({
       },
       closePanel() {
         focusAfterClose.current = selectedId ? { row: selectedId } : null;
-        setParams({ [param]: null });
+        setParams({ [param]: null, ...cleared(recordParams) });
       },
       /**
        * Shows another record (e.g. one just made): in the panel, or below the panel's width its
@@ -102,9 +117,27 @@ export function useDetailPanel({
       /** After the record is deleted: replaced, so Back doesn't reopen it. */
       closeAfterDelete() {
         focusAfterClose.current = "content";
-        setParams({ [param]: null }, { replace: true });
+        setParams(
+          { [param]: null, ...cleared(recordParams) },
+          { replace: true },
+        );
       },
     }),
-    [panelOpen, selectedId, wide, setParams, param, basePath, router],
+    [
+      panelOpen,
+      selectedId,
+      wide,
+      setParams,
+      param,
+      basePath,
+      router,
+      recordParams,
+    ],
   );
+}
+
+const NONE: readonly string[] = [];
+
+function cleared(keys: readonly string[]) {
+  return Object.fromEntries(keys.map((key) => [key, null]));
 }

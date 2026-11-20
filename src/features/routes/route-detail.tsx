@@ -11,7 +11,9 @@ import {
   ActionsMenuSeparator,
   CopyLinkItem,
 } from "@/components/detail/actions-menu";
+import { DetailCard } from "@/components/detail/detail-card";
 import { DetailHeader } from "@/components/detail/detail-header";
+import { DetailTabs, type DetailTab } from "@/components/detail/detail-tabs";
 import {
   DetailFrame,
   Fact,
@@ -32,6 +34,7 @@ import { LaunchMessages } from "@/features/launches/launch-messages";
 import { SeatOffers } from "@/features/offers/seat-offers";
 import { useCurrentStaff } from "@/lib/auth/use-current-staff";
 import { useTimestampFormat } from "@/lib/time";
+import { cn } from "@/lib/utils";
 import { refetchRoute, useDeleteRoute, useRoute } from "./queries";
 import { RouteCorridor } from "./route-corridor";
 import { RouteDriver } from "./route-driver";
@@ -108,6 +111,7 @@ function Loaded({
 }) {
   const t = useTranslations("Routes");
   const { variant, SectionHeading } = layout;
+  const tabs: DetailTab[] = [];
   const { date } = useTimestampFormat();
   const [formKey, setFormKey] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -120,6 +124,142 @@ function Loaded({
   const destination = route.corridor.destination_area.name;
   const time = (value: string | null) => value ?? t("notSet");
   const sectionHeading = "font-display text-section font-semibold text-navy";
+  const launchReady = route.status_changes.some(
+    (change) => change.to === "active" && change.ready,
+  );
+
+  tabs.push(
+    {
+      value: "details",
+      label: t("tabDetails"),
+      content: (
+        <>
+          <DetailCard
+            title={t("scheduleTitle")}
+            SectionHeading={SectionHeading}
+          >
+            <Facts label={t("detailLabel")} variant={variant} compact>
+              {route.school_name !== null && (
+                <Fact label={t("school")}>{route.school_name}</Fact>
+              )}
+              {route.company !== null && (
+                <Fact label={t("company")}>
+                  <Link
+                    href={`/companies/${route.company.id}`}
+                    className="font-semibold text-royal underline-offset-4 hover:underline"
+                  >
+                    {route.company.name}
+                  </Link>
+                </Fact>
+              )}
+              <Fact label={t("morningRun")}>
+                {t("run", {
+                  from: origin,
+                  leave: route.morning_time,
+                  to: destination,
+                  arrive: time(route.morning_arrival_time),
+                })}
+              </Fact>
+              <Fact label={t("eveningRun")}>
+                {t("run", {
+                  from: destination,
+                  leave: route.return_time,
+                  to: origin,
+                  arrive: time(route.return_arrival_time),
+                })}
+              </Fact>
+              {/* While forming, the "To launch" tile says it ("7 of 10 needed"). */}
+              {route.launch_minimum !== null && route.status !== "forming" && (
+                <Fact label={t("launchMinimum")}>
+                  {t("launchMinimumValue", { minimum: route.launch_minimum })}
+                </Fact>
+              )}
+              {route.copied_from_route_id !== null && (
+                <Fact label={t("copiedFrom")}>
+                  <CopiedFrom id={route.copied_from_route_id} />
+                </Fact>
+              )}
+            </Facts>
+          </DetailCard>
+          <div
+            className={cn(
+              "grid content-start gap-6",
+              variant === "page" && "lg:grid-cols-2",
+            )}
+          >
+            <DetailCard
+              title={t("areasServed")}
+              SectionHeading={SectionHeading}
+              action={<EditAreas route={route} />}
+            >
+              {route.served_areas.length === 0 ? (
+                <p className="text-body text-muted">
+                  {t("areasServedNone", { origin, destination })}
+                </p>
+              ) : (
+                <AreasPath route={route} />
+              )}
+            </DetailCard>
+            <DetailCard
+              title={t("prices")}
+              SectionHeading={SectionHeading}
+              action={<PricesButton route={route} />}
+            >
+              <Prices route={route} />
+            </DetailCard>
+          </div>
+        </>
+      ),
+    },
+    {
+      value: "status",
+      label: (
+        <>
+          {t("tabStatus")}
+          {launchReady && (
+            <>
+              <span
+                aria-hidden="true"
+                className="rounded-full bg-sun px-2 py-0.5 text-meta font-semibold text-navy"
+              >
+                {t("tabReady")}
+              </span>
+              <span className="sr-only">{t("tabReadySpoken")}</span>
+            </>
+          )}
+        </>
+      ),
+      content: (
+        <>
+          <section className="grid gap-3">
+            <SectionHeading className={sectionHeading}>
+              {t("status")}
+            </SectionHeading>
+            <RouteStatusActions route={route} />
+          </section>
+          <LaunchMessages
+            route={route}
+            SectionHeading={SectionHeading}
+            headingClass={sectionHeading}
+          />
+        </>
+      ),
+    },
+  );
+  // Offers are for adults' (public) routes.
+  if (route.route_type === "public") {
+    tabs.push({
+      value: "offers",
+      label: t("tabOffers"),
+      content: (
+        <SeatOffers
+          route={route}
+          SectionHeading={SectionHeading}
+          headingClass={sectionHeading}
+        />
+      ),
+    });
+  }
 
   return (
     <>
@@ -176,120 +316,9 @@ function Loaded({
         }
       />
 
-      <Facts label={t("detailLabel")} variant={variant}>
-        {route.school_name !== null && (
-          <Fact label={t("school")}>{route.school_name}</Fact>
-        )}
-        {route.company !== null && (
-          <Fact label={t("company")}>
-            <Link
-              href={`/companies/${route.company.id}`}
-              className="font-semibold text-royal underline-offset-4 hover:underline"
-            >
-              {route.company.name}
-            </Link>
-          </Fact>
-        )}
-        <Fact label={t("morningRun")}>
-          {t("run", {
-            from: origin,
-            leave: route.morning_time,
-            to: destination,
-            arrive: time(route.morning_arrival_time),
-          })}
-        </Fact>
-        <Fact label={t("eveningRun")}>
-          {t("run", {
-            from: destination,
-            leave: route.return_time,
-            to: origin,
-            arrive: time(route.return_arrival_time),
-          })}
-        </Fact>
-        <Fact label={t("seats")}>
-          <span className="grid gap-0.5">
-            <span>{t("seatsTotal", { seats: route.seats })}</span>
-            <span className="text-table text-muted">
-              {t("seatsThisMonth", {
-                taken: route.seats_taken.this_month,
-                free: route.seats_free.this_month,
-              })}
-            </span>
-            <span className="text-table text-muted">
-              {t("seatsNextMonth", {
-                taken: route.seats_taken.next_month,
-                free: route.seats_free.next_month,
-              })}
-            </span>
-          </span>
-        </Fact>
-        {route.launch_minimum !== null && (
-          <Fact label={t("launchMinimum")}>
-            <span className="grid gap-2">
-              <span>
-                {t("launchMinimumValue", { minimum: route.launch_minimum })}
-              </span>
-              {route.status === "forming" && (
-                <LaunchProgress
-                  reserved={route.reserved}
-                  minimum={route.launch_minimum}
-                />
-              )}
-            </span>
-          </Fact>
-        )}
-        {route.copied_from_route_id !== null && (
-          <Fact label={t("copiedFrom")}>
-            <CopiedFrom id={route.copied_from_route_id} />
-          </Fact>
-        )}
-        <Fact label={t("driver")}>
-          <RouteDriver route={route} />
-        </Fact>
-      </Facts>
+      <RouteGlance route={route} />
 
-      <section className="grid gap-3">
-        <SectionHeading className={sectionHeading}>
-          {t("areasServed")}
-        </SectionHeading>
-        {route.served_areas.length === 0 ? (
-          <p className="text-body text-muted">
-            {t("areasServedNone", { origin, destination })}
-          </p>
-        ) : (
-          <AreasPath route={route} />
-        )}
-        <EditAreas route={route} />
-      </section>
-
-      <section className="grid gap-3">
-        <SectionHeading className={sectionHeading}>
-          {t("prices")}
-        </SectionHeading>
-        <Prices route={route} />
-      </section>
-
-      <section className="grid gap-3">
-        <SectionHeading className={sectionHeading}>
-          {t("status")}
-        </SectionHeading>
-        <RouteStatusActions route={route} />
-      </section>
-
-      <LaunchMessages
-        route={route}
-        SectionHeading={SectionHeading}
-        headingClass={sectionHeading}
-      />
-
-      {/* Offers are for adults' (public) routes. */}
-      {route.route_type === "public" && (
-        <SeatOffers
-          route={route}
-          SectionHeading={SectionHeading}
-          headingClass={sectionHeading}
-        />
-      )}
+      <DetailTabs label={t("tabsLabel", { code: route.code })} tabs={tabs} />
 
       {vanKey !== null && (
         <RouteVanDialog
@@ -339,6 +368,76 @@ export function typeLabel(
   );
 }
 
+/**
+ * The route at a glance (GZW-078): seats taken this month and next, riders still needed while
+ * it's forming, and its driver (chosen or changed right there).
+ */
+function RouteGlance({ route }: { route: RouteRead }) {
+  const t = useTranslations("Routes");
+  return (
+    <div role="group" aria-label={t("glanceLabel")}>
+      <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3">
+        <Tile label={t("tileThisMonth")}>
+          <SeatsValue
+            taken={route.seats_taken.this_month}
+            free={route.seats_free.this_month}
+            seats={route.seats}
+          />
+        </Tile>
+        <Tile label={t("tileNextMonth")}>
+          <SeatsValue
+            taken={route.seats_taken.next_month}
+            free={route.seats_free.next_month}
+            seats={route.seats}
+          />
+        </Tile>
+        {route.status === "forming" && route.launch_minimum !== null && (
+          <Tile label={t("tileLaunch")}>
+            <LaunchProgress
+              reserved={route.reserved}
+              minimum={route.launch_minimum}
+            />
+          </Tile>
+        )}
+        <Tile label={t("driver")}>
+          <RouteDriver route={route} />
+        </Tile>
+      </dl>
+    </div>
+  );
+}
+
+function Tile({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid content-start gap-1 rounded-lg bg-canvas px-3 py-2.5 ring-1 ring-line/70">
+      <dt className="text-meta font-semibold text-muted">{label}</dt>
+      <dd className="text-body text-ink">{children}</dd>
+    </div>
+  );
+}
+
+function SeatsValue({
+  taken,
+  free,
+  seats,
+}: {
+  taken: number;
+  free: number;
+  seats: number;
+}) {
+  const t = useTranslations("Routes");
+  return (
+    <>
+      <span className="block font-semibold tabular-nums">
+        {t("tileSeats", { taken, seats })}
+      </span>
+      <span className="block text-table text-muted tabular-nums">
+        {t("tileFree", { free })}
+      </span>
+    </>
+  );
+}
+
 /** Staff edit the areas served (GZW-023) in a dialog. */
 function EditAreas({ route }: { route: RouteRead }) {
   const t = useTranslations("Routes");
@@ -348,12 +447,13 @@ function EditAreas({ route }: { route: RouteRead }) {
     <>
       <Button
         variant="secondary"
-        className="w-fit"
+        size="sm"
         onClick={() => {
           setDialogKey((key) => (key ?? 0) + 1);
           setDialogOpen(true);
         }}
       >
+        <PencilIcon aria-hidden />
         {t("editAreas")}
       </Button>
       {dialogKey !== null && (
@@ -402,13 +502,9 @@ function AreasPath({ route }: { route: RouteRead }) {
   );
 }
 
-/** The prices, or the agreed rate on a corporate route; admins set them (GZW-022). */
+/** The prices, or the agreed rate on a corporate route. */
 function Prices({ route }: { route: RouteRead }) {
   const t = useTranslations("Routes");
-  // Admins only (the API refuses others): staff see the prices.
-  const isAdmin = useCurrentStaff().data?.role === "admin";
-  const [dialogKey, setDialogKey] = useState<number | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
   if (route.prices === null) {
     return <p className="text-body text-ink">{t("rateAgreed")}</p>;
   }
@@ -418,34 +514,42 @@ function Prices({ route }: { route: RouteRead }) {
     ) : (
       t("priceValue", { amount })
     );
+  return (
+    <div role="group" aria-label={t("prices")}>
+      <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-3">
+        <Fact label={t("priceRoundTrip")}>
+          {price(route.prices.round_trip)}
+        </Fact>
+        <Fact label={t("priceOneWay")}>{price(route.prices.one_way)}</Fact>
+        {route.route_type === "public" && (
+          <Fact label={t("priceSaturday")}>{price(route.prices.saturday)}</Fact>
+        )}
+      </dl>
+    </div>
+  );
+}
+
+/** Admins set or change the prices (GZW-022; the API refuses others); none on a corporate route. */
+function PricesButton({ route }: { route: RouteRead }) {
+  const t = useTranslations("Routes");
+  const isAdmin = useCurrentStaff().data?.role === "admin";
+  const [dialogKey, setDialogKey] = useState<number | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  if (route.prices === null || !isAdmin) return null;
   const anySet = Object.values(route.prices).some((amount) => amount !== null);
   return (
-    <div className="grid gap-3">
-      <div role="group" aria-label={t("prices")}>
-        <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-3">
-          <Fact label={t("priceRoundTrip")}>
-            {price(route.prices.round_trip)}
-          </Fact>
-          <Fact label={t("priceOneWay")}>{price(route.prices.one_way)}</Fact>
-          {route.route_type === "public" && (
-            <Fact label={t("priceSaturday")}>
-              {price(route.prices.saturday)}
-            </Fact>
-          )}
-        </dl>
-      </div>
-      {isAdmin && (
-        <Button
-          variant="secondary"
-          className="w-fit"
-          onClick={() => {
-            setDialogKey((key) => (key ?? 0) + 1);
-            setDialogOpen(true);
-          }}
-        >
-          {t(anySet ? "changePrices" : "setPrices")}
-        </Button>
-      )}
+    <>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => {
+          setDialogKey((key) => (key ?? 0) + 1);
+          setDialogOpen(true);
+        }}
+      >
+        <PencilIcon aria-hidden />
+        {t(anySet ? "changePrices" : "setPrices")}
+      </Button>
       {dialogKey !== null && (
         <RoutePricesDialog
           key={dialogKey}
@@ -454,7 +558,7 @@ function Prices({ route }: { route: RouteRead }) {
           route={route}
         />
       )}
-    </div>
+    </>
   );
 }
 

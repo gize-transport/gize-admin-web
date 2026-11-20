@@ -61,7 +61,7 @@ test("staff see the queue and offer free seats: ahead of it with a reason, then 
   const first = await requestSeat(page, route.code);
   const second = await requestSeat(page, route.code);
 
-  await page.goto(`/routes/${route.id}`);
+  await page.goto(`/routes/${route.id}?tab=offers`);
   const offersList = page.getByRole("list", { name: t.listLabel });
 
   // Buttons after a toast are pressed by keyboard: on phones the toast can sit over them (and
