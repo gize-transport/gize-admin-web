@@ -103,6 +103,29 @@ describe("ProblemAlert", () => {
     expect(onRetry).toHaveBeenCalledOnce();
   });
 
+  it("ends the wait on time when the last tick comes a moment early", () => {
+    vi.useFakeTimers();
+    const onRetry = vi.fn();
+    renderWithProviders(
+      <ProblemAlert
+        message="Too many requests."
+        retryAfterSeconds={1}
+        onRetry={onRetry}
+      />,
+    );
+    // Timers can fire a few milliseconds before the clock reaches their time (CI runners, other
+    // tabs): put the clock that far behind.
+    vi.setSystemTime(Date.now() - 5);
+
+    act(() => vi.advanceTimersByTime(1000));
+
+    expect(visibleCountdown()).toHaveTextContent(t.rateLimitOver);
+    const retry = screen.getByRole("button", { name: t.retry });
+    expect(retry).not.toHaveAttribute("aria-disabled");
+    act(() => retry.click());
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+
   it("tells screen readers the wait once and when it is over – not every second", () => {
     vi.useFakeTimers();
     renderWithProviders(

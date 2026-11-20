@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -350,14 +350,17 @@ describe("DemandScreen", () => {
     ).toBeVisible();
     expect(addRoute).toHaveAttribute("aria-disabled", "true");
 
-    await user.click(
-      await within(card).findByRole(
-        "button",
-        { name: messages.ProblemAlert.retry },
-        { timeout: 2500 },
-      ),
+    const retry = await within(card).findByRole(
+      "button",
+      { name: messages.ProblemAlert.retry },
+      { timeout: 2500 },
     );
-    // The retried lookup answers after the 1 s wait: give a busy CI runner time to show it.
+    // Like a person, press it once it's usable: a click while it's still disabled does nothing.
+    await waitFor(() => expect(retry).not.toHaveAttribute("aria-disabled"), {
+      timeout: 2500,
+    });
+    await user.click(retry);
+    // Give a busy CI runner time to show the retried lookup's answer.
     expect(
       await within(card).findByText(t.noCorridor, {}, { timeout: 3000 }),
     ).toBeVisible();
