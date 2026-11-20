@@ -14,6 +14,14 @@ type RouteCreate = components["schemas"]["RouteCreate"];
 type RouteUpdate = components["schemas"]["RouteUpdate"];
 type RoutePricesSet = components["schemas"]["RoutePricesSet"];
 type RouteStatusSet = components["schemas"]["RouteStatusSet"];
+type RouteSortValue = components["schemas"]["RouteSort"];
+
+/** The orders `routes_list` takes (GZ-081), its default first. */
+export const ROUTE_SORTS = [
+  "newest",
+  "code",
+  "morning_time",
+] as const satisfies readonly RouteSortValue[];
 type RouteCopy = components["schemas"]["RouteCopy"];
 export type RouteType = components["schemas"]["RouteType"];
 export type RouteStatus = components["schemas"]["RouteStatus"];
@@ -27,6 +35,8 @@ export type RouteFilters = {
   status: RouteStatus | null;
   corridorId: string | null;
   companyId: string | null;
+  /** The order, or null for the list's default (newest first). */
+  sort: RouteSortValue | null;
   cursor: string | null;
 };
 
@@ -60,7 +70,7 @@ export function useDriverRoutes(driverId: string) {
   });
 }
 
-/** One page of routes (`routes_list`), newest first; the filters combine (AND). */
+/** One page of routes (`routes_list`), newest first or in `sort`'s order; the filters combine (AND). */
 export function useRoutes(filters: RouteFilters) {
   return useQuery({
     queryKey: routeKeys.list(filters),
@@ -76,6 +86,7 @@ export function useRoutes(filters: RouteFilters) {
               status: filters.status ?? undefined,
               corridor_id: filters.corridorId || undefined,
               company_id: filters.companyId || undefined,
+              sort: filters.sort ?? undefined,
               cursor: filters.cursor || undefined,
             },
           },
@@ -111,13 +122,15 @@ export function fetchRoute(queryClient: QueryClient, id: string) {
   });
 }
 
-/** For RoutePicker: the first routes whose code starts with `q` (shown by their code). */
+/** For RoutePicker: the first routes, A to Z, whose code starts with `q` (shown by their code). */
 export async function searchRoutes(
   q: string,
 ): Promise<PickerResult<{ id: string; name: string }>> {
   const page = await unwrap(
     api.GET("/v1/routes", {
-      params: { query: { limit: PICKER_LIMIT, q: q.trim() || undefined } },
+      params: {
+        query: { limit: PICKER_LIMIT, q: q.trim() || undefined, sort: "code" },
+      },
     }),
   );
   return {

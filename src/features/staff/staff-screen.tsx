@@ -11,8 +11,10 @@ import {
   ClearFilters,
   FilterMenu,
   ListToolbar,
+  NameSortMenu,
   RowAction,
   useListParams,
+  useListSort,
 } from "@/components/data-table";
 import { useDetailPanel } from "@/components/detail/use-detail-panel";
 import { EmptyState } from "@/components/empty-state";
@@ -26,7 +28,7 @@ import type { components } from "@/lib/api/schema";
 import { useCurrentStaff } from "@/lib/auth/use-current-staff";
 import { useTimestampFormat } from "@/lib/time";
 import { InviteStaffDialog } from "./invite-staff-dialog";
-import { useStaffMembers, type StaffRole } from "./queries";
+import { useStaffMembers, type StaffRole, STAFF_SORTS } from "./queries";
 import { StaffDetail } from "./staff-detail";
 import { StaffStatusPill } from "./staff-status";
 
@@ -55,6 +57,7 @@ export function StaffScreen() {
       ? (roleParam as StaffRole)
       : null,
     isActive: active === "true" ? true : active === "false" ? false : null,
+    sort: useListSort(STAFF_SORTS),
     cursor,
   };
   const members = useStaffMembers(filters);
@@ -161,6 +164,7 @@ export function StaffScreen() {
                 ]}
               />
               <ClearFilters params={["role", "is_active"]} />
+              <NameSortMenu />
             </ListToolbar>
           }
           label={t("tableLabel")}

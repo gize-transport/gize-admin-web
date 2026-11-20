@@ -257,6 +257,69 @@ describe("RoutesScreen", () => {
     );
   });
 
+  it("sends the order from the URL, and leaves out one it doesn't take", async () => {
+    navigation().search = "?sort=morning_time&status=active";
+    const seen: URL[] = [];
+    serveRoutes([forming], seen);
+    const { unmount } = renderWithProviders(<RoutesScreen />);
+
+    await screen.findByRole("link", { name: "B-01" });
+    expect(seen[0]?.searchParams.get("sort")).toBe("morning_time");
+    expect(
+      screen.getByRole("button", { name: `Sort: ${t.sortMorning}` }),
+    ).toBeVisible();
+    unmount();
+
+    navigation().search = "?sort=name";
+    renderWithProviders(<RoutesScreen />);
+    await waitFor(() => expect(seen).toHaveLength(2));
+    expect(seen[1]?.searchParams.has("sort")).toBe(false);
+    expect(
+      screen.getByRole("button", { name: messages.DataTable.sort }),
+    ).toBeVisible();
+  });
+
+  it("sorts by code or morning departure from its menu, from the first page", async () => {
+    navigation().search = "?status=active&cursor=page-2";
+    serveRoutes([forming]);
+    const user = userEvent.setup();
+    renderWithProviders(<RoutesScreen />);
+    await screen.findByRole("link", { name: "B-01" });
+
+    await user.click(
+      screen.getByRole("button", { name: messages.DataTable.sort }),
+    );
+    const menu = await screen.findByRole("menu", {
+      name: messages.DataTable.sort,
+    });
+    expect(
+      within(menu)
+        .getAllByRole("menuitemradio")
+        .map((item) => item.textContent),
+    ).toEqual([messages.DataTable.sortNewest, t.sortCode, t.sortMorning]);
+    await user.click(
+      within(menu).getByRole("menuitemradio", { name: t.sortCode }),
+    );
+
+    expect(navigation().push).toHaveBeenLastCalledWith(
+      "/routes?status=active&sort=code",
+      { scroll: false },
+    );
+  });
+
+  it("keeps the order when the filters are cleared", async () => {
+    navigation().search = "?status=paused&sort=code";
+    serveRoutes([]);
+    const user = userEvent.setup();
+    renderWithProviders(<RoutesScreen />);
+
+    expect(await screen.findByText(t.noMatchesTitle)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: t.clearFilters }));
+    expect(navigation().push).toHaveBeenLastCalledWith("/routes?sort=code", {
+      scroll: false,
+    });
+  });
+
   it("offers to clear every filter when nothing matches", async () => {
     navigation().search = `?q=zz&status=paused&company_id=${brewery.id}`;
     serveRoutes([]);

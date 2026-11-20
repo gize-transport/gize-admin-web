@@ -12,7 +12,9 @@ import {
   FilterMenu,
   ListToolbar,
   RowAction,
+  SortMenu,
   useListParams,
+  useListSort,
 } from "@/components/data-table";
 import { isNotFound } from "@/components/detail/detail-frame";
 import { useDetailPanel } from "@/components/detail/use-detail-panel";
@@ -31,6 +33,7 @@ import {
   useRouteRequests,
   type RequestKind,
   type RequestStatus,
+  REQUEST_SORTS,
 } from "./queries";
 import { RouteRequestDetail } from "./route-request-detail";
 import { RouteRequestFormDialog } from "./route-request-form-dialog";
@@ -64,6 +67,7 @@ function oneOf<T extends string>(value: string | null, allowed: T[]) {
 export function RouteRequestsScreen() {
   const t = useTranslations("RouteRequests");
   const tStatus = useTranslations("RequestStatus");
+  const tTable = useTranslations("DataTable");
   const { message } = useApiErrorMessages();
   const { date } = useTimestampFormat();
   const { cursor, get, setFilters } = useListParams();
@@ -81,6 +85,7 @@ export function RouteRequestsScreen() {
     fromAreaName: get("from_area_name") || null,
     toAreaId: get("to_area_id") || null,
     toAreaName: get("to_area_name") || null,
+    sort: useListSort(REQUEST_SORTS),
     cursor,
   };
   const requests = useRouteRequests(filters);
@@ -246,6 +251,12 @@ export function RouteRequestsScreen() {
                 }}
               />
               <ClearFilters params={FILTERS} />
+              <SortMenu
+                options={[
+                  { value: "oldest", label: tTable("sortOldest") },
+                  { value: "newest", label: tTable("sortNewest") },
+                ]}
+              />
             </ListToolbar>
           }
           label={t("tableLabel")}

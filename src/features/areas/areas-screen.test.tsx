@@ -11,6 +11,7 @@ import {
   type Schemas,
 } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import { chooseFilter } from "../../../tests/utils/filters";
 import {
   createTestQueryClient,
   renderWithProviders,
@@ -120,6 +121,39 @@ describe("AreasScreen", () => {
     expect(navigation().push).toHaveBeenCalledWith("/areas", {
       scroll: false,
     });
+  });
+
+  it("sorts by name with the search, from the first page", async () => {
+    navigation().search = "?q=bo&cursor=page-2";
+    const seen: URL[] = [];
+    serveAreas([bole], seen);
+    const user = userEvent.setup();
+    renderWithProviders(<AreasScreen />);
+    await screen.findByText("Bole");
+    expect(seen[0]?.searchParams.has("sort")).toBe(false);
+
+    await chooseFilter(
+      user,
+      messages.DataTable.sort,
+      messages.DataTable.sortName,
+    );
+
+    expect(navigation().push).toHaveBeenLastCalledWith(
+      "/areas?q=bo&sort=name",
+      {
+        scroll: false,
+      },
+    );
+  });
+
+  it("sends the order from the URL", async () => {
+    navigation().search = "?sort=name";
+    const seen: URL[] = [];
+    serveAreas([bole], seen);
+    renderWithProviders(<AreasScreen />);
+
+    await screen.findByText("Bole");
+    expect(seen[0]?.searchParams.get("sort")).toBe("name");
   });
 
   it("puts what is typed in the search box into the URL", async () => {
@@ -313,6 +347,7 @@ describe("AreasScreen", () => {
     const corridorList = corridorKeys.list({
       originAreaId: null,
       destinationAreaId: null,
+      sort: null,
       cursor: null,
     });
     const queryClient = createTestQueryClient();

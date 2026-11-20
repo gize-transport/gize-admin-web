@@ -11,8 +11,10 @@ import {
   ClearFilters,
   FilterMenu,
   ListToolbar,
+  NameSortMenu,
   RowAction,
   useListParams,
+  useListSort,
 } from "@/components/data-table";
 import { useDetailPanel } from "@/components/detail/use-detail-panel";
 import { EmptyState } from "@/components/empty-state";
@@ -28,7 +30,7 @@ import type { components } from "@/lib/api/schema";
 import { useTimestampFormat } from "@/lib/time";
 import { CompanyDetail } from "./company-detail";
 import { CompanyFormDialog } from "./company-form-dialog";
-import { useCompanies } from "./queries";
+import { useCompanies, COMPANY_SORTS } from "./queries";
 
 type CompanyRead = components["schemas"]["CompanyRead"];
 
@@ -53,7 +55,8 @@ export function CompaniesScreen() {
   const detail = useDetailPanel({ param: "company", basePath: "/companies" });
   const q = get("q");
   const isActive = activeFilter(get("is_active"));
-  const companies = useCompanies({ q, isActive, cursor });
+  const sort = useListSort(COMPANY_SORTS);
+  const companies = useCompanies({ q, isActive, sort, cursor });
   const [formKey, setFormKey] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
@@ -138,6 +141,7 @@ export function CompaniesScreen() {
                 ]}
               />
               <ClearFilters params={["q", "is_active"]} />
+              <NameSortMenu />
             </ListToolbar>
           }
           label={t("tableLabel")}

@@ -11,8 +11,10 @@ import {
   ClearFilters,
   FilterMenu,
   ListToolbar,
+  NameSortMenu,
   RowAction,
   useListParams,
+  useListSort,
 } from "@/components/data-table";
 import { useDetailPanel } from "@/components/detail/use-detail-panel";
 import { EmptyState } from "@/components/empty-state";
@@ -33,6 +35,7 @@ import {
   useRidersByPhone,
   type RiderType,
   type SeatState,
+  RIDER_SORTS,
 } from "./queries";
 import { RiderDetail } from "./rider-detail";
 import { RiderFormDialog } from "./rider-form-dialog";
@@ -106,6 +109,7 @@ export function RidersScreen() {
     riderType: oneOf(get("type"), TYPES),
     seat: oneOf(get("seat"), SEATS),
     routeId: get("route_id") || null,
+    sort: useListSort(RIDER_SORTS),
     cursor: cursor !== null && cursor === staleCursor ? null : cursor,
   };
   const phoneSearch = search.kind === "phone";
@@ -341,6 +345,7 @@ export function RidersScreen() {
                 }}
               />
               <ClearFilters params={FILTERS} />
+              <NameSortMenu />
             </ListToolbar>
           }
           label={t("tableLabel")}

@@ -230,6 +230,18 @@ describe("CorridorsScreen", () => {
     ).toHaveTextContent("Piassa");
   });
 
+  it("sends the order from the URL", async () => {
+    navigation().search = "?sort=name";
+    const seen: URL[] = [];
+    serveCorridors([bolePiassa], seen);
+    renderWithProviders(<CorridorsScreen />);
+
+    await screen.findByRole("button", {
+      name: editName({ origin: "Bole", destination: "Piassa" }),
+    });
+    expect(seen[0]?.searchParams.get("sort")).toBe("name");
+  });
+
   it("says when an area in the URL no longer exists", async () => {
     navigation().search =
       "?origin_area_id=00000000-0000-4000-a000-000000000099";

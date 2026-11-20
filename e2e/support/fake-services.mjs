@@ -434,6 +434,81 @@ function validationProblem(response, field, reason, location = "body") {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
+ * @template T
+ * @typedef {{ sort: string, isDefault: boolean, compare: (a: T, b: T) => number }} ListOrder
+ */
+
+/**
+ * A list's `sort` (GZ-081, GZ-082), like the API: `orders` maps each value the list takes to how
+ * it orders (the first is the default). Null after a 422 for a value it doesn't take.
+ * @template T
+ * @param {URL} url
+ * @param {ServerResponse} response
+ * @param {Record<string, (a: T, b: T) => number>} orders
+ * @returns {ListOrder<T> | null}
+ */
+function readSort(url, response, orders) {
+  const values = Object.keys(orders);
+  const sort = url.searchParams.get("sort") ?? values[0];
+  const compare = orders[sort];
+  if (!compare) {
+    validationProblem(response, "/sort", "not_allowed", "query");
+    return null;
+  }
+  return { sort, isDefault: sort === values[0], compare };
+}
+
+/**
+ * The request's cursor as the list made it. Like the API, a cursor pages only the sort it was
+ * made with: a sorted page's cursor carries its sort (`name.<cursor>`), and one for another sort
+ * comes back as "" (each list refuses that as INVALID_CURSOR).
+ * @param {URL} url
+ * @param {ListOrder<any>} order
+ */
+function sortedCursor(url, order) {
+  const raw = url.searchParams.get("cursor");
+  if (raw === null) return null;
+  if (order.isDefault) return raw.includes(".") ? "" : raw;
+  const prefix = `${order.sort}.`;
+  return raw.startsWith(prefix) ? raw.slice(prefix.length) : "";
+}
+
+/**
+ * The next page's cursor for `order` (see sortedCursor).
+ * @param {string | null} next
+ * @param {ListOrder<any>} order
+ */
+function nextSortedCursor(next, order) {
+  return next === null || order.isDefault ? next : `${order.sort}.${next}`;
+}
+
+/** @param {{ created_at: string, id: string }} a @param {{ created_at: string, id: string }} b */
+function newestFirst(a, b) {
+  return b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id);
+}
+
+/** @param {{ created_at: string, id: string }} a @param {{ created_at: string, id: string }} b */
+function oldestFirst(a, b) {
+  return a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id);
+}
+
+/**
+ * A to Z ignoring case, then by id (GZ-081's name order). By character: the API sorts by the
+ * database's text rules, which may place spaces and punctuation differently, so tests only rely
+ * on orders both agree on.
+ * @template {{ id: string }} T
+ * @param {(item: T) => string} key
+ * @returns {(a: T, b: T) => number}
+ */
+function byText(key) {
+  return (a, b) => {
+    const x = key(a).toLowerCase();
+    const y = key(b).toLowerCase();
+    return (x < y ? -1 : x > y ? 1 : 0) || a.id.localeCompare(b.id);
+  };
+}
+
+/**
  * The request's Idempotency-Key, like the API: a UUID in its canonical lowercase form, or a 428.
  * @param {IncomingMessage} request
  * @param {ServerResponse} response
@@ -530,7 +605,12 @@ function listAreas(url, response) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     return validationProblem(response, "/limit", "out_of_range", "query");
   }
-  const cursor = url.searchParams.get("cursor");
+  const order = readSort(url, response, {
+    newest: newestFirst,
+    name: byText((area) => area.name),
+  });
+  if (!order) return;
+  const cursor = sortedCursor(url, order);
   const offset =
     cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
   if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
@@ -541,18 +621,17 @@ function listAreas(url, response) {
       (area) =>
         q === null || area.name.toLowerCase().startsWith(q.toLowerCase()),
     )
-    .sort(
-      (a, b) =>
-        b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
-    );
+    .sort(order.compare);
   const items = matching.slice(offset, offset + limit).map(areaRead);
   /** @type {Schemas["AreaPage"]} */
   const page = {
     items,
-    next_cursor:
+    next_cursor: nextSortedCursor(
       offset + limit < matching.length
         ? Buffer.from(String(offset + limit)).toString("base64url")
         : null,
+      order,
+    ),
   };
   send(response, 200, page);
 }
@@ -689,7 +768,16 @@ function listCorridors(url, response) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     return validationProblem(response, "/limit", "out_of_range", "query");
   }
-  const cursor = url.searchParams.get("cursor");
+  const order = readSort(url, response, {
+    newest: newestFirst,
+    // By the A area's name, then the B area's.
+    name: byText(
+      (corridor) =>
+        `${areaRef(corridor.originId).name}\u0000${areaRef(corridor.destinationId).name}`,
+    ),
+  });
+  if (!order) return;
+  const cursor = sortedCursor(url, order);
   const offset =
     cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
   if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
@@ -703,17 +791,16 @@ function listCorridors(url, response) {
         (filters.destination_area_id === null ||
           corridor.destinationId === filters.destination_area_id),
     )
-    .sort(
-      (a, b) =>
-        b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
-    );
+    .sort(order.compare);
   /** @type {Schemas["CorridorPage"]} */
   const page = {
     items: matching.slice(offset, offset + limit).map(corridorRead),
-    next_cursor:
+    next_cursor: nextSortedCursor(
       offset + limit < matching.length
         ? Buffer.from(String(offset + limit)).toString("base64url")
         : null,
+      order,
+    ),
   };
   send(response, 200, page);
 }
@@ -1430,7 +1517,12 @@ function listCompanies(url, response) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     return validationProblem(response, "/limit", "out_of_range", "query");
   }
-  const cursor = url.searchParams.get("cursor");
+  const order = readSort(url, response, {
+    newest: newestFirst,
+    name: byText((company) => company.name),
+  });
+  if (!order) return;
+  const cursor = sortedCursor(url, order);
   const offset =
     cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
   if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
@@ -1443,17 +1535,16 @@ function listCompanies(url, response) {
           company.name.toLowerCase().startsWith(q.toLowerCase())) &&
         (active === null || company.is_active === (active === "true")),
     )
-    .sort(
-      (a, b) =>
-        b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
-    );
+    .sort(order.compare);
   /** @type {Schemas["CompanyPage"]} */
   const page = {
     items: matching.slice(offset, offset + limit),
-    next_cursor:
+    next_cursor: nextSortedCursor(
       offset + limit < matching.length
         ? Buffer.from(String(offset + limit)).toString("base64url")
         : null,
+      order,
+    ),
   };
   send(response, 200, page);
 }
@@ -1488,7 +1579,13 @@ function listRoutes(url, response) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     return validationProblem(response, "/limit", "out_of_range", "query");
   }
-  const cursor = url.searchParams.get("cursor");
+  const order = readSort(url, response, {
+    newest: newestFirst,
+    code: byText((route) => route.code),
+    morning_time: byText((route) => route.morning_time),
+  });
+  if (!order) return;
+  const cursor = sortedCursor(url, order);
   const offset =
     cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
   if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
@@ -1505,17 +1602,16 @@ function listRoutes(url, response) {
         // A driver's routes, any status (GZ-076).
         (ids.driver_id === null || route.driverId === ids.driver_id),
     )
-    .sort(
-      (a, b) =>
-        b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
-    );
+    .sort(order.compare);
   /** @type {Schemas["RoutePage"]} */
   const page = {
     items: matching.slice(offset, offset + limit).map(routeRead),
-    next_cursor:
+    next_cursor: nextSortedCursor(
       offset + limit < matching.length
         ? Buffer.from(String(offset + limit)).toString("base64url")
         : null,
+      order,
+    ),
   };
   send(response, 200, page);
 }
@@ -2080,7 +2176,12 @@ function listRequests(url, response) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     return validationProblem(response, "/limit", "out_of_range", "query");
   }
-  const cursor = url.searchParams.get("cursor");
+  const order = readSort(url, response, {
+    oldest: oldestFirst,
+    newest: newestFirst,
+  });
+  if (!order) return;
+  const cursor = sortedCursor(url, order);
   const offset =
     cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
   if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
@@ -2103,17 +2204,16 @@ function listRequests(url, response) {
         (ends.toName === null ||
           request.to_area_name?.toLowerCase() === ends.toName),
     )
-    .sort(
-      (a, b) =>
-        a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
-    );
+    .sort(order.compare);
   /** @type {Schemas["RouteRequestPage"]} */
   const page = {
     items: matching.slice(offset, offset + limit).map(requestRead),
-    next_cursor:
+    next_cursor: nextSortedCursor(
       offset + limit < matching.length
         ? Buffer.from(String(offset + limit)).toString("base64url")
         : null,
+      order,
+    ),
   };
   send(response, 200, page);
 }
@@ -2269,7 +2369,7 @@ function staffFields(response, body, { partial }) {
  */
 function listStaff(url, response) {
   const unknown = [...url.searchParams.keys()].find(
-    (key) => !["role", "is_active", "limit", "cursor"].includes(key),
+    (key) => !["role", "is_active", "limit", "cursor", "sort"].includes(key),
   );
   if (unknown) {
     return validationProblem(response, `/${unknown}`, "unknown_field", "query");
@@ -2286,7 +2386,12 @@ function listStaff(url, response) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     return validationProblem(response, "/limit", "out_of_range", "query");
   }
-  const cursor = url.searchParams.get("cursor");
+  const order = readSort(url, response, {
+    newest: newestFirst,
+    name: byText((member) => member.full_name),
+  });
+  if (!order) return;
+  const cursor = sortedCursor(url, order);
   const offset =
     cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
   if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
@@ -2298,17 +2403,16 @@ function listStaff(url, response) {
         (role === null || member.role === role) &&
         (active === null || member.is_active === (active === "true")),
     )
-    .sort(
-      (a, b) =>
-        b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
-    );
+    .sort(order.compare);
   /** @type {Schemas["StaffPage"]} */
   const page = {
     items: matching.slice(offset, offset + limit),
-    next_cursor:
+    next_cursor: nextSortedCursor(
       offset + limit < matching.length
         ? Buffer.from(String(offset + limit)).toString("base64url")
         : null,
+      order,
+    ),
   };
   send(response, 200, page);
 }
@@ -2659,7 +2763,12 @@ function listRiders(url, response) {
   }
   const q = (url.searchParams.get("q") ?? "").toLowerCase();
   const limit = Number(url.searchParams.get("limit") ?? 25);
-  const cursor = url.searchParams.get("cursor");
+  const order = readSort(url, response, {
+    newest: (a, b) => b.created_at.localeCompare(a.created_at),
+    name: byText((rider) => rider.full_name),
+  });
+  if (!order) return;
+  const cursor = sortedCursor(url, order);
   const offset =
     cursor === null ? 0 : Number(Buffer.from(cursor, "base64url").toString());
   if (cursor === "" || !Number.isInteger(offset) || offset < 0) {
@@ -2675,14 +2784,16 @@ function listRiders(url, response) {
           (seat === "none" ? r.seat === null : r.seat?.status === seat)) &&
         (routeId === null || r.seat?.routeId === routeId),
     )
-    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    .sort(order.compare);
   /** @type {Schemas["RiderPage"]} */
   const page = {
     items: matching.slice(offset, offset + limit).map(riderListItem),
-    next_cursor:
+    next_cursor: nextSortedCursor(
       offset + limit < matching.length
         ? Buffer.from(String(offset + limit)).toString("base64url")
         : null,
+      order,
+    ),
   };
   send(response, 200, page);
 }
@@ -4571,7 +4682,12 @@ const api = createServer(async (request, response) => {
       if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
         return validationProblem(response, "/limit", "out_of_range", "query");
       }
-      const cursor = url.searchParams.get("cursor");
+      const order = readSort(url, response, {
+        newest: (a, b) => b.created_at.localeCompare(a.created_at),
+        name: byText((driver) => driver.full_name),
+      });
+      if (!order) return;
+      const cursor = sortedCursor(url, order);
       const from = cursor === null ? 0 : Number(cursor);
       if (cursor !== null && (!Number.isInteger(from) || from < 1)) {
         return problem(response, 422, "INVALID_CURSOR");
@@ -4587,11 +4703,14 @@ const api = createServer(async (request, response) => {
             d.plate.startsWith(q.trim().replace(/ +/g, " ").toUpperCase()),
         )
         .filter((d) => active === null || String(d.is_active) === active)
-        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+        .sort(order.compare);
       /** @type {Schemas["DriverPage"]} */
       const page = {
         items: items.slice(from, from + limit).map(driverRead),
-        next_cursor: from + limit < items.length ? String(from + limit) : null,
+        next_cursor: nextSortedCursor(
+          from + limit < items.length ? String(from + limit) : null,
+          order,
+        ),
       };
       return send(response, 200, page);
     }

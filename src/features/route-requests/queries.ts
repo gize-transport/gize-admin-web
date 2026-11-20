@@ -7,6 +7,13 @@ import type { components } from "@/lib/api/schema";
 
 type RouteRequestCreate = components["schemas"]["RouteRequestCreate"];
 type RouteRequestUpdate = components["schemas"]["RouteRequestUpdate"];
+type RouteRequestSortValue = components["schemas"]["RouteRequestSort"];
+
+/** The orders `route_requests_list` takes (GZ-081), its default first. */
+export const REQUEST_SORTS = [
+  "oldest",
+  "newest",
+] as const satisfies readonly RouteRequestSortValue[];
 type RouteRequestStatusSet = components["schemas"]["RouteRequestStatusSet"];
 type RouteType = components["schemas"]["RouteType"];
 type RouteStatus = components["schemas"]["RouteStatus"];
@@ -28,6 +35,8 @@ export type RequestFilters = {
   fromAreaName: string | null;
   toAreaId: string | null;
   toAreaName: string | null;
+  /** The order, or null for the list's default (oldest first). */
+  sort: RouteRequestSortValue | null;
   cursor: string | null;
 };
 
@@ -49,7 +58,7 @@ export function useDemandSummary() {
   });
 }
 
-/** One page of route requests (`route_requests_list`), oldest first; the filters combine (AND). */
+/** One page of route requests (`route_requests_list`), oldest first or in `sort`'s order; the filters combine (AND). */
 export function useRouteRequests(filters: RequestFilters) {
   return useQuery({
     queryKey: requestKeys.list(filters),
@@ -68,6 +77,7 @@ export function useRouteRequests(filters: RequestFilters) {
               from_area_name: filters.fromAreaName || undefined,
               to_area_id: filters.toAreaId || undefined,
               to_area_name: filters.toAreaName || undefined,
+              sort: filters.sort ?? undefined,
               cursor: filters.cursor || undefined,
             },
           },
@@ -109,6 +119,7 @@ export function routeSearch(routeType: RouteType, statuses?: RouteStatus[]) {
                 q: q.trim() || undefined,
                 route_type: routeType,
                 status,
+                sort: "code",
               },
             },
           }),

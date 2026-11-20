@@ -36,6 +36,6 @@
 - JSON, snake_case fields; timestamps ISO 8601 UTC (the frontend displays Africa/Addis_Ababa). Schedule times of day (route times) are local Addis Ababa time, `"HH:MM"`, shown as they are.
 - Auth: `Authorization: Bearer <Supabase access token>`; roles come from the backend, never from the token or the UI.
 - Errors: RFC 9457 problem+json with `code` and `request_id`; the frontend shows a friendly message per `code` and always shows the request ID for support.
-- Lists: `?limit=&cursor=` → `{ items, next_cursor }`, max 100.
+- Lists: `?limit=&cursor=` → `{ items, next_cursor }`, max 100. Some lists take `sort` (GZ-081, GZ-082): a cursor pages the sort it was made with, and another sort's cursor is `422 INVALID_CURSOR`.
 - `Idempotency-Key` header (UUID) required on side-effecting POSTs; the frontend generates one per user action and reuses it on retry.
 - `X-Request-ID` on every response.

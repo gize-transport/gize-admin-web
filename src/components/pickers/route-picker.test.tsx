@@ -51,5 +51,6 @@ describe("RoutePicker", () => {
     expect(onChange).toHaveBeenCalledWith({ id: forming.id, code: "B-01" });
     expect(seen.at(-1)?.searchParams.get("q")).toBe("b-");
     expect(seen.at(-1)?.searchParams.get("limit")).toBe("20");
+    expect(seen.at(-1)?.searchParams.get("sort")).toBe("code");
   });
 });

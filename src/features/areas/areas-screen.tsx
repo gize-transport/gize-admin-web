@@ -10,8 +10,10 @@ import {
   createDataTableColumnHelper,
   DataTable,
   ListToolbar,
+  NameSortMenu,
   RowAction,
   useListParams,
+  useListSort,
 } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { NoPermission } from "@/components/no-permission";
@@ -27,7 +29,7 @@ import { useRetryWait } from "@/lib/api/use-retry-wait";
 import { useCurrentStaff } from "@/lib/auth/use-current-staff";
 import { useTimestampFormat } from "@/lib/time";
 import { AreaFormDialog } from "./area-form-dialog";
-import { useAreas, useDeleteArea } from "./queries";
+import { useAreas, useDeleteArea, AREA_SORTS } from "./queries";
 
 type AreaRead = components["schemas"]["AreaRead"];
 
@@ -42,7 +44,8 @@ export function AreasScreen() {
   const { date } = useTimestampFormat();
   const { cursor, get, setFilter } = useListParams();
   const q = get("q");
-  const areas = useAreas({ q, cursor });
+  const sort = useListSort(AREA_SORTS);
+  const areas = useAreas({ q, sort, cursor });
   // Delete shows for admins only; the API still refuses others.
   const isAdmin = useCurrentStaff().data?.role === "admin";
 
@@ -129,6 +132,7 @@ export function AreasScreen() {
               label={t("searchLabel")}
               placeholder={t("searchHint")}
             />
+            <NameSortMenu />
           </ListToolbar>
         }
         label={t("tableLabel")}
