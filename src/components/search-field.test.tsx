@@ -28,6 +28,23 @@ beforeEach(() => {
 });
 
 describe("SearchField", () => {
+  it("is labelled, and described by its hint when it has one", () => {
+    renderWithProviders(
+      <SearchField
+        param="q"
+        label="Search areas"
+        placeholder="Name"
+        hint="Names starting with what you type."
+      />,
+    );
+
+    const box = screen.getByRole("searchbox", { name: "Search areas" });
+    expect(box).toHaveAccessibleDescription(
+      "Names starting with what you type.",
+    );
+    expect(box).toHaveAttribute("placeholder", "Name");
+  });
+
   it("writes the trimmed text to the URL after a pause, replacing the history entry", async () => {
     const user = userEvent.setup();
     renderWithProviders(field());

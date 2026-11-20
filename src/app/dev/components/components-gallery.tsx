@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   CellWithPicture,
   DataTable,
-  FilterChips,
+  FilterMenu,
   RowAction,
   createDataTableColumnHelper,
   useListParams,
@@ -377,7 +377,7 @@ function DataTableDemo() {
         </p>
         <DataTable
           toolbar={
-            <FilterChips
+            <FilterMenu
               param="type"
               label={t("routeTypeFilter")}
               options={[

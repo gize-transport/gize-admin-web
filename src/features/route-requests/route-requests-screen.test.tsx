@@ -5,6 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import {
+  chooseFilter,
+  emptyState,
+  filterButton,
+} from "../../../tests/utils/filters";
 import { renderWithProviders } from "../../../tests/utils/render";
 import {
   areas,
@@ -121,12 +126,7 @@ describe("RouteRequestsScreen", () => {
     expect(
       await screen.findByRole("combobox", { name: t.routeFilter }),
     ).toHaveTextContent("B-07");
-    expect(
-      within(screen.getByRole("group", { name: t.openFilter })).getByRole(
-        "button",
-        { name: t.filterOpen },
-      ),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(filterButton(t.openFilter, t.filterOpen)).toBeVisible();
   });
 
   it("sends a Demand card's area pair, names its ends and shows all areas again", async () => {
@@ -161,13 +161,8 @@ describe("RouteRequestsScreen", () => {
       "/route-requests?kind=new_areas&status=new",
       { scroll: false },
     );
-    // The button goes with the filter: focus stays on the kind chosen.
-    expect(
-      within(screen.getByRole("group", { name: t.kindFilter })).getByRole(
-        "button",
-        { name: t.kindNewAreas },
-      ),
-    ).toHaveFocus();
+    // The button goes with the filter: focus moves to the kind filter.
+    expect(filterButton(t.kindFilter, t.kindNewAreas)).toHaveFocus();
   });
 
   it("says when an area of the pair no longer exists", async () => {
@@ -209,23 +204,20 @@ describe("RouteRequestsScreen", () => {
     expect(screen.getByText(t.noMatchesTitle)).toBeVisible();
   });
 
-  it("filters with a chip and clears every filter from the empty state", async () => {
+  it("filters from a menu and clears every filter from the empty state", async () => {
     navigation().search = "?kind=route";
     serveRequests([]);
     const user = userEvent.setup();
     renderWithProviders(<RouteRequestsScreen />);
 
-    await user.click(
-      within(
-        await screen.findByRole("group", { name: t.statusFilter }),
-      ).getByRole("button", { name: tStatus.matchedAny }),
-    );
+    await screen.findByText(t.noMatchesTitle);
+    await chooseFilter(user, t.statusFilter, tStatus.matchedAny);
     expect(navigation().push).toHaveBeenLastCalledWith(
       "/route-requests?kind=route&status=matched",
       { scroll: false },
     );
     await user.click(
-      await screen.findByRole("button", { name: t.clearFilters }),
+      emptyState().getByRole("button", { name: t.clearFilters }),
     );
     expect(navigation().push).toHaveBeenLastCalledWith("/route-requests", {
       scroll: false,

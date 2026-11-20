@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
+import { chooseFilter } from "./support/filters";
 import { signIn } from "./support/auth";
 
 const t = messages.AuditLog;
@@ -34,12 +35,12 @@ test.describe("audit log", () => {
     page,
   }) => {
     await signIn(page, "admin", "/sign-in?next=%2Faudit-log");
-    await page.getByLabel(t.actorFilter).selectOption({ label: "Selam Staff" });
+    await chooseFilter(page, t.actorFilter, "Selam Staff");
     // Her change shows (the filtered list has loaded) before another's is looked for.
     await expect(row(page, t.actions.route.status_changed)).toBeVisible();
     await expect(row(page, t.actions.area.renamed)).toHaveCount(0);
 
-    await page.getByLabel(t.actorFilter).selectOption({ label: t.anyone });
+    await chooseFilter(page, t.actorFilter, messages.DataTable.all);
     // Everyone's changes have loaded (another's shows again) before a row is used: the filtered
     // list's rows are replaced as it loads.
     await expect(row(page, t.actions.area.renamed)).toBeVisible();

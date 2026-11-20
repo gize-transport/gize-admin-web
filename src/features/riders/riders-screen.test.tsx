@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server, type Schemas } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import { chooseFilter, emptyState } from "../../../tests/utils/filters";
 import { renderWithProviders } from "../../../tests/utils/render";
 import {
   fill,
@@ -290,23 +291,20 @@ describe("RidersScreen", () => {
     );
   });
 
-  it("filters with a chip and clears every filter from the empty state", async () => {
+  it("filters from a menu and clears every filter from the empty state", async () => {
     navigation().search = "?type=student";
     serveRiders([]);
     const user = userEvent.setup();
     renderWithProviders(<RidersScreen />);
 
-    await user.click(
-      within(
-        await screen.findByRole("group", { name: t.seatFilter }),
-      ).getByRole("button", { name: t.noSeat }),
-    );
+    await screen.findByText(t.noMatchesTitle);
+    await chooseFilter(user, t.seatFilter, t.noSeat);
     expect(navigation().push).toHaveBeenLastCalledWith(
       "/riders?type=student&seat=none",
       { scroll: false },
     );
     await user.click(
-      await screen.findByRole("button", { name: t.clearFilters }),
+      emptyState().getByRole("button", { name: t.clearFilters }),
     );
     expect(navigation().push).toHaveBeenLastCalledWith("/riders", {
       scroll: false,

@@ -11,6 +11,7 @@ import {
   type Schemas,
 } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import { emptyState } from "../../../tests/utils/filters";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { currentStaffQueryKey } from "@/lib/auth/use-current-staff";
 import { CorridorsScreen } from "./corridors-screen";
@@ -269,7 +270,9 @@ describe("CorridorsScreen", () => {
     renderWithProviders(<CorridorsScreen />);
 
     expect(await screen.findByText(t.noMatchesTitle)).toBeVisible();
-    await user.click(screen.getByRole("button", { name: t.clearFilters }));
+    await user.click(
+      emptyState().getByRole("button", { name: t.clearFilters }),
+    );
 
     expect(navigation().push).toHaveBeenLastCalledWith("/corridors", {
       scroll: false,
@@ -790,7 +793,9 @@ describe("CorridorsScreen", () => {
     renderWithProviders(<CorridorsScreen />);
 
     expect(await screen.findByText(t.noMatchesTitle)).toBeVisible();
-    expect(screen.getByRole("button", { name: t.clearFilters })).toBeVisible();
+    expect(
+      emptyState().getByRole("button", { name: t.clearFilters }),
+    ).toBeVisible();
     expect(screen.queryByText(messages.Errors.VALIDATION_FAILED)).toBeNull();
   });
 

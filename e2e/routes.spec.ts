@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
+import { chooseFilter } from "./support/filters";
 import { signIn } from "./support/auth";
 
 const t = messages.Routes;
@@ -25,7 +26,10 @@ async function pickWithKeyboard(page: Page, picker: Locator, name: string) {
   await page.keyboard.type(name);
   await expect(page.getByRole("option", { name, exact: true })).toBeVisible();
   await page.keyboard.press("Enter");
-  await expect(picker).toHaveText(name);
+  // A form's picker shows the name; a toolbar's, "From: Piassa".
+  await expect(picker).toHaveText(
+    new RegExp(`(^|: )${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`),
+  );
   // Focus comes back to the picker as its popup closes: wait, so it can't land after the next step.
   await expect(picker).toBeFocused();
 }
@@ -117,26 +121,22 @@ test.describe("routes", () => {
     await expect(row("S-03")).toBeHidden();
 
     await search.fill("s-");
-    await page.getByRole("button", { name: t.typeStudent }).click();
+    await chooseFilter(page, t.typeFilter, t.typeStudent);
     await expect(page).toHaveURL(/[?&]route_type=student/);
     await expect(row("S-03")).toBeVisible();
     await search.fill("b-");
     await expect(table).toBeHidden(); // no student route's code starts with B-
     await search.fill("");
-    await page
-      .getByRole("group", { name: t.typeFilter })
-      .getByRole("button", { name: messages.DataTable.all })
-      .click();
+    await chooseFilter(page, t.typeFilter, messages.DataTable.all);
 
-    await page
-      .getByRole("button", { name: messages.RouteStatus.formingNoMinimum })
-      .click();
+    await chooseFilter(
+      page,
+      t.statusFilter,
+      messages.RouteStatus.formingNoMinimum,
+    );
     await expect(row("B-01")).toBeVisible();
     await expect(row("S-03")).toBeHidden();
-    await page
-      .getByRole("group", { name: t.statusFilter })
-      .getByRole("button", { name: messages.DataTable.all })
-      .click();
+    await chooseFilter(page, t.statusFilter, messages.DataTable.all);
 
     await pickWithKeyboard(
       page,

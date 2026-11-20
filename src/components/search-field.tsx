@@ -15,6 +15,8 @@ type SearchFieldProps = {
   placeholder?: string;
   /** Matches the API's limit for this search. */
   maxLength?: number;
+  /** How the search matches; shown under the box while it has focus, always read out. */
+  hint?: string;
 };
 
 /**
@@ -26,6 +28,7 @@ export function SearchField({
   label,
   placeholder,
   maxLength = 100,
+  hint,
 }: SearchFieldProps) {
   const { get, setFilter } = useListParams();
   // Ids unique to this instance: Next can keep earlier pages (with their own copy of this) in the
@@ -69,8 +72,12 @@ export function SearchField({
   }, [text, latest, param, setFilter]);
 
   return (
-    <div className="grid w-full max-w-sm gap-1.5">
-      <Label htmlFor={`${uid}-search`}>{label}</Label>
+    // A toolbar's search (GZW-076): the label is for screen readers, the placeholder says what
+    // to type.
+    <div className="group relative w-full sm:w-64">
+      <Label htmlFor={`${uid}-search`} className="sr-only">
+        {label}
+      </Label>
       <div className="relative">
         <SearchIcon
           aria-hidden
@@ -87,9 +94,28 @@ export function SearchField({
           placeholder={placeholder}
           maxLength={maxLength}
           autoComplete="off"
-          className="pl-9"
+          aria-describedby={hint ? `${uid}-hint` : undefined}
+          className="h-9 pl-9 text-table"
         />
       </div>
+      {hint && <SearchHint id={`${uid}-hint`}>{hint}</SearchHint>}
     </div>
+  );
+}
+
+/**
+ * A search box's hint: under the box while it has focus (over the list, not pushing it down),
+ * hidden otherwise but still read out (it's the box's description). Put the box and this inside
+ * an element with `group relative`.
+ */
+export function SearchHint({ id, children }: { id: string; children: string }) {
+  return (
+    <p
+      id={id}
+      // Taps go through it to what's underneath (a filter right below, on phones).
+      className="pointer-events-none absolute top-full left-0 z-30 mt-1 hidden w-80 max-w-full rounded-lg bg-surface p-3 text-meta text-muted shadow-lg ring-1 ring-line group-focus-within:block sm:max-w-none"
+    >
+      {children}
+    </p>
   );
 }

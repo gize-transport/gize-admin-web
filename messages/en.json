@@ -22,7 +22,8 @@
     "all": "All",
     "pagination": "Pages",
     "nextPage": "Next page",
-    "firstPage": "First page"
+    "firstPage": "First page",
+    "clearFilters": "Clear filters"
   },
   "DevComponents": {
     "metaTitle": "Components · Gize Admin",
@@ -378,6 +379,8 @@
     "filtersLabel": "Filter corridors",
     "originLabel": "Origin area",
     "destinationLabel": "Destination area",
+    "originShort": "From",
+    "destinationShort": "To",
     "anyArea": "Any area",
     "loadingArea": "Loading…",
     "unknownArea": "Area not found",
@@ -991,7 +994,6 @@
     "title": "Audit log",
     "description": "Every recorded change, newest first: what changed, on which record, and who did it. Personal details are never shown, only that they changed.",
     "actorFilter": "Done by",
-    "anyone": "Anyone",
     "actorsUnavailable": "The staff list couldn't be loaded, so only the person already chosen can be shown.",
     "recordFilter": "Showing the history of one {type}.",
     "openRecord": "Open the {type}",
@@ -1256,6 +1258,8 @@
   "CorridorField": {
     "originLabel": "From (origin area)",
     "destinationLabel": "To (destination area)",
+    "originShort": "From",
+    "destinationShort": "To",
     "finding": "Finding the corridor…",
     "found": "Corridor found: {origin} → {destination}.",
     "none": "There's no corridor from {origin} to {destination} yet.",

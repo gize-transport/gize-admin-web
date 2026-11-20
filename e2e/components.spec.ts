@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { chooseFilter, filterButton } from "./support/filters";
 import messages from "../messages/en.json";
 
 // Flows for the shared components, run on the dev-only gallery (/dev/components).
@@ -57,15 +58,12 @@ test.describe("data table", () => {
     await page.getByRole("link", { name: dt.nextPage }).click();
     await expect(page).toHaveURL(/cursor=/);
 
-    await page
-      .getByRole("group", { name: t.routeTypeFilter })
-      .getByRole("button", { name: t.typeStudent })
-      .click();
+    await chooseFilter(page, t.routeTypeFilter, t.typeStudent);
 
     await expect(page).toHaveURL(/\?type=student$/);
     await expect(
-      page.getByRole("button", { name: t.typeStudent }),
-    ).toHaveAttribute("aria-pressed", "true");
+      filterButton(page, t.routeTypeFilter, t.typeStudent),
+    ).toBeVisible();
     await expect(table.getByRole("cell", { name: t.typePublic })).toHaveCount(
       0,
     );

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import { chooseFilter, filterButton } from "../../../tests/utils/filters";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { CompaniesScreen } from "./companies-screen";
 import {
@@ -93,9 +94,15 @@ describe("CompaniesScreen", () => {
     await screen.findByRole("link", { name: "Ethio Ceramics" });
     expect(seen[0]?.searchParams.get("q")).toBe("add");
     expect(seen[0]?.searchParams.get("is_active")).toBe("false");
-    expect(
-      screen.getByRole("button", { name: t.filterInactive }),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(filterButton(t.statusFilter, t.filterInactive)).toBeVisible();
+
+    // One press clears the search and the filter.
+    await userEvent.click(
+      screen.getByRole("button", { name: messages.DataTable.clearFilters }),
+    );
+    expect(navigation().push).toHaveBeenLastCalledWith("/companies", {
+      scroll: false,
+    });
   });
 
   it("ignores a status in the URL it doesn't know", async () => {
@@ -108,13 +115,13 @@ describe("CompaniesScreen", () => {
     expect(seen[0]?.searchParams.has("is_active")).toBe(false);
   });
 
-  it("filters by status from the chips", async () => {
+  it("filters by status from its menu", async () => {
     serveCompanies([brewery]);
     const user = userEvent.setup();
     renderWithProviders(<CompaniesScreen />);
     await screen.findByRole("link", { name: "Addis Brewery" });
 
-    await user.click(screen.getByRole("button", { name: t.filterActive }));
+    await chooseFilter(user, t.statusFilter, t.filterActive);
 
     expect(navigation().push).toHaveBeenLastCalledWith(
       "/companies?is_active=true",

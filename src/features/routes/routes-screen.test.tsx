@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server, type Schemas } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import { chooseFilter, filterButton } from "../../../tests/utils/filters";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { RoutesScreen } from "./routes-screen";
 import {
@@ -178,10 +179,10 @@ describe("RoutesScreen", () => {
     expect(
       await screen.findByRole("combobox", { name: t.companyFilter }),
     ).toHaveTextContent("Addis Brewery");
-    expect(screen.getByRole("button", { name: t.typePublic })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(filterButton(t.typeFilter, t.typePublic)).toBeVisible();
+    expect(
+      filterButton(t.statusFilter, messages.RouteStatus.formingNoMinimum),
+    ).toBeVisible();
   });
 
   it("ignores a type or status in the URL it doesn't know", async () => {
@@ -230,23 +231,25 @@ describe("RoutesScreen", () => {
       screen.getByRole("link", { name: tField.addCorridor }),
     ).toHaveAttribute("href", "/corridors");
     expect(navigation().push).not.toHaveBeenCalled();
+    // Both ends shown, but nothing filters the list: not marked as on.
+    const from = screen.getByRole("combobox", { name: tField.originLabel });
+    expect(from).toHaveTextContent(`${tField.originShort}: CMC`);
+    expect(from).not.toHaveAttribute("data-active");
   });
 
-  it("filters by type and status from the chips", async () => {
+  it("filters by type and status from their menus", async () => {
     serveRoutes([forming]);
     const user = userEvent.setup();
     renderWithProviders(<RoutesScreen />);
     await screen.findByRole("link", { name: "B-01" });
 
-    await user.click(screen.getByRole("button", { name: t.typeStudent }));
+    await chooseFilter(user, t.typeFilter, t.typeStudent);
     expect(navigation().push).toHaveBeenLastCalledWith(
       "/routes?route_type=student",
       { scroll: false },
     );
     // Clicked before the URL caught up: builds on the type just chosen, doesn't drop it.
-    await user.click(
-      screen.getByRole("button", { name: messages.RouteStatus.paused }),
-    );
+    await chooseFilter(user, t.statusFilter, messages.RouteStatus.paused);
     expect(navigation().push).toHaveBeenLastCalledWith(
       "/routes?route_type=student&status=paused",
       { scroll: false },

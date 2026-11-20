@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server, type Schemas } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import { emptyState, filterButton } from "../../../tests/utils/filters";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { problemResponse } from "../routes/test-support";
 import { me, otherAdmin, serveMe, serveMember } from "../staff/test-support";
@@ -296,13 +297,12 @@ describe("AuditLogScreen", () => {
     const user = userEvent.setup();
     renderWithProviders(<AuditLogScreen />);
 
-    const select = await screen.findByLabelText(t.actorFilter);
-    await waitFor(() =>
-      expect(
-        within(select).getByRole("option", { name: otherAdmin.full_name }),
-      ).toBeInTheDocument(),
+    await screen.findByRole("table", { name: t.tableLabel });
+    // The names come with the staff list.
+    await user.click(filterButton(t.actorFilter));
+    await user.click(
+      await screen.findByRole("menuitemradio", { name: otherAdmin.full_name }),
     );
-    await user.selectOptions(select, otherAdmin.id);
 
     expect(navigation().push).toHaveBeenLastCalledWith(
       `/audit-log?actor_staff_id=${otherAdmin.id}`,
@@ -369,9 +369,7 @@ describe("AuditLogScreen", () => {
     await user.click(screen.getByRole("button", { name: t.showAll }));
     navigation().search = "";
     rerender(<AuditLogScreen />);
-    await waitFor(() =>
-      expect(screen.getByLabelText(t.actorFilter)).toHaveFocus(),
-    );
+    await waitFor(() => expect(filterButton(t.actorFilter)).toHaveFocus());
   });
 
   it("names a person in the address who isn't in the Done by list", async () => {
@@ -385,8 +383,11 @@ describe("AuditLogScreen", () => {
     serveMember(me, otherAdmin, outside);
     renderWithProviders(<AuditLogScreen />);
 
-    const select = await screen.findByLabelText(t.actorFilter);
-    await waitFor(() => expect(select).toHaveDisplayValue("Tigist Outside"));
+    expect(
+      await screen.findByRole("button", {
+        name: `${t.actorFilter}: Tigist Outside`,
+      }),
+    ).toBeVisible();
   });
 
   it("offers to clear a filter the API can't read", async () => {
@@ -419,7 +420,9 @@ describe("AuditLogScreen", () => {
     renderWithProviders(<AuditLogScreen />);
 
     expect(await screen.findByText(t.noMatchesTitle)).toBeVisible();
-    expect(screen.getByRole("button", { name: t.clearFilters })).toBeVisible();
+    expect(
+      emptyState().getByRole("button", { name: t.clearFilters }),
+    ).toBeVisible();
   });
 
   it("ignores a record filter in the URL that isn't a type and ID together", async () => {

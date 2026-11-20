@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import { chooseFilter, filterButton } from "../../../tests/utils/filters";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { DriversScreen } from "./drivers-screen";
 import {
@@ -97,9 +98,7 @@ describe("DriversScreen", () => {
     const card = table.closest("[data-slot='table-card']");
     expect(card).not.toBeNull();
     expect(card).toContainElement(screen.getByLabelText(t.searchLabel));
-    expect(card).toContainElement(
-      screen.getByRole("button", { name: t.filterInactive }),
-    );
+    expect(card).toContainElement(filterButton(t.statusFilter));
   });
 
   it("sends the status from the URL, and ignores one it doesn't know", async () => {
@@ -110,9 +109,7 @@ describe("DriversScreen", () => {
 
     await screen.findByRole("link", { name: "Sara Mohammed" });
     expect(seen[0]?.searchParams.get("is_active")).toBe("false");
-    expect(
-      screen.getByRole("button", { name: t.filterInactive }),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(filterButton(t.statusFilter, t.filterInactive)).toBeVisible();
     unmount();
 
     navigation().search = "?is_active=maybe";
@@ -121,13 +118,13 @@ describe("DriversScreen", () => {
     expect(seen.at(-1)?.searchParams.has("is_active")).toBe(false);
   });
 
-  it("filters by status from the chips", async () => {
+  it("filters by status from its menu", async () => {
     serveDrivers([bereket]);
     const user = userEvent.setup();
     renderWithProviders(<DriversScreen />);
     await screen.findByRole("link", { name: "Bereket Tolosa" });
 
-    await user.click(screen.getByRole("button", { name: t.filterActive }));
+    await chooseFilter(user, t.statusFilter, t.filterActive);
 
     expect(navigation().push).toHaveBeenLastCalledWith(
       "/drivers?is_active=true",
