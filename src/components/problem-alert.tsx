@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
+/** How early a countdown tick may come and still count as on time (see the countdown below). */
+const EARLY_TICK_MS = 50;
+
 type ProblemAlertProps = {
   /** Friendly message for the problem's `code` (from lib/api/errors.ts). */
   message: string;
@@ -45,7 +48,13 @@ export function ProblemAlert({
     // Counts against a deadline, so throttled timers in background tabs can't stretch the wait.
     const deadline = Date.now() + retryAfterSeconds * 1000;
     const timer = setInterval(() => {
-      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      // A timer can fire a few milliseconds before the clock reaches its time: count that as
+      // done, or the last second would show (and keep Retry disabled) for a whole extra tick,
+      // after the caller's own wait (useRetryWait) has already ended.
+      const left = Math.max(
+        0,
+        Math.ceil((deadline - Date.now() - EARLY_TICK_MS) / 1000),
+      );
       setSecondsLeft(left);
       if (left === 0) clearInterval(timer);
     }, 1000);
