@@ -23,6 +23,14 @@ vi.mock("@/lib/auth/supabase-browser", () => ({
 
 const t = messages.Overview;
 
+const fill = (text: string, values: Record<string, string | number>) =>
+  text.replace(/\{(\w+)(, number)?\}/g, (_, key: string) => {
+    const value = values[key];
+    return typeof value === "number"
+      ? value.toLocaleString("en-US")
+      : String(value);
+  });
+
 startMswServer();
 
 const counts: Schemas["Overview"] = {
@@ -145,105 +153,118 @@ describe("OverviewScreen", () => {
     expect(screen.queryByRole("list", { name: t.actionLabel })).toBeNull();
   });
 
-  it("counts routes by status, each opening the routes list filtered to it", async () => {
+  it("shows routes as the stages a route moves through, each opening its routes", async () => {
     serveOverview();
     renderWithProviders(<OverviewScreen />);
 
-    await screen.findByRole("list", { name: t.routesLabel });
-    const expected = [
-      [messages.RouteStatus.active, "12", "active"],
-      [messages.RouteStatus.formingNoMinimum, "6", "forming"],
-      [messages.RouteStatus.paused, "2", "paused"],
-      [messages.RouteStatus.draft, "1", "draft"],
-    ] as const;
-    for (const [label, count, status] of expected) {
-      expect(
-        within(tile(t.routesLabel, label)).getByRole("link", {
-          name: `${label} ${count}`,
-        }),
-      ).toHaveAttribute("href", `/routes?status=${status}`);
-    }
+    const stages = await screen.findByRole("list", { name: t.routesLabel });
+    const links = within(stages).getAllByRole("link");
+    // Draft → Forming → Active, in that order.
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "/routes?status=draft",
+      "/routes?status=forming",
+      "/routes?status=active",
+    ]);
+    // Read out with the count named, so it isn't run into the tag's number.
+    expect(links[0]).toHaveAccessibleName(
+      `${messages.RouteStatus.draft} 1 route, ${t.stageDraftHint}`,
+    );
+    expect(links[1]).toHaveAccessibleName(
+      `${messages.RouteStatus.formingNoMinimum} 6 routes, ${fill(t.tagReady, { count: 2 })}`,
+    );
+    expect(links[2]).toHaveAccessibleName(
+      `${messages.RouteStatus.active} 12 routes, ${fill(t.tagNoDriver, { count: 1 })}`,
+    );
+    // Paused sits apart, small.
+    expect(
+      screen.getByRole("link", { name: `${messages.RouteStatus.paused} 2` }),
+    ).toHaveAttribute("href", "/routes?status=paused");
+    // All of them, beside the heading.
+    const card = screen.getByRole("region", { name: t.routesTitle });
+    expect(card).toHaveTextContent(fill(t.inAll, { total: 21 }));
+    expect(
+      within(card).getByRole("link", { name: t.seeAllRoutes }),
+    ).toHaveAttribute("href", "/routes");
   });
 
-  it("draws the routes by status as one bar, described in words", async () => {
+  it("tags a stage with what needs doing there, only above 0", async () => {
+    serveOverview();
+    const { unmount } = renderWithProviders(<OverviewScreen />);
+
+    const stages = await screen.findByRole("list", { name: t.routesLabel });
+    const [, forming, active] = within(stages).getAllByRole("link");
+    expect(forming).toHaveTextContent(fill(t.tagReady, { count: 2 }));
+    expect(forming).not.toHaveTextContent(t.stageFormingHint);
+    expect(active).toHaveTextContent(fill(t.tagNoDriver, { count: 1 }));
+    unmount();
+
+    serveOverview({
+      ...counts,
+      routes: {
+        ...counts.routes,
+        ready_to_launch: 0,
+        active_without_driver: 0,
+      },
+    });
+    renderWithProviders(<OverviewScreen />);
+    const quiet = await screen.findByRole("list", { name: t.routesLabel });
+    const [, calmForming, calmActive] = within(quiet).getAllByRole("link");
+    expect(calmForming).toHaveTextContent(t.stageFormingHint);
+    expect(calmActive).toHaveTextContent(t.stageActiveHint);
+    expect(quiet).not.toHaveTextContent(/ready to launch|without a driver/);
+  });
+
+  it("draws the routes by stage as one bar, described in words", async () => {
     serveOverview();
     renderWithProviders(<OverviewScreen />);
 
     const bar = await screen.findByRole("img", {
-      name: "All 21 routes: 12 active, 6 forming, 2 paused, 1 draft",
+      name: "All 21 routes: 1 draft, 6 forming, 12 active, 2 paused",
     });
-    // One part per status, as wide as its share (in % of the bar).
     const parts = Array.from(bar.querySelectorAll("rect[data-part]"));
     expect(parts.map((rect) => rect.getAttribute("data-part"))).toEqual([
-      "active",
+      "draft",
       "forming",
+      "active",
       "paused",
-      "draft",
     ]);
-    const widths = parts.map((rect) => Number(rect.getAttribute("width")));
-    const starts = parts.map((rect) => Number(rect.getAttribute("x")));
-    [12, 6, 2, 1].forEach((count, index) =>
-      expect(widths[index]).toBeCloseTo((count / 21) * 100, 1),
-    );
-    // Side by side, filling the bar.
-    expect(starts[0]).toBe(0);
-    for (let i = 1; i < 4; i++) {
-      expect(starts[i]).toBeCloseTo(starts[i - 1]! + widths[i - 1]!, 5);
-    }
-    expect(starts[3]! + widths[3]!).toBeCloseTo(100, 5);
-    expect(screen.getByRole("link", { name: t.seeAllRoutes })).toHaveAttribute(
-      "href",
-      "/routes",
+    [1, 6, 12, 2].forEach((count, index) =>
+      expect(Number(parts[index]!.getAttribute("width"))).toBeCloseTo(
+        (count / 21) * 100,
+        1,
+      ),
     );
   });
 
-  it("leaves out a status at 0 and keeps a tiny share visible", async () => {
+  it("leaves out a stage at 0 and keeps a tiny share visible", async () => {
     serveOverview({
       ...counts,
       routes: {
         ...counts.routes,
-        active: 299,
-        forming: 0,
-        paused: 0,
         draft: 1,
+        forming: 0,
+        active: 299,
+        paused: 0,
       },
     });
     renderWithProviders(<OverviewScreen />);
 
     const bar = await screen.findByRole("img", {
-      name: "All 300 routes: 299 active, 0 forming, 0 paused, 1 draft",
+      name: "All 300 routes: 1 draft, 0 forming, 299 active, 0 paused",
     });
     const parts = Array.from(bar.querySelectorAll("rect[data-part]"));
     expect(parts.map((rect) => rect.getAttribute("data-part"))).toEqual([
-      "active",
       "draft",
+      "active",
     ]);
-    // 1 of 300 is drawn 1% wide, the bar still ends at 100%.
-    const draft = parts[1]!;
-    expect(Number(draft.getAttribute("width"))).toBeGreaterThanOrEqual(0.99);
+    // 1 of 300 is drawn 1% wide; the bar still ends at 100%.
+    expect(Number(parts[0]!.getAttribute("width"))).toBeGreaterThanOrEqual(
+      0.99,
+    );
+    const last = parts[1]!;
     expect(
-      Number(draft.getAttribute("x")) + Number(draft.getAttribute("width")),
+      Number(last.getAttribute("x")) + Number(last.getAttribute("width")),
     ).toBeCloseTo(100, 5);
-  });
-
-  it("says large counts in the bar's words as the tiles show them", async () => {
-    serveOverview({
-      ...counts,
-      routes: {
-        ...counts.routes,
-        active: 1200,
-        forming: 0,
-        paused: 0,
-        draft: 0,
-      },
-    });
-    renderWithProviders(<OverviewScreen />);
-
-    expect(
-      await screen.findByRole("img", {
-        name: "All 1,200 routes: 1,200 active, 0 forming, 0 paused, 0 draft",
-      }),
-    ).toBeVisible();
   });
 
   it("draws an empty bar when there are no routes yet", async () => {
@@ -264,37 +285,92 @@ describe("OverviewScreen", () => {
     expect(bar.querySelectorAll("rect[data-part]")).toHaveLength(0);
   });
 
-  it("shows each rider count's share of all riders, for sight only", async () => {
+  it("groups large counts for reading", async () => {
+    serveOverview({
+      ...counts,
+      routes: { ...counts.routes, active: 1200 },
+    });
+    renderWithProviders(<OverviewScreen />);
+
+    const stages = await screen.findByRole("list", { name: t.routesLabel });
+    expect(within(stages).getAllByRole("link")[2]).toHaveAccessibleName(
+      `${messages.RouteStatus.active} 1,200 routes, ${fill(t.tagNoDriver, { count: 1 })}`,
+    );
+    expect(
+      screen.getByRole("img", {
+        name: "All 1,209 routes: 1 draft, 6 forming, 1,200 active, 2 paused",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: t.routesTitle }),
+    ).toHaveTextContent(fill(t.inAll, { total: 1209 }));
+  });
+
+  it("compares the riders by seat, each bar out of all riders", async () => {
+    serveOverview();
+    renderWithProviders(<OverviewScreen />);
+
+    const rows = await screen.findByRole("list", { name: t.ridersLabel });
+    const row = (label: string) => tile(t.ridersLabel, label);
+    expect(within(rows).getAllByRole("listitem")).toHaveLength(3);
+    expect(row(t.riding)).toHaveTextContent("140");
+    expect(row(t.riding)).toHaveTextContent(t.ridingHint);
+    expect(row(t.starting)).toHaveTextContent("10");
+    expect(row(t.reserved)).toHaveTextContent("24");
+    // The bars are for sight only: the count is written beside each.
+    const width = (label: string) =>
+      Number(
+        row(label)
+          .querySelector("svg[aria-hidden='true'] rect[data-part]")
+          ?.getAttribute("width"),
+      );
+    expect(width(t.riding)).toBeCloseTo((140 / 1180) * 100, 1);
+    expect(width(t.reserved)).toBeCloseTo((24 / 1180) * 100, 1);
+
+    const card = screen.getByRole("region", { name: t.ridersTitle });
+    expect(card).toHaveTextContent(fill(t.inAll, { total: 1180 }));
+    expect(card).toHaveTextContent(fill(t.ridersBarsHint, { total: 1180 }));
+    expect(
+      within(card).getByRole("link", { name: t.allRiders }),
+    ).toHaveAttribute("href", "/riders");
+  });
+
+  it("opens reserved riders; riding today and starting soon open together, as the list holds them", async () => {
     serveOverview();
     renderWithProviders(<OverviewScreen />);
 
     await screen.findByRole("list", { name: t.ridersLabel });
-    const share = (label: string) =>
-      tile(t.ridersLabel, label).querySelector(
-        "svg[aria-hidden='true'] rect[data-part]",
-      );
-    expect(Number(share(t.riding)?.getAttribute("width"))).toBeCloseTo(
-      (140 / 1180) * 100,
-      1,
+    expect(
+      within(tile(t.ridersLabel, t.riding)).queryByRole("link"),
+    ).toBeNull();
+    expect(
+      within(tile(t.ridersLabel, t.starting)).queryByRole("link"),
+    ).toBeNull();
+    expect(
+      within(tile(t.ridersLabel, t.reserved)).getByRole("link"),
+    ).toHaveAttribute("href", "/riders?seat=reserved");
+    expect(screen.getByRole("link", { name: t.seeWithSeat })).toHaveAttribute(
+      "href",
+      "/riders?seat=active",
     );
-    expect(Number(share(t.reserved)?.getAttribute("width"))).toBeCloseTo(
-      (24 / 1180) * 100,
-      1,
-    );
-    expect(share(t.allRiders)).toBeNull();
   });
 
-  it("draws no share bars without riders, and never past the whole", async () => {
+  it("draws no bars without riders, and never past the whole", async () => {
     serveOverview({
       ...counts,
       riders: { total: 0, riding: 0, reserved: 0, starting: 0 },
     });
     const { unmount } = renderWithProviders(<OverviewScreen />);
     const list = await screen.findByRole("list", { name: t.ridersLabel });
+    // No bars out of nothing, and nothing said about them.
     expect(list.querySelectorAll("svg")).toHaveLength(0);
+    expect(
+      screen.getByRole("region", { name: t.ridersTitle }),
+    ).not.toHaveTextContent(fill(t.ridersBarsHint, { total: 0 }));
+    expect(tile(t.ridersLabel, t.riding)).toHaveTextContent("0");
     unmount();
 
-    // Counts that overlap could exceed the total: a share stops at 100%.
+    // Counts that overlap could exceed the total: a bar stops at 100%.
     serveOverview({
       ...counts,
       riders: { total: 10, riding: 12, reserved: 0, starting: 0 },
@@ -305,33 +381,6 @@ describe("OverviewScreen", () => {
       "rect[data-part]",
     );
     expect(Number(riding?.getAttribute("width"))).toBe(100);
-  });
-
-  it("counts riders by seat; riding today and starting soon open together, as the list holds them", async () => {
-    serveOverview();
-    renderWithProviders(<OverviewScreen />);
-
-    await screen.findByRole("list", { name: t.ridersLabel });
-    const riding = tile(t.ridersLabel, t.riding);
-    expect(riding).toHaveTextContent("140");
-    expect(riding).toHaveTextContent(t.ridingHint);
-    expect(within(riding).queryByRole("link")).toBeNull();
-    const starting = tile(t.ridersLabel, t.starting);
-    expect(starting).toHaveTextContent("10");
-    expect(starting).toHaveTextContent(t.startingHint);
-    expect(within(starting).queryByRole("link")).toBeNull();
-    expect(screen.getByRole("link", { name: t.seeWithSeat })).toHaveAttribute(
-      "href",
-      "/riders?seat=active",
-    );
-
-    expect(
-      within(tile(t.ridersLabel, t.reserved)).getByRole("link"),
-    ).toHaveAttribute("href", "/riders?seat=reserved");
-    const all = tile(t.ridersLabel, t.allRiders);
-    // Grouped for reading.
-    expect(all).toHaveTextContent("1,180");
-    expect(within(all).getByRole("link")).toHaveAttribute("href", "/riders");
   });
 
   it("counts open seat offers (no list across routes) and active drivers", async () => {
