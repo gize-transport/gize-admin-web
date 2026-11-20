@@ -254,6 +254,13 @@ The route detail fits one screen (the side panel's Details tab fits a 1440 × 90
 ### GZW-079 · Detail cards with a background · Needs backend: none · Status: done
 Owner feedback 2026-11-20 on GZW-078 ("I like the layout"): the cards were border lines only on the grey page. Built: route cards and tiles get a surface – white with a small shadow on a page, canvas grey in the white side panel (`detailSurface`); the Driver tile spans the row when it's the odd third tile.
 
+### GZW-080 · Overview route stages and rider bars · Needs backend: none · Status: done
+Owner feedback 2026-11-20: they didn't like the Overview's Routes and Riders cards. The cards were boxed 2 × 2 grids with equal weight for a 0, faint share bars, and empty space.
+- Built (all from `overview_get`; no new numbers worked out):
+  - Routes as stages, Draft → Forming → Active, with tags for ready to launch and no driver, Paused apart, and one bar of routes by stage at the foot.
+  - Riders as rows of bars out of all riders.
+  - Seat offers and drivers as a slim row.
+
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.
 

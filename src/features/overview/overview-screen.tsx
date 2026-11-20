@@ -3,7 +3,7 @@
 import {
   ArrowRightIcon,
   BellIcon,
-  IdCardIcon,
+  ChevronRightIcon,
   InboxIcon,
   RocketIcon,
   RouteIcon,
@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { useId, type ReactNode } from "react";
+import { Fragment, useId, type ReactNode } from "react";
 import { NoPermission } from "@/components/no-permission";
 import { PageHeader } from "@/components/page-header";
 import { ProblemAlert } from "@/components/problem-alert";
@@ -98,137 +98,351 @@ export function OverviewScreen() {
   );
 }
 
-const ROUTE_STATUSES = ["active", "forming", "paused", "draft"] as const;
+/** The stages a route moves through, in order; paused sits apart. */
+const STAGES = ["draft", "forming", "active"] as const;
 
-/** Each status's colour, in the bar and on its tile's dot (StatusPill families, told apart). */
-const statusFill: Record<(typeof ROUTE_STATUSES)[number], string> = {
-  active: "fill-success",
-  forming: "fill-sun",
-  paused: "fill-muted",
+/** Each status's colour, in the bar and on its stage's dot (StatusPill families, told apart). */
+const statusFill: Record<(typeof STAGES)[number] | "paused", string> = {
   draft: "fill-blue",
+  forming: "fill-sun",
+  active: "fill-success",
+  paused: "fill-muted",
 };
-const statusDot: Record<(typeof ROUTE_STATUSES)[number], string> = {
-  active: "bg-success",
-  forming: "bg-sun",
-  paused: "bg-muted",
+const statusDot: Record<(typeof STAGES)[number] | "paused", string> = {
   draft: "bg-blue",
+  forming: "bg-sun",
+  active: "bg-success",
+  paused: "bg-muted",
 };
 
 function Counts({ overview }: { overview: Overview }) {
   const t = useTranslations("Overview");
-  const tStatus = useTranslations("RouteStatus");
   // Open route requests are under Needs action, whenever there are any.
-  const { routes, riders, seat_offers, drivers } = overview;
-  const totalRoutes = ROUTE_STATUSES.reduce(
-    (sum, status) => sum + routes[status],
-    0,
-  );
+  const { seat_offers, drivers } = overview;
 
   return (
     <>
       <NeedsAction overview={overview} />
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Section
-          icon={RouteIcon}
-          title={t("routesTitle")}
-          listLabel={t("routesLabel")}
-          action={
-            <Link href="/routes" className={linkClass}>
-              {t("seeAllRoutes")}
-            </Link>
-          }
-          chart={
-            <Bar
-              label={
-                totalRoutes === 0
-                  ? t("noRoutes")
-                  : t("routesBar", { total: totalRoutes, ...routes })
-              }
-              total={totalRoutes}
-              parts={ROUTE_STATUSES.map((status) => ({
-                key: status,
-                value: routes[status],
-                fill: statusFill[status],
-              }))}
-            />
-          }
-        >
-          {ROUTE_STATUSES.map((status) => (
-            <Tile
-              key={status}
-              label={tStatus(
-                status === "forming" ? "formingNoMinimum" : status,
-              )}
-              dot={statusDot[status]}
-              count={routes[status]}
-              href={`/routes?status=${status}`}
-            />
-          ))}
-        </Section>
-
-        <Section
-          icon={UsersIcon}
-          title={t("ridersTitle")}
-          listLabel={t("ridersLabel")}
-          footer={
-            // The riders list's "with a seat" filter holds both: a seat held today or later.
-            <p className="text-table text-muted">
-              {t("seeWithSeatHint")}{" "}
-              <Link href="/riders?seat=active" className={linkClass}>
-                {t("seeWithSeat")}
-              </Link>
-            </p>
-          }
-        >
-          <Tile
-            label={t("riding")}
-            count={riders.riding}
-            hint={t("ridingHint")}
-            share={{ of: riders.total, fill: "fill-success" }}
-          />
-          <Tile
-            label={t("starting")}
-            count={riders.starting}
-            hint={t("startingHint")}
-            share={{ of: riders.total, fill: "fill-blue" }}
-          />
-          <Tile
-            label={t("reserved")}
-            count={riders.reserved}
-            hint={t("reservedHint")}
-            href="/riders?seat=reserved"
-            share={{ of: riders.total, fill: "fill-sun" }}
-          />
-          <Tile
-            label={t("allRiders")}
-            count={riders.total}
-            hint={t("allRidersHint")}
-            href="/riders"
-          />
-        </Section>
+        <RouteStages overview={overview} />
+        <RiderBars overview={overview} />
       </div>
 
-      <Section
-        icon={IdCardIcon}
-        title={t("moreTitle")}
-        listLabel={t("moreLabel")}
-        columns="two"
-      >
-        {/* Offers are listed per route only: no list to open. */}
-        <Tile
-          label={t("openOffers")}
-          count={seat_offers.open}
-          hint={t("openOffersHint")}
-        />
-        <Tile
-          label={t("activeDrivers")}
-          count={drivers.active}
-          hint={t("activeDriversHint")}
-          href="/drivers?is_active=true"
-        />
-      </Section>
+      {/* A slim row of the other counts, under the two cards. */}
+      <div className={cardClass}>
+        <ul
+          aria-label={t("moreLabel")}
+          className="grid gap-px bg-line md:grid-cols-2"
+        >
+          {/* Offers are listed per route only: no list to open. */}
+          <Stat
+            label={t("openOffers")}
+            count={seat_offers.open}
+            hint={t("openOffersHint")}
+          />
+          <Stat
+            label={t("activeDrivers")}
+            count={drivers.active}
+            hint={t("activeDriversHint")}
+            href="/drivers?is_active=true"
+          />
+        </ul>
+      </div>
     </>
+  );
+}
+
+/**
+ * Routes as the stages a route moves through (GZW-080): draft → forming → active, each opening
+ * its routes, with what needs doing at that stage as a tag (only above 0: ready to launch,
+ * without a driver); paused apart, small.
+ */
+function RouteStages({ overview }: { overview: Overview }) {
+  const t = useTranslations("Overview");
+  const tStatus = useTranslations("RouteStatus");
+  const format = useFormatter();
+  const headingId = useId();
+  const { routes } = overview;
+  const total =
+    STAGES.reduce((sum, stage) => sum + routes[stage], 0) + routes.paused;
+  const tags: Partial<Record<(typeof STAGES)[number], ReactNode>> = {};
+  if (routes.ready_to_launch > 0) {
+    tags.forming = (
+      <Tag icon={RocketIcon}>
+        {t("tagReady", { count: routes.ready_to_launch })}
+      </Tag>
+    );
+  }
+  if (routes.active_without_driver > 0) {
+    tags.active = (
+      <Tag icon={UserXIcon}>
+        {t("tagNoDriver", { count: routes.active_without_driver })}
+      </Tag>
+    );
+  }
+  const hints = {
+    draft: t("stageDraftHint"),
+    forming: t("stageFormingHint"),
+    active: t("stageActiveHint"),
+  };
+
+  return (
+    <section
+      aria-labelledby={headingId}
+      className={cn(cardClass, "grid-rows-[auto_1fr] content-stretch")}
+    >
+      <CardHeading
+        id={headingId}
+        icon={RouteIcon}
+        count={t("inAll", { total })}
+        action={
+          <Link href="/routes" className={linkClass}>
+            {t("seeAllRoutes")}
+          </Link>
+        }
+      >
+        {t("routesTitle")}
+      </CardHeading>
+      {/* The bar and Paused at the card's foot (beside the riders card, which can be taller). */}
+      <div className="grid min-w-0 content-between gap-5 px-5 pb-5">
+        <ol
+          aria-label={t("routesLabel")}
+          // Stacked on phones (arrows pointing down), side by side from sm.
+          className="grid min-w-0 gap-1.5 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]"
+        >
+          {STAGES.map((stage, index) => (
+            <Fragment key={stage}>
+              {index > 0 && (
+                <li aria-hidden className="grid place-items-center text-muted">
+                  <ChevronRightIcon className="size-4 max-sm:rotate-90" />
+                </li>
+              )}
+              <li className="grid min-w-0">
+                <Link
+                  href={`/routes?status=${stage}`}
+                  className={cn(
+                    "grid content-start gap-1 rounded-lg border p-3 transition-colors hover:border-royal hover:bg-ice",
+                    // One line on phones: label, count, then the tag or hint.
+                    "max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-3",
+                    tags[stage] ? "border-sun" : "border-line",
+                  )}
+                >
+                  <span className="flex items-center gap-2 text-table text-muted">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "size-2.5 shrink-0 rounded-full",
+                        statusDot[stage],
+                      )}
+                    />
+                    {tStatus(stage === "forming" ? "formingNoMinimum" : stage)}
+                  </span>{" "}
+                  <span className="font-display text-title leading-tight font-semibold text-navy">
+                    {format.number(routes[stage])}
+                  </span>{" "}
+                  {/* "Forming 6 routes, 2 ready to launch": the two numbers apart. */}
+                  <span className="sr-only">
+                    {t("stageCountSpoken", { count: routes[stage] })}
+                  </span>{" "}
+                  {tags[stage] ?? (
+                    <span className="text-meta text-muted">{hints[stage]}</span>
+                  )}
+                </Link>
+              </li>
+            </Fragment>
+          ))}
+        </ol>
+        <div className="grid gap-3">
+          <Bar
+            label={
+              total === 0 ? t("noRoutes") : t("routesBar", { total, ...routes })
+            }
+            total={total}
+            parts={[...STAGES, "paused" as const].map((status) => ({
+              key: status,
+              value: routes[status],
+              fill: statusFill[status],
+            }))}
+          />
+          <Link
+            href="/routes?status=paused"
+            className="flex w-fit items-center gap-2 text-table text-muted underline-offset-4 hover:text-navy hover:underline"
+          >
+            <span
+              aria-hidden
+              className={cn("size-2.5 rounded-full", statusDot.paused)}
+            />
+            {tStatus("paused")}{" "}
+            <span className="font-semibold text-ink tabular-nums">
+              {format.number(routes.paused)}
+            </span>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** What needs doing at a stage, in the "needs action" sun. */
+function Tag({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children: ReactNode;
+}) {
+  return (
+    <span className="inline-flex w-fit items-start gap-1 rounded-md bg-sun px-2 py-1 text-meta leading-snug font-semibold text-navy sm:mt-1">
+      <Icon aria-hidden className="mt-px size-3.5 shrink-0" />
+      {children}
+    </span>
+  );
+}
+
+const RIDER_ROWS = [
+  { key: "riding", fill: "fill-success", hint: "ridingHint" },
+  { key: "starting", fill: "fill-blue", hint: "startingHint" },
+  {
+    key: "reserved",
+    fill: "fill-sun",
+    hint: "reservedHint",
+    href: "/riders?seat=reserved",
+  },
+] as const;
+
+/**
+ * Riders by seat as rows of bars (GZW-080), each bar out of all riders so they compare at a
+ * glance; the count is written beside each (the bars are for sight only).
+ */
+function RiderBars({ overview }: { overview: Overview }) {
+  const t = useTranslations("Overview");
+  const format = useFormatter();
+  const headingId = useId();
+  const { riders } = overview;
+  // No bars out of nothing: with no riders, just the counts (all 0).
+  const bars = riders.total > 0;
+
+  return (
+    <section
+      aria-labelledby={headingId}
+      // The foot stays at the bottom when the routes card beside it is taller.
+      className={cn(cardClass, "grid-rows-[auto_1fr_auto] content-stretch")}
+    >
+      <CardHeading
+        id={headingId}
+        icon={UsersIcon}
+        count={t("inAll", { total: riders.total })}
+        action={
+          <Link href="/riders" className={linkClass}>
+            {t("allRiders")}
+          </Link>
+        }
+      >
+        {t("ridersTitle")}
+      </CardHeading>
+      <ul
+        aria-label={t("ridersLabel")}
+        className="grid content-start px-5 pb-3"
+      >
+        {RIDER_ROWS.map((row) => {
+          const count = riders[row.key];
+          const body = (
+            <>
+              <span className="col-start-1 row-start-1 grid">
+                <span className="text-table font-semibold text-ink">
+                  {t(row.key)}
+                </span>{" "}
+                <span className="text-meta text-muted">{t(row.hint)}</span>
+              </span>{" "}
+              {/* Under the label on phones (the full width), between label and count from sm. */}
+              {bars && (
+                <Bar
+                  total={riders.total}
+                  parts={[
+                    {
+                      key: row.key,
+                      value: Math.min(count, riders.total),
+                      fill: row.fill,
+                    },
+                  ]}
+                  className="col-span-2 col-start-1 row-start-2 sm:col-span-1 sm:col-start-2 sm:row-start-1"
+                />
+              )}{" "}
+              <span className="col-start-2 row-start-1 text-right font-display text-section font-semibold text-navy tabular-nums sm:col-start-3">
+                {format.number(count)}
+              </span>
+            </>
+          );
+          const rowClass =
+            "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 rounded-lg px-2 py-2.5 sm:grid-cols-[minmax(7rem,12rem)_minmax(0,1fr)_auto]";
+          return (
+            <li key={row.key} className="-mx-2 grid">
+              {"href" in row ? (
+                <Link
+                  href={row.href}
+                  className={cn(rowClass, "transition-colors hover:bg-ice")}
+                >
+                  {body}
+                </Link>
+              ) : (
+                <div className={rowClass}>{body}</div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {/* The riders list's "with a seat" filter holds both: a seat held today or later. */}
+      <p className="border-t border-line px-5 py-3 text-table text-muted">
+        {bars && <>{t("ridersBarsHint", { total: riders.total })} </>}
+        {t("seeWithSeatHint")}{" "}
+        <Link href="/riders?seat=active" className={linkClass}>
+          {t("seeWithSeat")}
+        </Link>
+      </p>
+    </section>
+  );
+}
+
+/** One count in the slim row under the cards; a link to its list where there is one. */
+function Stat({
+  label,
+  count,
+  hint,
+  href,
+}: {
+  label: string;
+  count: number;
+  hint: string;
+  href?: string;
+}) {
+  const format = useFormatter();
+  const body = (
+    <>
+      <span className="grid">
+        <span className="text-table font-semibold text-ink">{label}</span>{" "}
+        <span className="text-meta text-muted">{hint}</span>
+      </span>{" "}
+      <span className="font-display text-title leading-tight font-semibold text-navy tabular-nums">
+        {format.number(count)}
+      </span>
+    </>
+  );
+  const className =
+    "flex items-center justify-between gap-4 px-5 py-4 outline-offset-[-3px]";
+  return (
+    <li className="grid bg-surface">
+      {href ? (
+        <Link
+          href={href}
+          className={cn(className, "transition-colors hover:bg-ice")}
+        >
+          {body}
+        </Link>
+      ) : (
+        <div className={className}>{body}</div>
+      )}
+    </li>
   );
 }
 
@@ -342,12 +556,15 @@ function CardHeading({
   id,
   icon: Icon,
   tone = "ice",
+  count,
   action,
   children,
 }: {
   id: string;
   icon: LucideIcon;
   tone?: "ice" | "sun";
+  /** Beside the heading, e.g. "12 in all". */
+  count?: string;
   action?: ReactNode;
   children: ReactNode;
 }) {
@@ -362,57 +579,17 @@ function CardHeading({
       >
         <Icon className="size-[18px]" />
       </span>
-      <h2
-        id={id}
-        className="flex-1 font-display text-section font-semibold text-navy"
-      >
-        {children}
-      </h2>
+      <div className="flex flex-1 flex-wrap items-baseline gap-x-2">
+        <h2
+          id={id}
+          className="font-display text-section font-semibold text-navy"
+        >
+          {children}
+        </h2>
+        {count && <span className="text-table text-muted">{count}</span>}
+      </div>
       {action && <div className="text-table">{action}</div>}
     </div>
-  );
-}
-
-/** A card of counts: heading, an optional chart, the counts (a labelled list) and a footer. */
-function Section({
-  icon,
-  title,
-  listLabel,
-  action,
-  chart,
-  footer,
-  columns = "four",
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  listLabel: string;
-  action?: ReactNode;
-  chart?: ReactNode;
-  footer?: ReactNode;
-  /** "four": 2 × 2 beside another card, a row of four when the card is full width. */
-  columns?: "four" | "two";
-  children: ReactNode;
-}) {
-  const headingId = useId();
-  return (
-    <section aria-labelledby={headingId} className={cardClass}>
-      <CardHeading id={headingId} icon={icon} action={action}>
-        {title}
-      </CardHeading>
-      {chart && <div className="px-5 pb-4">{chart}</div>}
-      {/* 1 px gaps over the line colour draw the dividers between counts. */}
-      <ul
-        aria-label={listLabel}
-        className={cn(
-          "grid grid-cols-2 gap-px border-t border-line bg-line",
-          columns === "four" && "md:grid-cols-4 xl:grid-cols-2",
-        )}
-      >
-        {children}
-      </ul>
-      {footer && <div className="border-t border-line px-5 py-3">{footer}</div>}
-    </section>
   );
 }
 
@@ -489,74 +666,5 @@ function Bar({
         />
       ))}
     </svg>
-  );
-}
-
-/** A count with its label; a link to the list that holds the records, where there is one. */
-function Tile({
-  label,
-  count,
-  hint,
-  href,
-  dot,
-  share,
-}: {
-  label: string;
-  count: number;
-  hint?: string;
-  href?: string;
-  /** The colour that marks it in a chart beside it. */
-  dot?: string;
-  /** Its share of a total, as a small bar (for sight only: the total is a count too). */
-  share?: { of: number; fill: string };
-}) {
-  const format = useFormatter();
-  // Spaces between the parts: a grid hides them, but the link's name needs them ("Active 12").
-  const body = (
-    <>
-      <span className="flex items-center gap-2 text-table text-muted">
-        {dot && (
-          <span aria-hidden className={cn("size-2.5 rounded-full", dot)} />
-        )}
-        {label}
-      </span>{" "}
-      <span className="font-display text-title leading-tight font-semibold text-navy">
-        {format.number(count)}
-      </span>
-      {share && share.of > 0 && (
-        <Bar
-          total={share.of}
-          parts={[
-            {
-              key: "share",
-              value: Math.min(count, share.of),
-              fill: share.fill,
-            },
-          ]}
-          className="h-1.5 max-w-40"
-        />
-      )}
-      {hint && (
-        <>
-          {" "}
-          <span className="text-meta text-muted">{hint}</span>
-        </>
-      )}
-    </>
-  );
-  return (
-    <li className="grid bg-surface">
-      {href ? (
-        <Link
-          href={href}
-          // The ring inside the link: the card clips anything outside it.
-          className="grid content-start gap-1.5 p-5 transition-colors outline-offset-[-3px] hover:bg-ice"
-        >
-          {body}
-        </Link>
-      ) : (
-        <div className="grid content-start gap-1.5 p-5">{body}</div>
-      )}
-    </li>
   );
 }

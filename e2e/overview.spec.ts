@@ -59,17 +59,45 @@ test.describe("overview", () => {
         { exact: true },
       ),
     ).toBeVisible();
-    // The routes bar says in words what it draws: the latest counts the page was given (the
-    // sidebar reads them again too, and other tests change them).
+    // The route stages and their bar show the latest counts the page was given (the sidebar
+    // reads them again too, and other tests change them).
+    const stages = page.getByRole("list", { name: t.routesLabel });
+    const number = (count: number) => count.toLocaleString("en-US");
+    const escape = (text: string) =>
+      text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     await expect(async () => {
-      const { active, forming, paused, draft } = read().routes;
-      const total = active + forming + paused + draft;
-      expect(total).toBeGreaterThan(0);
+      const { draft, forming, active, paused } = read().routes;
+      const total = draft + forming + active + paused;
+      const shown = [
+        [messages.RouteStatus.draft, draft],
+        [messages.RouteStatus.formingNoMinimum, forming],
+        [messages.RouteStatus.active, active],
+      ] as const;
+      for (const [label, count] of shown) {
+        await expect(
+          stages.getByRole("link", {
+            name: new RegExp(
+              `^${escape(label)} ${escape(number(count))} routes?,`,
+            ),
+          }),
+        ).toBeVisible({ timeout: 1_000 });
+      }
+      await expect(
+        page
+          .getByRole("region", { name: t.routesTitle })
+          .getByText(`${number(total)} in all`, { exact: true }),
+      ).toBeVisible({ timeout: 1_000 });
       await expect(
         page.getByRole("img", {
-          name: `All ${total} routes: ${active} active, ${forming} forming, ${paused} paused, ${draft} draft`,
+          name: `All ${number(total)} routes: ${number(draft)} draft, ${number(forming)} forming, ${number(active)} active, ${number(paused)} paused`,
         }),
       ).toBeVisible({ timeout: 1_000 });
+      await expect(
+        page.getByRole("link", {
+          name: `${messages.RouteStatus.paused} ${number(paused)}`,
+          exact: true,
+        }),
+      ).toHaveAttribute("href", "/routes?status=paused");
     }).toPass();
     await expectNoSeriousA11yViolations(page);
 
