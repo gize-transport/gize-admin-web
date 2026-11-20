@@ -1,12 +1,19 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { CopyPlusIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import {
+  ActionsMenu,
+  ActionsMenuItem,
+  ActionsMenuSeparator,
+  CopyLinkItem,
+} from "@/components/detail/actions-menu";
+import { DetailHeader } from "@/components/detail/detail-header";
+import {
   DetailFrame,
-  DetailHeading,
   Fact,
   Facts,
   isNotFound,
@@ -90,7 +97,7 @@ export function RouteDetail({
 
 function Loaded({
   route,
-  layout: { variant, headingId, SectionHeading, backLink },
+  layout,
   onDeleted,
   onOpenRoute,
 }: {
@@ -100,6 +107,7 @@ function Loaded({
   onOpenRoute?: (id: string) => void;
 }) {
   const t = useTranslations("Routes");
+  const { variant, SectionHeading } = layout;
   const { date } = useTimestampFormat();
   const [formKey, setFormKey] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -115,21 +123,60 @@ function Loaded({
 
   return (
     <>
-      <div className="grid gap-2">
-        {backLink}
-        <div className="flex flex-wrap items-center gap-3">
-          <DetailHeading id={headingId} variant={variant}>
-            <span className="font-mono">{route.code}</span>
-          </DetailHeading>
-          <RouteStatusPill route={route} />
-        </div>
-      </div>
+      <DetailHeader
+        layout={layout}
+        title={<span className="font-mono">{route.code}</span>}
+        status={<RouteStatusPill route={route} />}
+        summary={
+          <>
+            <RouteCorridor corridor={route.corridor} />
+            {" · "}
+            {typeLabel(route, t)}
+            {" · "}
+            {t("addedOn", { date: date(route.created_at) })}
+          </>
+        }
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setFormKey((key) => (key ?? 0) + 1);
+              setFormOpen(true);
+            }}
+          >
+            <PencilIcon aria-hidden />
+            {t("edit")}
+          </Button>
+        }
+        menu={
+          <ActionsMenu name={route.code}>
+            <ActionsMenuItem
+              icon={<CopyPlusIcon aria-hidden />}
+              onSelect={() => {
+                setVanKey((key) => (key ?? 0) + 1);
+                setVanOpen(true);
+              }}
+            >
+              {t("addVan")}
+            </ActionsMenuItem>
+            <CopyLinkItem path={`/routes/${route.id}`} />
+            {isAdmin && (
+              <>
+                <ActionsMenuSeparator />
+                <ActionsMenuItem
+                  tone="danger"
+                  icon={<Trash2Icon aria-hidden />}
+                  onSelect={() => setDeleting(true)}
+                >
+                  {t("deleteRoute")}
+                </ActionsMenuItem>
+              </>
+            )}
+          </ActionsMenu>
+        }
+      />
 
       <Facts label={t("detailLabel")} variant={variant}>
-        <Fact label={t("corridor")}>
-          <RouteCorridor corridor={route.corridor} />
-        </Fact>
-        <Fact label={t("type")}>{typeLabel(route, t)}</Fact>
         {route.school_name !== null && (
           <Fact label={t("school")}>{route.school_name}</Fact>
         )}
@@ -199,7 +246,6 @@ function Loaded({
         <Fact label={t("driver")}>
           <RouteDriver route={route} />
         </Fact>
-        <Fact label={t("added")}>{date(route.created_at)}</Fact>
       </Facts>
 
       <section className="grid gap-3">
@@ -244,43 +290,6 @@ function Loaded({
           headingClass={sectionHeading}
         />
       )}
-
-      <section className="grid gap-4 border-t border-line pt-5">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setFormKey((key) => (key ?? 0) + 1);
-              setFormOpen(true);
-            }}
-          >
-            {t("edit")}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setVanKey((key) => (key ?? 0) + 1);
-              setVanOpen(true);
-            }}
-          >
-            {t("addVan")}
-          </Button>
-        </div>
-        {isAdmin && (
-          <div className="grid gap-2 border-t border-line pt-4">
-            <SectionHeading className="text-table font-semibold text-danger">
-              {t("deleteSection")}
-            </SectionHeading>
-            <Button
-              variant="destructive"
-              className="w-fit"
-              onClick={() => setDeleting(true)}
-            >
-              {t("deleteRoute")}
-            </Button>
-          </div>
-        )}
-      </section>
 
       {vanKey !== null && (
         <RouteVanDialog

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
 import { signIn } from "./support/auth";
+import { actionItems, actionsButton, chooseAction } from "./support/actions";
 
 const t = messages.Staff;
 
@@ -43,30 +44,31 @@ test.describe("staff accounts", () => {
     await expect(details.getByText(`e2e.${id}@gize.test`)).toBeVisible();
     await expect(details.getByText(t.statusPendingNote)).toBeVisible();
 
-    await details.getByRole("button", { name: t.makeAdmin }).click();
+    await chooseAction(page, details, t.makeAdmin);
     await page
       .getByRole("alertdialog", { name: fill(t.makeAdminTitle, { name }) })
       .getByRole("button", { name: t.makeAdmin })
       .click();
     await expect(page.getByText(t.roleChanged)).toBeVisible();
-    await expect(
-      details.getByRole("button", { name: t.makeStaff }),
-    ).toBeFocused();
+    // Focus is back on the menu, which now offers the other way.
+    await expect(actionsButton(details)).toBeFocused();
+    expect(await actionItems(page, details)).toContain(t.makeStaff);
 
-    await details.getByRole("button", { name: t.deactivate }).click();
+    await chooseAction(page, details, t.deactivate);
     await page
       .getByRole("alertdialog", { name: fill(t.deactivateTitle, { name }) })
       .getByRole("button", { name: t.deactivate })
       .click();
-    const reactivate = details.getByRole("button", { name: t.reactivate });
-    await expect(reactivate).toBeFocused();
-    // Just after the confirmation, the button ignores a repeated key press; then it works.
-    await page.waitForTimeout(900);
-    await reactivate.click();
+    // Focus is back on the menu; Reactivate shows beside Edit name.
+    await expect(actionsButton(details)).toBeFocused();
+    await details.getByRole("button", { name: t.reactivate }).click();
     await expect(page.getByText(t.reactivated)).toBeVisible();
+    // Reactivate goes away with the change: focus moves to the menu, which offers Deactivate.
     await expect(
-      details.getByRole("button", { name: t.deactivate }),
-    ).toBeVisible();
+      details.getByRole("button", { name: t.reactivate }),
+    ).toHaveCount(0);
+    await expect(actionsButton(details)).toBeFocused();
+    expect(await actionItems(page, details)).toContain(t.deactivate);
   });
 
   test("an invite to an email already used explains why, offering to reactivate a former member", async ({

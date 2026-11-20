@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
 import { chooseFilter } from "./support/filters";
 import { signIn } from "./support/auth";
+import { actionItems, chooseAction } from "./support/actions";
 
 const t = messages.Companies;
 
@@ -120,7 +121,7 @@ test.describe("companies", () => {
     await signIn(page, "staff", "/sign-in?next=%2Fcompanies");
     const brewery = await openCompany(page, "Addis Brewery");
     await expect(brewery.getByText("R-21")).toBeVisible();
-    await brewery.getByRole("button", { name: t.deactivate }).click();
+    await chooseAction(page, brewery, t.deactivate);
     const refuse = page.getByRole("alertdialog");
     await refuse.getByRole("button", { name: t.deactivate }).click();
     await expect(refuse.getByText(t.inUseDeactivate)).toBeVisible();
@@ -129,7 +130,7 @@ test.describe("companies", () => {
     await page.goto("/companies");
     const name = await addCompany(page);
     const details = await openCompany(page, name);
-    await details.getByRole("button", { name: t.deactivate }).click();
+    await chooseAction(page, details, t.deactivate);
     await page
       .getByRole("alertdialog", { name: fill(t.deactivateTitle, { name }) })
       .getByRole("button", { name: t.deactivate })
@@ -199,7 +200,7 @@ test.describe("companies", () => {
     await signIn(page, "admin", "/sign-in?next=%2Fcompanies");
     const name = await addCompany(page);
     const details = await openCompany(page, name);
-    await details.getByRole("button", { name: t.delete }).click();
+    await chooseAction(page, details, t.delete);
     await page
       .getByRole("alertdialog", { name: fill(t.deleteTitle, { name }) })
       .getByRole("button", { name: t.delete })
@@ -210,7 +211,7 @@ test.describe("companies", () => {
 
     await page.goto("/companies");
     const brewery = await openCompany(page, "Addis Brewery");
-    await brewery.getByRole("button", { name: t.delete }).click();
+    await chooseAction(page, brewery, t.delete);
     const refuse = page.getByRole("alertdialog");
     await refuse.getByRole("button", { name: t.delete }).click();
     await expect(refuse.getByText(t.inUseDelete)).toBeVisible();
@@ -221,8 +222,6 @@ test.describe("companies", () => {
     const details = await openCompany(page, "Abyssinia Textiles");
     await expect(details.getByRole("button", { name: t.edit })).toBeVisible();
 
-    await expect(details.getByRole("button", { name: t.delete })).toHaveCount(
-      0,
-    );
+    expect(await actionItems(page, details)).not.toContain(t.delete);
   });
 });

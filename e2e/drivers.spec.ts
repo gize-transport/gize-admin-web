@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
 import { signIn } from "./support/auth";
 import { expectNoSeriousA11yViolations } from "./support/axe";
+import { actionItems, chooseAction } from "./support/actions";
 
 const t = messages.Drivers;
 
@@ -95,7 +96,7 @@ test.describe("drivers", () => {
 
     // Deactivated, then back. Buttons after a toast are pressed by keyboard: on phones the
     // toast can sit over them.
-    await driver.getByRole("button", { name: t.deactivate }).press("Enter");
+    await chooseAction(page, driver, t.deactivate, { keyboard: true });
     await page
       .getByRole("alertdialog", {
         name: fill(t.deactivateTitle, { name: who.name }),
@@ -143,7 +144,7 @@ test.describe("drivers", () => {
     await expect(
       bereket.getByRole("link", { name: "B-07", exact: true }),
     ).toBeVisible();
-    await bereket.getByRole("button", { name: t.deactivate }).click();
+    await chooseAction(page, bereket, t.deactivate);
     const confirm = page.getByRole("alertdialog", {
       name: fill(t.deactivateTitle, { name: "Bereket Tolosa" }),
     });
@@ -167,7 +168,7 @@ test.describe("drivers", () => {
     await addDriver(page, who);
     const driver = await opened(page, who.name);
 
-    await driver.getByRole("button", { name: t.delete }).press("Enter");
+    await chooseAction(page, driver, t.delete, { keyboard: true });
     await page
       .getByRole("alertdialog", {
         name: fill(t.deleteTitle, { name: who.name }),
@@ -190,6 +191,6 @@ test.describe("drivers", () => {
     );
     const fikru = page.getByRole("article", { name: "Fikru Hailu" });
     await expect(fikru.getByRole("button", { name: t.edit })).toBeVisible();
-    await expect(fikru.getByRole("button", { name: t.delete })).toHaveCount(0);
+    expect(await actionItems(page, fikru)).not.toContain(t.delete);
   });
 });

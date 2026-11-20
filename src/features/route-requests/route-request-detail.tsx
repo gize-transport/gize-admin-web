@@ -1,13 +1,20 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { PencilIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
+  ActionsMenu,
+  ActionsMenuItem,
+  ActionsMenuSeparator,
+  CopyLinkItem,
+} from "@/components/detail/actions-menu";
+import { DetailHeader } from "@/components/detail/detail-header";
+import {
   DetailFrame,
-  DetailHeading,
   Fact,
   Facts,
   type DetailLayout,
@@ -77,7 +84,7 @@ export function RouteRequestDetail({
 
 function Loaded({
   request,
-  layout: { variant, headingId, SectionHeading, backLink },
+  layout,
   onDeleted,
 }: {
   request: RouteRequestRead;
@@ -85,6 +92,7 @@ function Loaded({
   onDeleted?: () => void;
 }) {
   const t = useTranslations("RouteRequests");
+  const { variant, SectionHeading } = layout;
   const { date } = useTimestampFormat();
   const [formKey, setFormKey] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -97,15 +105,40 @@ function Loaded({
 
   return (
     <>
-      <div className="grid gap-2">
-        {backLink}
-        <div className="flex flex-wrap items-center gap-3">
-          <DetailHeading id={headingId} variant={variant}>
-            {request.rider_name}
-          </DetailHeading>
-          <RequestStatusPill request={request} />
-        </div>
-      </div>
+      <DetailHeader
+        layout={layout}
+        title={request.rider_name}
+        status={<RequestStatusPill request={request} />}
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setFormKey((key) => (key ?? 0) + 1);
+              setFormOpen(true);
+            }}
+          >
+            <PencilIcon aria-hidden />
+            {t("edit")}
+          </Button>
+        }
+        menu={
+          <ActionsMenu name={request.rider_name}>
+            <CopyLinkItem path={`/route-requests/${request.id}`} />
+            {isAdmin && (
+              <>
+                <ActionsMenuSeparator />
+                <ActionsMenuItem
+                  tone="danger"
+                  icon={<Trash2Icon aria-hidden />}
+                  onSelect={() => setDeleting(true)}
+                >
+                  {t("deleteRequest")}
+                </ActionsMenuItem>
+              </>
+            )}
+          </ActionsMenu>
+        }
+      />
 
       <Facts label={t("detailLabel")} variant={variant}>
         <Fact label={t("asked")}>
@@ -168,33 +201,6 @@ function Loaded({
           {t("nextSteps")}
         </SectionHeading>
         <RequestActions request={request} />
-      </section>
-
-      <section className="grid gap-4 border-t border-line pt-5">
-        <Button
-          variant="secondary"
-          className="w-fit"
-          onClick={() => {
-            setFormKey((key) => (key ?? 0) + 1);
-            setFormOpen(true);
-          }}
-        >
-          {t("edit")}
-        </Button>
-        {isAdmin && (
-          <div className="grid gap-2 border-t border-line pt-4">
-            <SectionHeading className="text-table font-semibold text-danger">
-              {t("deleteSection")}
-            </SectionHeading>
-            <Button
-              variant="destructive"
-              className="w-fit"
-              onClick={() => setDeleting(true)}
-            >
-              {t("deleteRequest")}
-            </Button>
-          </div>
-        )}
       </section>
 
       <DeleteRequestDialog

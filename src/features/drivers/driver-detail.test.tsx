@@ -5,6 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server, type Schemas } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import {
+  actionItems,
+  actionsButton,
+  chooseAction,
+} from "../../../tests/utils/actions";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { currentStaffQueryKey } from "@/lib/auth/use-current-staff";
 import { route } from "../routes/test-support";
@@ -74,6 +79,8 @@ function servePatch(found: Schemas["DriverRead"]) {
     http.patch(apiUrl("/v1/drivers/{driver_id}"), async ({ request }) => {
       const change = (await request.json()) as Schemas["DriverUpdate"];
       sent.push(change);
+      // Read again afterwards: changed.
+      serveDriver({ ...found, ...change });
       return HttpResponse.json<Schemas["DriverRead"]>({ ...found, ...change });
     }),
   );
@@ -94,7 +101,8 @@ describe("DriverDetail", () => {
     expect(fact(t.phone)).toHaveTextContent("+251911000202");
     expect(fact(t.address)).toHaveTextContent("Megenagna");
     expect(fact(t.plate)).toHaveTextContent("AA 3-B12342");
-    expect(fact(t.status)).toHaveTextContent(t.inactive);
+    // The status sits beside the name.
+    expect(screen.getByText(t.inactive)).toBeVisible();
     expect(fact(t.added)).toHaveTextContent("Nov 5, 2026");
     expect(fact(t.updated)).toHaveTextContent("Nov 8, 2026");
     await waitFor(() => expect(fact(t.routes)).toHaveTextContent(t.routesNone));
@@ -188,7 +196,7 @@ describe("DriverDetail", () => {
     const user = userEvent.setup();
     renderDetail(bereket);
 
-    await user.click(await screen.findByRole("button", { name: t.deactivate }));
+    await chooseAction(user, t.deactivate);
     const dialog = await screen.findByRole("alertdialog", {
       name: fill(t.deactivateTitle, { name: "Bereket Tolosa" }),
     });
@@ -220,7 +228,7 @@ describe("DriverDetail", () => {
     const user = userEvent.setup();
     renderDetail(bereket);
 
-    await user.click(await screen.findByRole("button", { name: t.deactivate }));
+    await chooseAction(user, t.deactivate);
     const dialog = await screen.findByRole("alertdialog");
     given = true;
     await user.click(
@@ -251,7 +259,7 @@ describe("DriverDetail", () => {
     expect(
       await screen.findByRole("button", { name: t.reactivate }),
     ).toBeVisible();
-    expect(screen.queryByRole("button", { name: t.deactivate })).toBeNull();
+    expect(await actionItems(user)).not.toContain(t.deactivate);
     await user.click(screen.getByRole("button", { name: t.reactivate }));
     const dialog = await screen.findByRole("alertdialog", {
       name: fill(t.reactivateTitle, { name: "Sara Mohammed" }),
@@ -262,6 +270,10 @@ describe("DriverDetail", () => {
 
     await waitFor(() => expect(toast).toHaveBeenCalledWith(t.reactivatedToast));
     expect(sent).toEqual([{ is_active: true }]);
+    // Its button goes away: focus moves to the actions beside it.
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(screen.queryByRole("button", { name: t.reactivate })).toBeNull();
+    expect(actionsButton()).toHaveFocus();
   });
 
   it("keeps a status change disabled until Retry-After has passed", async () => {
@@ -276,7 +288,7 @@ describe("DriverDetail", () => {
     const user = userEvent.setup();
     renderDetail(bereket);
 
-    await user.click(await screen.findByRole("button", { name: t.deactivate }));
+    await chooseAction(user, t.deactivate);
     const dialog = await screen.findByRole("alertdialog");
     await user.click(
       within(dialog).getByRole("button", { name: t.deactivate }),
@@ -287,17 +299,27 @@ describe("DriverDetail", () => {
     ).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("offers Delete to admins only", async () => {
-    serveDriver(bereket);
-    const { queryClient } = renderDetail(bereket);
-    await screen.findByRole("heading", { name: "Bereket Tolosa" });
-    await waitFor(() =>
-      expect(queryClient.getQueryState(currentStaffQueryKey)?.status).toBe(
-        "success",
-      ),
-    );
+  it("keeps Edit beside the name and the rest in its menu; Delete for admins only", async () => {
+    for (const [role, items] of [
+      ["staff", [t.deactivate, messages.Detail.copyLink]],
+      ["admin", [t.deactivate, messages.Detail.copyLink, t.delete]],
+    ] as const) {
+      serveRole(role);
+      serveDriver(bereket);
+      const user = userEvent.setup();
+      const { queryClient, unmount } = renderDetail(bereket);
+      await screen.findByRole("heading", { name: "Bereket Tolosa" });
+      await waitFor(() =>
+        expect(queryClient.getQueryState(currentStaffQueryKey)?.status).toBe(
+          "success",
+        ),
+      );
 
-    expect(screen.queryByRole("button", { name: t.delete })).toBeNull();
+      expect(screen.getByRole("button", { name: t.edit })).toBeVisible();
+      expect(await actionItems(user)).toEqual(items);
+      expect(screen.queryByRole("button", { name: t.delete })).toBeNull();
+      unmount();
+    }
   });
 
   it("lets an admin delete the driver, then hands back to the list", async () => {
@@ -314,7 +336,7 @@ describe("DriverDetail", () => {
     const user = userEvent.setup();
     renderDetail(bereket, { onDeleted });
 
-    await user.click(await screen.findByRole("button", { name: t.delete }));
+    await chooseAction(user, t.delete);
     const dialog = await screen.findByRole("alertdialog", {
       name: fill(t.deleteTitle, { name: "Bereket Tolosa" }),
     });
@@ -337,7 +359,7 @@ describe("DriverDetail", () => {
     const user = userEvent.setup();
     renderDetail(bereket);
 
-    await user.click(await screen.findByRole("button", { name: t.delete }));
+    await chooseAction(user, t.delete);
     const dialog = await screen.findByRole("alertdialog");
     await user.click(within(dialog).getByRole("button", { name: t.delete }));
 
@@ -365,7 +387,7 @@ describe("DriverDetail", () => {
     const user = userEvent.setup();
     renderDetail(bereket);
 
-    await user.click(await screen.findByRole("button", { name: t.delete }));
+    await chooseAction(user, t.delete);
     const dialog = await screen.findByRole("alertdialog");
     await user.click(within(dialog).getByRole("button", { name: t.delete }));
 
@@ -386,7 +408,7 @@ describe("DriverDetail", () => {
     const user = userEvent.setup();
     renderDetail(bereket);
 
-    await user.click(await screen.findByRole("button", { name: t.delete }));
+    await chooseAction(user, t.delete);
     const dialog = await screen.findByRole("alertdialog");
     await user.click(within(dialog).getByRole("button", { name: t.delete }));
 

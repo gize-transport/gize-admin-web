@@ -238,6 +238,13 @@ Visual refresh, part 3, from `overview_get` only (nothing new asked of the API).
 Owner feedback 2026-11-20 on the Routes filters ("too much button noise, placement and alignment issues"), with Nextcloud's files toolbar as the reference for placement and space.
 - Built: every list's search, filters, Clear filters and main action in one toolbar row (`ListToolbar`); chips replaced by `FilterMenu` dropdowns showing the choice ("Status: Forming"); pickers and the corridor pair as compact buttons (`toolbarLabel`, `CorridorField toolbar`); search hints shown under the box while it has focus. Page headers on lists are now just the title and description. Same URL params as before, so links and Back are unchanged. `FilterChips` removed.
 
+### GZW-077 · Detail header and actions menu · Needs backend: none · Status: done
+Owner feedback 2026-11-20: a route's details are long, and Edit, Add a van and Delete sat at the very bottom (the route panel was about two screens tall at 1440 × 900).
+- Built: one header for all six details (`DetailHeader`): "← All …" on a page, then a row pinned to the top while the record scrolls (name, status, Edit, the "⋯" menu and in a panel the close button), then a summary line. `ActionsMenu` holds the record's other actions (Add a van, Deactivate, Make admin/staff, Copy link; Delete in red after a divider, admins only); an item's action runs once the menu has closed, so its dialog returns focus to "⋯". An inactive company, driver or staff member shows Reactivate beside Edit; when it goes away focus moves to "⋯". Seat, status and driver actions stay beside what they change. The rider's "holds a seat" note moved into the delete confirmation; company and driver status moved from the facts to the header.
+
+### GZW-078 · Route detail tabs and summary tiles · Needs backend: none · Status: todo
+The route detail fits one screen: tiles under the header (seats this month and next, riders to launch while forming, driver), then tabs – Details (schedule, areas served, prices, driver, each card with its own edit), Status and launch (moves with their reasons, launch texts; "Ready" badge from the API), Seat offers (public routes). The tab is kept in the URL (`tab=`), kept when another route opens, cleared when the panel closes.
+
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.
 

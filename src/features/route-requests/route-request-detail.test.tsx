@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server, type Schemas } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import { actionItems, chooseAction } from "../../../tests/utils/actions";
 import { renderWithProviders } from "../../../tests/utils/render";
 import {
   fill,
@@ -334,11 +335,10 @@ describe("RouteRequestDetail", () => {
 
   it("lets an admin delete a request; staff see no Delete", async () => {
     const { unmount } = await renderPage(newAreas);
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: t.deleteRequest }),
-      ).toBeNull(),
-    );
+    expect(screen.getByRole("button", { name: t.edit })).toBeVisible();
+    expect(await actionItems(userEvent.setup())).toEqual([
+      messages.Detail.copyLink,
+    ]);
     unmount();
 
     serveRole("admin");
@@ -359,9 +359,7 @@ describe("RouteRequestDetail", () => {
         onDeleted={onDeleted}
       />,
     );
-    await user.click(
-      await screen.findByRole("button", { name: t.deleteRequest }),
-    );
+    await chooseAction(user, t.deleteRequest);
     const confirm = await screen.findByRole("alertdialog", {
       name: t.deleteTitle,
     });

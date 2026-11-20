@@ -49,6 +49,8 @@ export type DetailLayout = {
   SectionHeading: ElementType;
   /** "← All …" on a page (put it just above the name); null in a panel. */
   backLink: ReactNode;
+  /** The panel's close button (DetailHeader puts it after the record's buttons); null on a page. */
+  closeButton: ReactNode;
 };
 
 type DetailFrameProps<TData> = {
@@ -109,6 +111,19 @@ export function DetailFrame<TData>({
     }
   }, [notFound]);
 
+  const closeButton =
+    variant === "panel" ? (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="size-9 px-0"
+        onClick={onClose}
+      >
+        <XIcon aria-hidden />
+        <span className="sr-only">{labels.close}</span>
+      </Button>
+    ) : null;
+
   let content: ReactNode;
   if (query.isPending) {
     content = (
@@ -121,7 +136,7 @@ export function DetailFrame<TData>({
     content = <NoPermission />;
   } else if (notFound) {
     content = (
-      <div className="grid gap-2">
+      <div className={cn("grid gap-2", variant === "panel" && "pr-10")}>
         <DetailHeading id={headingId} variant={variant} ref={notFoundRef}>
           {labels.notFoundTitle}
         </DetailHeading>
@@ -157,6 +172,7 @@ export function DetailFrame<TData>({
         variant === "page" ? (
           <BackLink href={listHref}>{labels.backToList}</BackLink>
         ) : null,
+      closeButton,
     });
   }
 
@@ -168,22 +184,17 @@ export function DetailFrame<TData>({
     );
   }
   return (
-    // A named region beside the list (an <aside> inside <main> isn't a top-level landmark).
+    // A named region beside the list (an <aside> inside <main> isn't a top-level landmark). The list
+    // keeps it in view (sticky); a record taller than the screen scrolls inside it, under its
+    // pinned header (GZW-077).
     <section
       ref={panelRef}
       tabIndex={-1}
       aria-labelledby={headingId}
-      className="relative grid content-start gap-6 rounded-xl bg-surface p-6 shadow-sm ring-1 ring-line outline-none"
+      className="relative grid content-start gap-6 rounded-xl bg-surface p-6 shadow-sm ring-1 ring-line outline-none xl:max-h-[calc(100dvh-3rem)] xl:overflow-y-auto xl:overscroll-contain"
     >
-      <Button
-        variant="ghost"
-        size="sm"
-        className="absolute top-4 right-4 size-9 px-0"
-        onClick={onClose}
-      >
-        <XIcon aria-hidden />
-        <span className="sr-only">{labels.close}</span>
-      </Button>
+      {/* A loaded record's header (DetailHeader) holds it; until then it sits in the corner. */}
+      {!loaded && <div className="absolute top-4 right-4">{closeButton}</div>}
       {content}
     </section>
   );
@@ -211,7 +222,7 @@ export function DetailHeading({
       id={id}
       ref={ref}
       tabIndex={-1}
-      className={cn(className, "pr-10 text-section")}
+      className={cn(className, "text-section")}
     >
       {children}
     </h2>

@@ -5,6 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server, type Schemas } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import {
+  actionItems,
+  actionsButton,
+  chooseAction,
+} from "../../../tests/utils/actions";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { currentStaffQueryKey } from "@/lib/auth/use-current-staff";
 import { focusDetailWhenOpened } from "@/components/detail/detail-frame";
@@ -43,6 +48,13 @@ beforeEach(() => {
   servePlaces();
 });
 
+/** The line under the route's code: corridor, type and when it was added. */
+function summary() {
+  const element = document.querySelector("[data-slot='detail-summary']");
+  if (!element) throw new Error("no summary");
+  return element;
+}
+
 function fact(label: string) {
   const facts = screen.getByRole("group", { name: t.detailLabel });
   return within(facts).getByText(label, { selector: "dt" }).nextElementSibling;
@@ -56,8 +68,9 @@ describe("RouteDetail", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "B-01" }),
     ).toBeVisible();
-    expect(fact(t.corridor)).toHaveTextContent(/Bole.*Piassa/);
-    expect(fact(t.type)).toHaveTextContent(t.typePublic);
+    expect(summary()).toHaveTextContent(
+      /Bole.*Piassa · Public · added Nov 1, 2026/,
+    );
     expect(fact(t.morningRun)).toHaveTextContent(
       fill(t.run, {
         from: "Bole",
@@ -285,9 +298,8 @@ describe("RouteDetail", () => {
       <RouteDetail routeId={draft.id} variant="page" onDeleted={onDeleted} />,
     );
 
-    await user.click(
-      await screen.findByRole("button", { name: t.deleteRoute }),
-    );
+    await screen.findByRole("heading", { name: "B-03" });
+    await chooseAction(user, t.deleteRoute);
     const dialog = await screen.findByRole("alertdialog", {
       name: fill(t.deleteTitle, { code: "B-03" }),
     });
@@ -328,9 +340,8 @@ describe("RouteDetail", () => {
       const { unmount } = renderWithProviders(
         <RouteDetail routeId={forming.id} variant="page" />,
       );
-      await user.click(
-        await screen.findByRole("button", { name: t.deleteRoute }),
-      );
+      await screen.findByRole("heading", { name: "B-01" });
+      await chooseAction(user, t.deleteRoute);
       const dialog = await screen.findByRole("alertdialog");
       await user.click(
         within(dialog).getByRole("button", { name: t.deleteRoute }),
@@ -341,19 +352,34 @@ describe("RouteDetail", () => {
     }
   });
 
-  it("offers Delete to admins only", async () => {
-    serveRoute(forming);
-    const { queryClient } = renderWithProviders(
-      <RouteDetail routeId={forming.id} variant="page" />,
-    );
-    await screen.findByRole("heading", { name: "B-01" });
-    await waitFor(() =>
-      expect(queryClient.getQueryState(currentStaffQueryKey)?.status).toBe(
-        "success",
-      ),
-    );
+  it("keeps Edit beside the code and the rest in its menu; Delete for admins only", async () => {
+    for (const [role, items] of [
+      ["staff", [t.addVan, messages.Detail.copyLink]],
+      ["admin", [t.addVan, messages.Detail.copyLink, t.deleteRoute]],
+    ] as const) {
+      serveRole(role);
+      serveRoute(forming);
+      const user = userEvent.setup();
+      const { queryClient, unmount } = renderWithProviders(
+        <RouteDetail routeId={forming.id} variant="page" />,
+      );
+      await screen.findByRole("heading", { name: "B-01" });
+      await waitFor(() =>
+        expect(queryClient.getQueryState(currentStaffQueryKey)?.status).toBe(
+          "success",
+        ),
+      );
 
-    expect(screen.queryByRole("button", { name: t.deleteRoute })).toBeNull();
+      expect(screen.getByRole("button", { name: t.edit })).toBeVisible();
+      expect(actionsButton()).toHaveAccessibleName(
+        fill(messages.Detail.actions, { name: "B-01" }),
+      );
+      expect(await actionItems(user)).toEqual(items);
+      // Nothing of these at the bottom any more.
+      expect(screen.queryByRole("button", { name: t.addVan })).toBeNull();
+      expect(screen.queryByRole("button", { name: t.deleteRoute })).toBeNull();
+      unmount();
+    }
   });
   it("keeps the launch a launch while the route updates, and confirms it", async () => {
     // A move's answer updates the route (its status), and the lists refetch: the open dialog must
@@ -450,9 +476,8 @@ describe("RouteDetail", () => {
     const user = userEvent.setup();
     renderWithProviders(<RouteDetail routeId={forming.id} variant="page" />);
 
-    await user.click(
-      await screen.findByRole("button", { name: t.deleteRoute }),
-    );
+    await screen.findByRole("heading", { name: "B-01" });
+    await chooseAction(user, t.deleteRoute);
     const dialog = await screen.findByRole("alertdialog");
     const confirm = within(dialog).getByRole("button", { name: t.deleteRoute });
     await user.click(confirm);
@@ -483,7 +508,8 @@ describe("RouteDetail", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("button", { name: t.addVan }));
+    await screen.findByRole("heading", { name: "B-01" });
+    await chooseAction(user, t.addVan);
     const dialog = await screen.findByRole("dialog", {
       name: fill(t.vanTitle, { code: "B-01" }),
     });
@@ -493,7 +519,7 @@ describe("RouteDetail", () => {
     await waitFor(() => expect(onOpenRoute).toHaveBeenCalledWith(van.id));
     // The dialog doesn't take focus back to this route: the new one takes it.
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByRole("button", { name: t.addVan })).not.toHaveFocus();
+    expect(actionsButton()).not.toHaveFocus();
   });
 
   it("focuses the name of a route opened from another once it's shown", async () => {

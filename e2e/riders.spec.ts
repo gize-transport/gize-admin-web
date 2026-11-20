@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
 import { signIn } from "./support/auth";
+import { actionItems, chooseAction } from "./support/actions";
 
 const t = messages.Riders;
 
@@ -158,11 +159,12 @@ test.describe("riders", () => {
   }, testInfo) => {
     await signIn(page, "admin", `/sign-in?next=%2Friders%2F${ABEL}`);
     const abel = page.getByRole("article", { name: "Abel Tesfaye" });
-    await expect(
-      abel.getByText(fill(t.deleteHasSeat, { code: "B-07" })),
-    ).toBeVisible();
-    await abel.getByRole("button", { name: t.deleteRider }).click();
+    await chooseAction(page, abel, t.deleteRider);
     const refuse = page.getByRole("alertdialog", { name: t.deleteTitle });
+    // Said in the confirmation, before trying.
+    await expect(
+      refuse.getByText(fill(t.deleteHasSeat, { code: "B-07" })),
+    ).toBeVisible();
     await refuse.getByRole("button", { name: t.deleteRider }).click();
     await expect(refuse.getByText(t.deleteRefusedSeat)).toBeVisible();
     await refuse.getByRole("button", { name: messages.Common.cancel }).click();
@@ -175,7 +177,7 @@ test.describe("riders", () => {
     const table = page.getByRole("table", { name: t.tableLabel });
     await table.getByRole("link", { name, exact: true }).click();
     const details = await opened(page, name);
-    await details.getByRole("button", { name: t.deleteRider }).click();
+    await chooseAction(page, details, t.deleteRider);
     const confirm = page.getByRole("alertdialog", { name: t.deleteTitle });
     await confirm.getByRole("button", { name: t.deleteRider }).click();
     await expect(page.getByText(t.deleted)).toBeVisible();
@@ -194,9 +196,7 @@ test.describe("riders", () => {
     const abel = page.getByRole("article", { name: "Abel Tesfaye" });
     await expect(abel.getByText("+251911000412")).toBeVisible();
     await expect(abel.getByRole("button", { name: t.edit })).toBeVisible();
-    await expect(abel.getByRole("button", { name: t.deleteRider })).toHaveCount(
-      0,
-    );
+    expect(await actionItems(page, abel)).not.toContain(t.deleteRider);
   });
 });
 

@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
 import { chooseFilter } from "./support/filters";
 import { signIn } from "./support/auth";
+import { actionItems, actionsButton, chooseAction } from "./support/actions";
 
 const t = messages.Routes;
 const tField = messages.CorridorField;
@@ -563,7 +564,7 @@ test.describe("routes", () => {
     const upper = code.toUpperCase();
     await page.getByLabel(t.searchLabel).fill(code);
     const details = await openRoute(page, upper);
-    await details.getByRole("button", { name: t.deleteRoute }).click();
+    await chooseAction(page, details, t.deleteRoute);
     await page
       .getByRole("alertdialog", { name: fill(t.deleteTitle, { code: upper }) })
       .getByRole("button", { name: t.deleteRoute })
@@ -578,14 +579,71 @@ test.describe("routes", () => {
       ["00000000-0000-4000-d000-000000000004", "S-03", t.deleteHasRequests],
     ] as const) {
       await page.goto(`/routes/${id}`);
-      await page
-        .getByRole("article", { name: codeOf })
-        .getByRole("button", { name: t.deleteRoute })
-        .click();
+      await chooseAction(
+        page,
+        page.getByRole("article", { name: codeOf }),
+        t.deleteRoute,
+      );
       const confirm = page.getByRole("alertdialog");
       await confirm.getByRole("button", { name: t.deleteRoute }).click();
       await expect(confirm.getByText(reason)).toBeVisible();
       await page.keyboard.press("Escape");
+    }
+  });
+  test("a route's name and buttons stay in view while its details scroll", async ({
+    page,
+  }) => {
+    // A short window, so the details are longer than it at both widths.
+    const width = page.viewportSize()?.width ?? 1440;
+    await page.setViewportSize({ width, height: 600 });
+    await signIn(page, "staff");
+    await page.goto(`/routes/${B01}`);
+    const details = page.getByRole("article", { name: "B-01" });
+    const row = details.locator("[data-slot='detail-header-row']");
+    await expect(row).not.toHaveAttribute("data-stuck");
+
+    // To the end of the route's details.
+    await page.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    );
+
+    await expect(row).toHaveAttribute("data-stuck", "");
+    // The page has scrolled (the link back is gone), the row hasn't.
+    await expect(
+      details.getByRole("link", { name: t.backToList }),
+    ).not.toBeInViewport();
+    await expect(
+      details.getByRole("button", { name: messages.Offers.offer }),
+    ).toBeInViewport();
+    await expect(
+      details.getByRole("heading", { level: 1, name: "B-01" }),
+    ).toBeInViewport();
+    await expect(
+      details.getByRole("button", { name: t.edit, exact: true }),
+    ).toBeInViewport();
+    await expect(actionsButton(details)).toBeInViewport();
+    expect(await actionItems(page, details)).toEqual([
+      t.addVan,
+      messages.Detail.copyLink,
+    ]);
+
+    // Beside the list (wide screens), the panel scrolls inside itself, under the same row.
+    if (isWide(page)) {
+      await page.goto(`/routes?route=${B01}`);
+      const panel = page.getByRole("region", { name: "B-01" });
+      const panelRow = panel.locator("[data-slot='detail-header-row']");
+      await expect(panelRow).not.toHaveAttribute("data-stuck");
+      await panel.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
+      await expect(panelRow).toHaveAttribute("data-stuck", "");
+      await expect(
+        panel.getByRole("button", { name: messages.Offers.offer }),
+      ).toBeInViewport();
+      await expect(
+        panel.getByRole("button", { name: t.closeDetail }),
+      ).toBeInViewport();
+      await expect(actionsButton(panel)).toBeInViewport();
     }
   });
   test("Launch opens when only the earliest month lacks riders, offering the ready ones", async ({
@@ -618,10 +676,11 @@ test.describe("routes", () => {
     await signIn(page, "staff");
     // From B-01 (public, priced, two areas served): the van starts forming.
     await page.goto(`/routes/${B01}`);
-    await page
-      .getByRole("article", { name: "B-01" })
-      .getByRole("button", { name: t.addVan })
-      .click();
+    await chooseAction(
+      page,
+      page.getByRole("article", { name: "B-01" }),
+      t.addVan,
+    );
     const dialog = page.getByRole("dialog", {
       name: fill(t.vanTitle, { code: "B-01" }),
     });
@@ -647,7 +706,7 @@ test.describe("routes", () => {
     );
 
     // A code already used is refused on the code field.
-    await van.getByRole("button", { name: t.addVan }).click();
+    await chooseAction(page, van, t.addVan);
     const again = page.getByRole("dialog", {
       name: fill(t.vanTitle, { code }),
     });
@@ -663,7 +722,7 @@ test.describe("routes", () => {
     await signIn(page, "staff", "/sign-in?next=%2Froutes");
     await page.getByLabel(t.searchLabel).fill("R-21");
     const details = await openRoute(page, "R-21");
-    await details.getByRole("button", { name: t.addVan }).click();
+    await chooseAction(page, details, t.addVan);
     const dialog = page.getByRole("dialog", {
       name: fill(t.vanTitle, { code: "R-21" }),
     });

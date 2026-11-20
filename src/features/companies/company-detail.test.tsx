@@ -5,6 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
 import { apiUrl, server, type Schemas } from "../../../tests/msw/server";
 import { startMswServer } from "../../../tests/msw/start-msw-server";
+import {
+  actionItems,
+  actionsButton,
+  chooseAction,
+} from "../../../tests/utils/actions";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { currentStaffQueryKey } from "@/lib/auth/use-current-staff";
 import { CompanyDetail } from "./company-detail";
@@ -66,7 +71,8 @@ describe("CompanyDetail", () => {
     expect(fact(t.contactEmail)).toHaveTextContent("hana@example.test");
     expect(fact(t.billing)).toHaveTextContent(t.billingPostpaid);
     expect(fact(t.notes)).toHaveTextContent("Invoices to the finance office.");
-    expect(fact(t.status)).toHaveTextContent(t.active);
+    // The status sits beside the name.
+    expect(screen.getByText(t.active)).toBeVisible();
   });
 
   it("lists the company's routes with their corridor and status", async () => {
@@ -128,7 +134,7 @@ describe("CompanyDetail", () => {
     const user = userEvent.setup();
     renderDetail(brewery);
 
-    await user.click(await screen.findByRole("button", { name: t.deactivate }));
+    await chooseAction(user, t.deactivate);
     const dialog = await screen.findByRole("alertdialog", {
       name: fill(t.deactivateTitle, { name: "Addis Brewery" }),
     });
@@ -154,7 +160,7 @@ describe("CompanyDetail", () => {
     const user = userEvent.setup();
     renderDetail(brewery);
 
-    await user.click(await screen.findByRole("button", { name: t.deactivate }));
+    await chooseAction(user, t.deactivate);
     const dialog = await screen.findByRole("alertdialog");
     await user.click(
       within(dialog).getByRole("button", { name: t.deactivate }),
@@ -171,6 +177,8 @@ describe("CompanyDetail", () => {
     server.use(
       http.patch(apiUrl("/v1/companies/{company_id}"), async ({ request }) => {
         sent = (await request.json()) as Schemas["CompanyUpdate"];
+        // Read again afterwards: active now.
+        serveCompany({ ...ceramics, is_active: true });
         return HttpResponse.json<Schemas["CompanyRead"]>({
           ...ceramics,
           is_active: true,
@@ -181,6 +189,8 @@ describe("CompanyDetail", () => {
     renderDetail(ceramics);
 
     expect(await screen.findByText(t.inactive)).toBeVisible();
+    // Beside Edit, not in the menu; Deactivate isn't offered.
+    expect(await actionItems(user)).not.toContain(t.deactivate);
     await user.click(screen.getByRole("button", { name: t.reactivate }));
 
     await waitFor(() =>
@@ -189,6 +199,11 @@ describe("CompanyDetail", () => {
       ),
     );
     expect(sent).toEqual({ is_active: true });
+    // Its button goes away: focus moves to the actions beside it.
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: t.reactivate })).toBeNull(),
+    );
+    expect(actionsButton()).toHaveFocus();
   });
 
   it("shows a failed reactivation with its reference", async () => {
@@ -209,17 +224,27 @@ describe("CompanyDetail", () => {
     expect(screen.getByText("req-503")).toBeVisible();
   });
 
-  it("offers Delete to admins only", async () => {
-    serveCompany(brewery);
-    const { queryClient } = renderDetail(brewery);
-    await screen.findByRole("heading", { name: "Addis Brewery" });
-    await waitFor(() =>
-      expect(queryClient.getQueryState(currentStaffQueryKey)?.status).toBe(
-        "success",
-      ),
-    );
+  it("keeps Edit beside the name and the rest in its menu; Delete for admins only", async () => {
+    for (const [role, items] of [
+      ["staff", [t.deactivate, messages.Detail.copyLink]],
+      ["admin", [t.deactivate, messages.Detail.copyLink, t.delete]],
+    ] as const) {
+      serveRole(role);
+      serveCompany(brewery);
+      const user = userEvent.setup();
+      const { queryClient, unmount } = renderDetail(brewery);
+      await screen.findByRole("heading", { name: "Addis Brewery" });
+      await waitFor(() =>
+        expect(queryClient.getQueryState(currentStaffQueryKey)?.status).toBe(
+          "success",
+        ),
+      );
 
-    expect(screen.queryByRole("button", { name: t.delete })).toBeNull();
+      expect(screen.getByRole("button", { name: t.edit })).toBeVisible();
+      expect(await actionItems(user)).toEqual(items);
+      expect(screen.queryByRole("button", { name: t.delete })).toBeNull();
+      unmount();
+    }
   });
 
   it("lets an admin delete the company, then hands back to the list", async () => {
@@ -236,7 +261,7 @@ describe("CompanyDetail", () => {
     const user = userEvent.setup();
     renderDetail(brewery, { onDeleted });
 
-    await user.click(await screen.findByRole("button", { name: t.delete }));
+    await chooseAction(user, t.delete);
     const dialog = await screen.findByRole("alertdialog", {
       name: fill(t.deleteTitle, { name: "Addis Brewery" }),
     });
@@ -260,7 +285,7 @@ describe("CompanyDetail", () => {
     const user = userEvent.setup();
     renderDetail(brewery);
 
-    await user.click(await screen.findByRole("button", { name: t.delete }));
+    await chooseAction(user, t.delete);
     const dialog = await screen.findByRole("alertdialog");
     await user.click(within(dialog).getByRole("button", { name: t.delete }));
 
@@ -423,7 +448,7 @@ describe("CompanyDetail", () => {
     const user = userEvent.setup();
     renderDetail(brewery);
 
-    await user.click(await screen.findByRole("button", { name: t.deactivate }));
+    await chooseAction(user, t.deactivate);
     const dialog = await screen.findByRole("alertdialog");
     const confirm = within(dialog).getByRole("button", { name: t.deactivate });
     await user.click(confirm);
@@ -471,7 +496,7 @@ describe("CompanyDetail", () => {
     const user = userEvent.setup();
     renderDetail(brewery);
 
-    await user.click(await screen.findByRole("button", { name: t.delete }));
+    await chooseAction(user, t.delete);
     const dialog = await screen.findByRole("alertdialog");
     await user.click(within(dialog).getByRole("button", { name: t.delete }));
 
@@ -500,7 +525,7 @@ describe("CompanyDetail", () => {
     renderDetail(brewery);
     await screen.findByText(t.noRoutes);
 
-    await user.click(screen.getByRole("button", { name: t.deactivate }));
+    await chooseAction(user, t.deactivate);
     const dialog = await screen.findByRole("alertdialog");
     await user.click(
       within(dialog).getByRole("button", { name: t.deactivate }),
