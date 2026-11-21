@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,6 +14,7 @@ import { startMswServer } from "../../../tests/msw/start-msw-server";
 import { renderWithProviders } from "../../../tests/utils/render";
 import { navItems, type NavItem } from "./nav-items";
 import { PortalShell } from "./portal-shell";
+import { SIDEBAR_COOKIE } from "./sidebar-state";
 
 const nav = vi.hoisted(() => ({ state: undefined as unknown }));
 vi.mock("next/navigation", async () => {
@@ -367,5 +368,219 @@ describe("PortalShell", () => {
       ),
     );
     expect(auth.signOut).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("PortalShell: collapsing the sidebar", () => {
+  beforeEach(() => {
+    document.cookie = `${SIDEBAR_COOKIE}=; path=/; max-age=0`;
+  });
+
+  it("collapses to icons and back, keeping focus on the button and every link's name", async () => {
+    serveStaff("staff");
+    const user = userEvent.setup();
+    renderWithProviders(<PortalShell items={allBuilt}>{null}</PortalShell>);
+    const routes = sidebar().getByRole("link", { name: t.nav.routes });
+    expect(within(routes).getByText(t.nav.routes)).not.toHaveClass("sr-only");
+
+    const toggle = sidebar().getByRole("button", { name: t.collapseSidebar });
+    await user.click(toggle);
+
+    expect(toggle).toHaveAccessibleName(t.expandSidebar);
+    expect(toggle).toHaveFocus();
+    // Focus shows its tooltip, which isn't read as well: the button's own text names it.
+    act(() => toggle.blur());
+    act(() => toggle.focus());
+    expect(
+      await screen.findByRole("tooltip", { name: t.expandSidebar }),
+    ).toBeInTheDocument();
+    expect(toggle).toHaveAccessibleDescription("");
+    // The names stay for screen readers; only the icons show.
+    const iconOnly = sidebar().getByRole("link", { name: t.nav.routes });
+    expect(within(iconOnly).getByText(t.nav.routes)).toHaveClass("sr-only");
+    expect(
+      sidebar().getByRole("list", { name: t.groupOperations }),
+    ).toBeInTheDocument();
+    expect(sidebar().getByText(t.brand)).toHaveClass("sr-only");
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAccessibleName(t.collapseSidebar);
+    expect(
+      within(sidebar().getByRole("link", { name: t.nav.routes })).getByText(
+        t.nav.routes,
+      ),
+    ).not.toHaveClass("sr-only");
+  });
+
+  it("remembers the choice in a cookie the next page load reads", async () => {
+    serveStaff("staff");
+    const user = userEvent.setup();
+    renderWithProviders(<PortalShell items={allBuilt}>{null}</PortalShell>);
+
+    await user.click(
+      sidebar().getByRole("button", { name: t.collapseSidebar }),
+    );
+    expect(document.cookie).toContain(`${SIDEBAR_COOKIE}=collapsed`);
+
+    await user.click(sidebar().getByRole("button", { name: t.expandSidebar }));
+    expect(document.cookie).not.toContain(`${SIDEBAR_COOKIE}=collapsed`);
+  });
+
+  it("starts collapsed when the last visit left it so", () => {
+    serveStaff("staff");
+    renderWithProviders(
+      <PortalShell items={allBuilt} defaultCollapsed>
+        {null}
+      </PortalShell>,
+    );
+
+    expect(
+      sidebar().getByRole("button", { name: t.expandSidebar }),
+    ).toBeInTheDocument();
+    const routes = sidebar().getByRole("link", { name: t.nav.routes });
+    expect(within(routes).getByText(t.nav.routes)).toHaveClass("sr-only");
+  });
+
+  it("names each icon on hover and on keyboard focus, once collapsed only", async () => {
+    serveStaff("staff");
+    const user = userEvent.setup();
+    renderWithProviders(<PortalShell items={allBuilt}>{null}</PortalShell>);
+
+    await user.hover(sidebar().getByRole("link", { name: t.nav.riders }));
+    // Longer than the tooltips' 300 ms delay (ui/tooltip.tsx): one would be open by now.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(screen.queryByRole("tooltip")).toBeNull();
+
+    await user.click(
+      sidebar().getByRole("button", { name: t.collapseSidebar }),
+    );
+    await user.hover(sidebar().getByRole("link", { name: t.nav.riders }));
+    expect(
+      await screen.findByRole("tooltip", { name: t.nav.riders }),
+    ).toBeInTheDocument();
+    await user.unhover(sidebar().getByRole("link", { name: t.nav.riders }));
+
+    sidebar().getByRole("link", { name: t.nav.drivers }).focus();
+    expect(
+      await screen.findByRole("tooltip", { name: t.nav.drivers }),
+    ).toBeInTheDocument();
+    // The name isn't read twice: the label already names the link.
+    expect(
+      sidebar().getByRole("link", { name: t.nav.drivers }),
+    ).toHaveAccessibleDescription("");
+  });
+
+  it("keeps the open-requests count as a dot that still describes the link", async () => {
+    serveStaff("staff");
+    serveOverview(6);
+    renderWithProviders(
+      <PortalShell items={allBuilt} defaultCollapsed>
+        {null}
+      </PortalShell>,
+    );
+
+    const link = sidebar().getByRole("link", { name: t.nav.routeRequests });
+    await waitFor(() => expect(link).toHaveAccessibleDescription("6 open"));
+    expect(sidebar().queryByText("6")).toBeNull();
+  });
+
+  it("opens the account from the initials: name, role and Sign out", async () => {
+    serveStaff("staff");
+    auth.signOut.mockClear();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PortalShell items={allBuilt} defaultCollapsed>
+        {null}
+      </PortalShell>,
+    );
+    const account = sidebar().getByRole("button", { name: t.account });
+    // Once the account has loaded: the initials, not the name.
+    expect(await sidebar().findByText("SS")).toBeInTheDocument();
+    expect(screen.queryByText("Selam Staff")).toBeNull();
+
+    // Hovered, the name shows; not over the open card, where it would cover Sign out.
+    await user.hover(account);
+    expect(
+      await screen.findByRole("tooltip", { name: "Selam Staff" }),
+    ).toBeInTheDocument();
+    await user.click(account);
+
+    const panel = await screen.findByRole("dialog", { name: t.account });
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+    expect(within(panel).getByText("Selam Staff")).toBeVisible();
+    expect(
+      within(panel).getByText(messages.Roles.staff, { exact: true }),
+    ).toBeVisible();
+    await user.click(within(panel).getByRole("button", { name: t.signOut }));
+    await waitFor(() => expect(auth.signOut).toHaveBeenCalledTimes(1));
+  });
+
+  it("says when the account couldn't load, and the card offers Retry", async () => {
+    server.use(
+      http.get(apiUrl("/v1/staff/me"), () =>
+        HttpResponse.json(problem(500, "INTERNAL_ERROR"), {
+          status: 500,
+          headers: problemHeaders,
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PortalShell items={allBuilt} defaultCollapsed>
+        {null}
+      </PortalShell>,
+    );
+
+    const account = await sidebar().findByRole(
+      "button",
+      { name: t.accountProblem },
+      { timeout: 5000 },
+    );
+    await user.click(account);
+
+    const panel = await screen.findByRole("dialog", { name: t.account });
+    expect(within(panel).getByRole("alert")).toBeInTheDocument();
+    expect(
+      within(panel).getByRole("button", { name: messages.ProblemAlert.retry }),
+    ).toBeInTheDocument();
+  });
+
+  it("closes the account on Escape, back to the initials", async () => {
+    serveStaff("staff");
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PortalShell items={allBuilt} defaultCollapsed>
+        {null}
+      </PortalShell>,
+    );
+    const account = await sidebar().findByRole("button", { name: t.account });
+    await user.click(account);
+    await screen.findByRole("dialog", { name: t.account });
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(account).toHaveFocus();
+  });
+
+  it("never collapses the phone menu drawer", async () => {
+    serveStaff("staff");
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PortalShell items={allBuilt} defaultCollapsed>
+        {null}
+      </PortalShell>,
+    );
+
+    await user.click(screen.getByRole("button", { name: t.openMenu }));
+
+    const drawer = await screen.findByRole("dialog", { name: t.menuTitle });
+    const routes = within(drawer).getByRole("link", { name: t.nav.routes });
+    expect(within(routes).getByText(t.nav.routes)).not.toHaveClass("sr-only");
+    expect(await within(drawer).findByText("Selam Staff")).toBeVisible();
+    expect(
+      within(drawer).queryByRole("button", { name: t.expandSidebar }),
+    ).toBeNull();
   });
 });
