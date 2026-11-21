@@ -1,6 +1,12 @@
 "use client";
 
-import { MenuIcon, XIcon } from "lucide-react";
+import {
+  CircleAlertIcon,
+  MenuIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  XIcon,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,6 +19,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { Avatar } from "@/components/avatar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Sheet,
   SheetClose,
@@ -20,6 +32,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useOpenRequestCount } from "@/features/overview/queries";
 import { isForbidden } from "@/lib/api/problem";
 import { useCurrentStaff } from "@/lib/auth/use-current-staff";
@@ -34,6 +53,7 @@ import {
   type NavGroup,
   type NavItem,
 } from "./nav-items";
+import { saveSidebarCollapsed } from "./sidebar-state";
 
 // Inside the navy sidebar the royal focus ring is too faint (under 3:1), so it is white there.
 const onNavy = "focus-visible:outline-white";
@@ -42,15 +62,26 @@ type PortalShellProps = {
   children: ReactNode;
   /** Tests pass the full list; the app uses `navItems`. */
   items?: readonly NavItem[];
+  /** The sidebar starts as icons only (the last page left it so; sidebar-state.ts). */
+  defaultCollapsed?: boolean;
 };
 
 /**
- * The signed-in portal: navy sidebar (from 1024 px) or a top bar with a menu drawer, and the
- * page in `<main>` (design-system.md, "Layout"; Admin mockup).
+ * The signed-in portal: navy sidebar (from 1024 px; it collapses to icons, GZW-082) or a top bar
+ * with a menu drawer, and the page in `<main>` (design-system.md, "Layout"; Admin mockup).
  */
-export function PortalShell({ children, items = navItems }: PortalShellProps) {
+export function PortalShell({
+  children,
+  items = navItems,
+  defaultCollapsed = false,
+}: PortalShellProps) {
   const t = useTranslations("Shell");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const toggleCollapsed = () => {
+    setCollapsed(!collapsed);
+    saveSidebarCollapsed(!collapsed);
+  };
   const closeMenu = () => setMenuOpen(false);
   const staff = useCurrentStaff();
   const signOut = useSignOut();
@@ -124,10 +155,52 @@ export function PortalShell({ children, items = navItems }: PortalShellProps) {
         <Brand />
       </header>
 
-      {/* From 1024 px: the sidebar. */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-6 bg-navy px-4 py-6 lg:flex">
-        <Brand />
-        <SidebarBody items={items} />
+      {/* From 1024 px: the sidebar, open or as icons only. */}
+      <aside
+        className={cn(
+          "sticky top-0 hidden h-dvh shrink-0 flex-col gap-6 bg-navy py-6 lg:flex",
+          collapsed ? "w-[72px] px-3" : "w-64 px-4",
+        )}
+      >
+        <TooltipProvider>
+          <div
+            className={cn(
+              "flex items-center gap-2",
+              collapsed ? "flex-col" : "justify-between",
+            )}
+          >
+            <Brand compact={collapsed} />
+            {/* The same button in both states, so focus stays on it. */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {/* See NavLink: the tooltip sits on a wrapper, so it isn't read twice. */}
+                <span className="grid shrink-0">
+                  <button
+                    type="button"
+                    onClick={toggleCollapsed}
+                    className={cn(
+                      "grid size-9 place-items-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white",
+                      onNavy,
+                    )}
+                  >
+                    {collapsed ? (
+                      <PanelLeftOpenIcon aria-hidden className="size-[18px]" />
+                    ) : (
+                      <PanelLeftCloseIcon aria-hidden className="size-[18px]" />
+                    )}
+                    <span className="sr-only">
+                      {collapsed ? t("expandSidebar") : t("collapseSidebar")}
+                    </span>
+                  </button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {collapsed ? t("expandSidebar") : t("collapseSidebar")}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <SidebarBody items={items} collapsed={collapsed} />
+        </TooltipProvider>
       </aside>
 
       <main
@@ -141,8 +214,17 @@ export function PortalShell({ children, items = navItems }: PortalShellProps) {
   );
 }
 
-/** `onNavigate`: in the drawer, any link closes it (also one to the page already open). */
-function Brand({ onNavigate }: { onNavigate?: () => void }) {
+/**
+ * `onNavigate`: in the drawer, any link closes it (also one to the page already open).
+ * `compact`: the collapsed sidebar shows the logo only (the name stays for screen readers).
+ */
+function Brand({
+  onNavigate,
+  compact = false,
+}: {
+  onNavigate?: () => void;
+  compact?: boolean;
+}) {
   const t = useTranslations("Shell");
   return (
     <Link
@@ -159,10 +241,20 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
           unoptimized
         />
       </span>
-      <span className="font-display text-section font-bold text-white">
+      <span
+        className={cn(
+          "font-display text-section font-bold text-white",
+          compact && "sr-only",
+        )}
+      >
         {t("brand")}
       </span>{" "}
-      <span className="text-meta font-semibold tracking-wider text-sun uppercase">
+      <span
+        className={cn(
+          "text-meta font-semibold tracking-wider text-sun uppercase",
+          compact && "sr-only",
+        )}
+      >
         {t("brandTag")}
       </span>
     </Link>
@@ -191,13 +283,20 @@ const groupLabels = {
 /** Above this, the count shows "99+". */
 const MAX_COUNT = 99;
 
+function formatCount(count: number) {
+  return count > MAX_COUNT ? `${MAX_COUNT}+` : String(count);
+}
+
 function SidebarBody({
   items,
   onNavigate,
   inDrawer = false,
+  collapsed = false,
 }: {
   items: readonly NavItem[];
   onNavigate?: () => void;
+  /** Icons only (the sidebar, never the drawer). */
+  collapsed?: boolean;
   /**
    * In the drawer the whole drawer scrolls. In the sidebar only the menu does, keeping the
    * account in view.
@@ -223,6 +322,7 @@ function SidebarBody({
           items={visible.filter((item) => !item.group)}
           counts={counts}
           onNavigate={onNavigate}
+          collapsed={collapsed}
         />
         {navGroups.map((group) => {
           const grouped = visible.filter((item) => item.group === group);
@@ -233,12 +333,13 @@ function SidebarBody({
               items={grouped}
               counts={counts}
               onNavigate={onNavigate}
+              collapsed={collapsed}
             />
           );
         })}
       </nav>
-      <div className="mt-auto">
-        <AccountPanel />
+      <div className={cn("mt-auto", collapsed && "grid justify-items-center")}>
+        {collapsed ? <AccountButton /> : <AccountPanel />}
       </div>
     </div>
   );
@@ -249,13 +350,16 @@ function NavList({
   items,
   counts,
   onNavigate,
+  collapsed = false,
 }: {
   /** Names the list (a group's heading). */
   heading?: string;
   items: NavItem[];
   counts: Partial<Record<NavItem["key"], number>>;
   onNavigate?: () => void;
+  collapsed?: boolean;
 }) {
+  const t = useTranslations("Shell");
   const id = useId();
   const headingId = `${id}-heading`;
   return (
@@ -263,10 +367,17 @@ function NavList({
       {heading && (
         <p
           id={headingId}
-          className="px-3 text-meta font-semibold tracking-wider text-white/70 uppercase"
+          className={cn(
+            "px-3 text-meta font-semibold tracking-wider text-white/70 uppercase",
+            // Collapsed: still names the list, shown as a thin line.
+            collapsed && "sr-only",
+          )}
         >
           {heading}
         </p>
+      )}
+      {heading && collapsed && (
+        <span aria-hidden className="mx-2 mb-1 h-px bg-white/15" />
       )}
       <ul
         aria-labelledby={heading ? headingId : undefined}
@@ -275,6 +386,16 @@ function NavList({
         {items.map((item) => {
           // Items that can show a count (fixed, whatever the count is right now).
           const countId = item.key in counts ? `${id}-${item.key}` : undefined;
+          const count = counts[item.key];
+          // Collapsed, the name (and the count the dot stands for) shows on hover and focus.
+          const tooltip = collapsed
+            ? [
+                t(`nav.${item.key}`),
+                count ? t("openRequests", { count: formatCount(count) }) : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : undefined;
           return (
             <li key={item.key} className="relative">
               {/*
@@ -291,6 +412,7 @@ function NavList({
                     countId={countId}
                     current={false}
                     onNavigate={onNavigate}
+                    tooltip={tooltip}
                   />
                 }
               >
@@ -298,9 +420,12 @@ function NavList({
                   item={item}
                   countId={countId}
                   onNavigate={onNavigate}
+                  tooltip={tooltip}
                 />
               </Suspense>
-              {countId && <NavCount id={countId} count={counts[item.key]} />}
+              {countId && (
+                <NavCount id={countId} count={count} collapsed={collapsed} />
+              )}
             </li>
           );
         })}
@@ -310,26 +435,44 @@ function NavList({
 }
 
 /**
- * Waiting work beside a link, e.g. open route requests: a sun count when above 0. The link is
- * described by it ("Route requests", "6 open"); it sits over the link's right end and lets clicks
- * through to it.
+ * Waiting work beside a link, e.g. open route requests: a sun count when above 0 (a sun dot on the
+ * icon when collapsed). The link is described by it ("Route requests", "6 open"); it sits over the
+ * link and lets clicks through to it.
  */
-function NavCount({ id, count }: { id: string; count: number | undefined }) {
+function NavCount({
+  id,
+  count,
+  collapsed,
+}: {
+  id: string;
+  count: number | undefined;
+  collapsed: boolean;
+}) {
   const t = useTranslations("Shell");
-  const shown = count && count > MAX_COUNT ? `${MAX_COUNT}+` : String(count);
+  const shown = formatCount(count ?? 0);
   return (
     <span
       id={id}
-      className="pointer-events-none absolute inset-y-0 right-3 flex items-center"
+      className={cn(
+        "pointer-events-none absolute flex items-center",
+        collapsed ? "top-1.5 right-2.5" : "inset-y-0 right-3",
+      )}
     >
       {count ? (
         <>
-          <span
-            aria-hidden
-            className="min-w-6 rounded-full bg-sun px-1.5 text-center text-meta leading-5 font-semibold text-navy"
-          >
-            {shown}
-          </span>
+          {collapsed ? (
+            <span
+              aria-hidden
+              className="size-2.5 rounded-full bg-sun ring-2 ring-navy"
+            />
+          ) : (
+            <span
+              aria-hidden
+              className="min-w-6 rounded-full bg-sun px-1.5 text-center text-meta leading-5 font-semibold text-navy"
+            >
+              {shown}
+            </span>
+          )}
           <span className="sr-only">{t("openRequests", { count: shown })}</span>
         </>
       ) : null}
@@ -341,6 +484,7 @@ function CurrentNavLink(props: {
   item: NavItem;
   countId?: string;
   onNavigate?: () => void;
+  tooltip?: string;
 }) {
   const current = isCurrentPath(props.item.href, usePathname());
   return <NavLink {...props} current={current} />;
@@ -351,16 +495,20 @@ function NavLink({
   countId,
   current,
   onNavigate,
+  tooltip,
 }: {
   item: NavItem;
   /** The NavCount that describes this link, if it can have one. */
   countId?: string;
   current: boolean;
   onNavigate?: () => void;
+  /** Collapsed sidebar: the icon only, and this on hover and focus. */
+  tooltip?: string;
 }) {
   const t = useTranslations("Shell.nav");
   const Icon = item.icon;
-  return (
+  const collapsed = tooltip !== undefined;
+  const link = (
     <Link
       href={item.href}
       onClick={onNavigate}
@@ -368,8 +516,9 @@ function NavLink({
       aria-describedby={countId}
       className={cn(
         "relative flex min-h-10 items-center gap-3 rounded-lg px-3 text-body text-white/85 transition-colors duration-150 hover:bg-white/10 hover:text-white",
+        collapsed && "justify-center px-0",
         // Room for the count.
-        countId && "pr-14",
+        countId && !collapsed && "pr-14",
         onNavy,
         current &&
           "bg-white/10 font-semibold text-white before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-blue",
@@ -382,7 +531,74 @@ function NavLink({
           current ? "text-white" : "text-white/70",
         )}
       />
-      <span className="min-w-0 truncate">{t(item.key)}</span>
+      <span className={collapsed ? "sr-only" : "min-w-0 truncate"}>
+        {t(item.key)}
+      </span>
     </Link>
+  );
+  if (!collapsed) return link;
+  return (
+    <Tooltip>
+      {/*
+        The tooltip opens from a wrapper (focus and hover reach it from the link), as Radix
+        would add it to the link's description: the label already names the link, so it would be
+        read twice. Only the count describes the link.
+      */}
+      <TooltipTrigger asChild>
+        <span className="block">{link}</span>
+      </TooltipTrigger>
+      <TooltipContent side="right">{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * Foot of the collapsed sidebar: the initials, opening the account card (name, role, Sign out)
+ * beside them. While loading a placeholder; on an error an alert icon and a name that says so,
+ * the card says what and offers Retry.
+ */
+function AccountButton() {
+  const t = useTranslations("Shell");
+  const staff = useCurrentStaff();
+  const [open, setOpen] = useState(false);
+  const name = staff.data?.full_name;
+  const failed = staff.isError && !isForbidden(staff.error);
+  const label = failed ? t("accountProblem") : t("account");
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {/* See NavLink: on a wrapper, so the tooltip isn't read as well. */}
+          <span className="grid">
+            <PopoverTrigger
+              className={cn(
+                "grid size-12 place-items-center rounded-full hover:bg-white/10",
+                onNavy,
+              )}
+            >
+              {name ? (
+                <Avatar name={name} className="bg-sky text-navy" />
+              ) : failed ? (
+                <CircleAlertIcon aria-hidden className="size-5 text-white" />
+              ) : (
+                <Skeleton className="size-9 rounded-full bg-white/15" />
+              )}
+              <span className="sr-only">{label}</span>
+            </PopoverTrigger>
+          </span>
+        </TooltipTrigger>
+        {/* Not over the open card: it would cover Sign out and take its click. */}
+        {!open && <TooltipContent side="right">{name ?? label}</TooltipContent>}
+      </Tooltip>
+      <PopoverContent
+        side="right"
+        align="end"
+        sideOffset={12}
+        aria-label={t("account")}
+        className="w-64 rounded-xl border-0 bg-navy p-0"
+      >
+        <AccountPanel />
+      </PopoverContent>
+    </Popover>
   );
 }

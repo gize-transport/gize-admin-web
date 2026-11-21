@@ -265,6 +265,10 @@ Owner feedback 2026-11-20: they didn't like the Overview's Routes and Riders car
 Owner request 2026-11-20 ("the backend adds sorting capability"); the owner approved a Sort menu over clickable column headers (each list takes only some orders, one way).
 - Built: contract synced to `api-v2.22.0` (`sort` on eight lists; cursors up to 1200 characters). A Sort menu in the toolbar of Riders and Drivers, Companies, Areas, Corridors and Staff (Newest first, Name A to Z), Routes (also Code A to Z, Morning departure) and Route requests (Oldest first, Newest first), kept in the URL as `?sort=`. The route, area, company and driver pickers, the request forms' route pickers and the audit log's Done by list ask for A to Z. The audit log and seat offers keep their fixed order (the API has no sort there).
 
+### GZW-082 · Collapsible sidebar and sign-in background · Needs backend: none · Status: done
+Owner request 2026-11-21 ("make the sidebar collapsible and the login page have a nice background"); the owner approved the mockup and chose the "night routes" background over a split screen.
+- Built: the sidebar collapses to icons from 1024 px (tooltips, the count as a dot, the account as initials opening a card), remembered in a cookie; the signed-out pages sit on navy with faint routes and stops (design-system.md, "Layout").
+
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.
 

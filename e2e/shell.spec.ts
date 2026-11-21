@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import messages from "../messages/en.json";
 import type { components } from "../src/lib/api/schema";
 import { accountName, signIn } from "./support/auth";
+import { expectNoSeriousA11yViolations } from "./support/axe";
 
 const t = messages.Shell;
 
@@ -69,6 +70,61 @@ test.describe("portal shell", () => {
     await requests.click();
     await expect(page).toHaveURL(/\/route-requests$/);
     await expect(requests).toHaveAttribute("aria-current", "page");
+  });
+
+  test("the sidebar collapses to icons, stays so after a reload, and works with the keyboard", async ({
+    page,
+  }) => {
+    test.skip(!isWide(page.viewportSize()?.width), "wide screens only");
+    await signIn(page, "staff");
+    const sidebar = page.getByRole("complementary");
+    const width = async () => (await sidebar.boundingBox())?.width ?? 0;
+    expect(await width()).toBeGreaterThan(200);
+
+    // With the keyboard: the button keeps focus.
+    await sidebar.getByRole("button", { name: t.collapseSidebar }).focus();
+    await page.keyboard.press("Enter");
+
+    const expand = sidebar.getByRole("button", { name: t.expandSidebar });
+    await expect(expand).toBeFocused();
+    await expect.poll(width).toBeLessThan(100);
+    await expect(sidebar.getByText(accountName("staff"))).toBeHidden();
+
+    // Reached with the keyboard, an icon shows its name.
+    await page.reload();
+    await expect(expand).toBeVisible();
+    expect(await width()).toBeLessThan(100);
+    const riders = sidebar.getByRole("link", { name: t.nav.riders });
+    await riders.focus();
+    await expect(page.getByRole("tooltip")).toHaveText(t.nav.riders);
+    await expectNoSeriousA11yViolations(page);
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/riders$/);
+    await expect(riders).toHaveAttribute("aria-current", "page");
+
+    // The account opens from the initials, with Sign out.
+    const account = sidebar.getByRole("button", { name: t.account });
+    await account.click();
+    const panel = page.getByRole("dialog", { name: t.account });
+    await expect(panel.getByText(accountName("staff"))).toBeVisible();
+    await expect(panel.getByRole("button", { name: t.signOut })).toBeVisible();
+    // Judge the card once its fade-in is over, as people see it.
+    await panel.evaluate((element) =>
+      Promise.all(
+        element.getAnimations({ subtree: true }).map((a) => a.finished),
+      ),
+    );
+    await expectNoSeriousA11yViolations(page);
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(account).toBeFocused();
+
+    await expand.click();
+    await expect.poll(width).toBeGreaterThan(200);
+    await page.reload();
+    await expect(
+      sidebar.getByRole("button", { name: t.collapseSidebar }),
+    ).toBeVisible();
   });
 
   test("on a phone, the menu drawer works with the keyboard alone", async ({

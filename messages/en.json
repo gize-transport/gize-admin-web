@@ -279,8 +279,12 @@
     "openRequests": "{count} open",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
     "menuTitle": "Menu",
     "loadingAccount": "Checking your account…",
+    "account": "Your account",
+    "accountProblem": "Your account couldn't load",
     "signOut": "Sign out",
     "nav": {
       "overview": "Overview",
