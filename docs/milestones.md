@@ -60,11 +60,14 @@ Answered in `api-v2.19.2` (GZ-076, GZ-077, GZ-078), all used by GZW-045:
 - Question 9, a company rider on a draft or paused route: owner decision, only their company's `active` or `paused` routes take them; a draft is a 422 on `/route_id`, like adults. Seats already on a draft are kept and can be ended; placing them back on it needs the route started first. `ROUTE_NOT_READY` (inactive company) stays only as a safety check.
 - Question 11, a driver's routes: `routes_list` takes `driver_id` (any status, not deleted: the routes `DRIVER_ASSIGNED` counts).
 
-Open (not blocking; asked 2026-11-19 for GZW-070). Each Overview count opens a list, but three lists can't show exactly the records counted, so the cards open the closest list and say which:
+Open (not blocking; asked 2026-11-19 for GZW-070). Each Overview count opens a list, but two lists can't show exactly the records counted, so the cards open the closest list and say which:
 
 12. **Routes ready to launch as a list.** The Overview says "2 routes are ready to launch", but `routes_list` can't filter to them: the card opens every forming route (say 6) and staff spot the ready ones by their progress. Ask: a `routes_list` filter for "ready to launch", by the same rule as `ready_to_launch`.
-13. **Active routes with no driver as a list.** "1 active route has no driver" opens every active route (say 12); staff look for "Not assigned" in the Driver column. Ask: a `routes_list` filter for "no driver", by the same rule as `active_without_driver`.
 14. **Open seat offers across routes.** "3 open seat offers" can't open anything: offers are listed per route only (`GET /v1/routes/{route_id}/offers`). Ask: a list of open offers across all routes (rider, route, when it runs out), so staff can phone riders while SMS is paused (GZ-079).
+
+Parked (owner decision 2026-11-22: off the list for now, kept here; not to be asked until the owner brings it back):
+
+- Question 13, **Active routes with no driver as a list.** "1 active route has no driver" opens every active route (say 12); staff look for "Not assigned" in the Driver column. Ask: a `routes_list` filter for "no driver", by the same rule as `active_without_driver`. Parked because it doesn't come up: on staging every active route has a driver (forming routes don't need one and aren't counted), so the Overview shows no such row. It would only matter once a running route loses its driver or launches without one.
 
 Answered in `api-v2.20.0` (GZ-080): riders whose seat starts on a later day counted nowhere on the Overview. `riders.starting` counts them; riding today plus starting soon are exactly the riders list's `seat=active`, so GZW-070 opens that list for both.
 
@@ -214,7 +217,7 @@ Record inspection; approve/reject enabled only when the API allows; missing requ
 ### GZW-070 · Overview page · Needs backend: GZ-064, GZ-080 (in `api-v2.20.0`) · Status: done
 Counts and "needs action" items from the summary endpoint only.
 - Built: `overview_get` only, read each time the page is opened or its tab comes back (no polling); the heading dates it with the API's day ("Thursday, November 19"). Only widgets the API backs: the mockup's map, backups, payments and complaints are not in the MVP.
-- Needs action (sun cards, only while above 0, "Nothing needs action right now." otherwise): routes ready to launch ("See forming routes"), active routes with no driver ("See active routes"), open route requests ("See open requests", "See demand"). The first two open the closest list until backend questions 12 and 13 are answered.
+- Needs action (sun cards, only while above 0, "Nothing needs action right now." otherwise): routes ready to launch ("See forming routes"), active routes with no driver ("See active routes"), open route requests ("See open requests", "See demand"). The first two open the closest list: until backend question 12 is answered, and question 13 (parked) for "no driver".
 - Counts, each a link to its filtered list where one holds exactly them: routes by status; riders riding today, starting soon (GZ-080), reserved (`seat=reserved`) and all, with "See riders with a seat" (`seat=active`: riding today and starting soon together); open seat offers (no link: question 14); active drivers (`is_active=true`).
 
 ### GZW-073 · Sidebar icons and groups · Needs backend: GZ-064 (in `api-v2.16.0`) · Status: done
