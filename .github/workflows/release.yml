@@ -1,0 +1,113 @@
+# GZW-086: production (admin.gizetransport.com). After a CI run on main succeeds (its Deploy job
+# has put that commit live on staging-admin.gizetransport.com), this waits for an approval in
+# GitHub (the `production` environment's required reviewer; the environment takes `main` only),
+# then builds the same commit with production's settings and deploys it.
+#
+# Its own workflow, started by `workflow_run`, so it is never a PR check and always runs this
+# file as it is on main: a PR can't change how production is released. (A PR's own CI file can
+# still reach the Cloudflare token: see ci.yml's Deploy job.)
+#
+# Several runs waiting: approve the newest. A release only deploys `main`'s newest commit, so an
+# older one approved later deploys nothing (its summary says so). To undo a release, revert the
+# commit on main and release that.
+name: Release
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release (admin.gizetransport.com)
+    # Only a successful CI run of a push to main (not a PR from a branch named main).
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.actor.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: https://admin.gizetransport.com
+    concurrency:
+      # One release at a time, never cancelled midway.
+      group: release-production
+      cancel-in-progress: false
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      # Production's public settings (the GitHub environment's variables), baked into the build.
+      NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+    steps:
+      # An approval given late, after main moved on, must not put an older commit live.
+      - name: Still main's newest commit?
+        id: newest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tip=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$tip" = "$SHA" ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            message="Nothing released: main has moved on to ${tip:0:7}. Approve the release of that commit instead."
+            echo "::warning::$message"
+            echo "$message" >> "$GITHUB_STEP_SUMMARY"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Every setting must come from the production environment: a missing one would otherwise
+      # build a site without its backend.
+      - name: Production settings present?
+        if: steps.newest.outputs.release == 'true'
+        run: |
+          for name in NEXT_PUBLIC_API_BASE_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set in the production environment."
+              exit 1
+            fi
+          done
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.newest.outputs.release == 'true'
+        with:
+          ref: ${{ env.SHA }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        if: steps.newest.outputs.release == 'true'
+
+      - name: Production keeps to its own address
+        if: steps.newest.outputs.release == 'true'
+        run: node scripts/check-worker-routes.mjs production
+
+      # A deploy build never sets GIZE_DEV_PAGES: the dev-only pages are a 404 there.
+      - name: Build the Worker
+        if: steps.newest.outputs.release == 'true'
+        run: npm run cf:build
+
+      - name: Deploy to admin.gizetransport.com
+        if: steps.newest.outputs.release == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx opennextjs-cloudflare deploy
+
+      # The site really runs on Workers with the policy: the header has a nonce, and the page's
+      # scripts carry the same one.
+      - name: Check admin.gizetransport.com
+        if: steps.newest.outputs.release == 'true'
+        run: |
+          curl -fsS --max-time 20 --retry 30 --retry-delay 10 --retry-all-errors \
+            -D headers.txt -o page.html "https://admin.gizetransport.com/sign-in"
+          nonce=$(grep -i '^content-security-policy:' headers.txt | grep -oE "'nonce-[^']+'" | head -1 | sed -E "s/'nonce-(.*)'/\1/")
+          test -n "$nonce"
+          grep -q "nonce=\"$nonce\"" page.html
+          grep -qi '^x-content-type-options: nosniff' headers.txt
+          echo "Released ${SHA:0:7} to https://admin.gizetransport.com" >> "$GITHUB_STEP_SUMMARY"

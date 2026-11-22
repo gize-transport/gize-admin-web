@@ -284,8 +284,12 @@ Owner request 2026-11-22 ("add a bit animation and text"); the owner approved th
 - Ready to launch (question 12): the Routes Status filter has "Ready to launch" under Forming (`status=ready` in the address, sent as `ready_to_launch=true` with no status). The Overview's "N routes are ready to launch" opens it ("See ready routes").
 - Seat offers (question 14): a "Seat offers" page (`/offers`, sidebar under Route requests): open offers on every route (`offers_list_open`), the one running out soonest first, 25 a page. Who asked (opens their request, where the phone number is), route, the seat's month, when it runs out, and Accept for them / Withdraw offer (the route tab's confirm dialogs). No text message column. The Overview's "Open seat offers" count opens it. Past offers stay on each route's Seat offers tab.
 
+### GZW-086 · Staging portal and approved releases · Needs backend: staging CORS for staging-admin (done 2026-11-22) · Status: done
+- Owner request 2026-11-22: a staging portal at `staging-admin.gizetransport.com`, keeping `admin.gizetransport.com` for production; changes reach production only after the owner approves them in GitHub (owner decision).
+- Built: a `staging` Wrangler environment (`gize-admin-staging`), GitHub environments `staging` and `production` with their own public settings, PR previews on staging, `main` deployed to staging, then the Release workflow after an approval (`workflow_run`, never a PR check), with a guard that each Worker claims only its own address. Until the production backend exists (GZ-085), production's settings are staging's; switching them is part of GZW-072.
+
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.
 
 ### GZW-072 · Production launch · Needs backend: GZ-062 · Status: todo
-Production env vars, domain (e.g. `admin.gizetransport.com`), CSP verified, runbook section for the portal.
+Production env vars (the `production` GitHub environment's variables: production API and Supabase project, GZ-085), the production Supabase project's Auth settings (README), its staff accounts, CSP verified, runbook section for the portal.

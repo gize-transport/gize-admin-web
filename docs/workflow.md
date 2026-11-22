@@ -12,6 +12,7 @@ Tickets live in `docs/milestones.md` (IDs `GZW-xxx`). Each lists the backend tic
 6. **Run everything:** typecheck, lint, unit tests, e2e, axe.
 7. **Self-review** with the checklist; attach before/after screenshots of each changed screen at 1440 px and 375 px.
 8. **PR** titled `GZW-012: <title>` with the template; state the `CONTRACT_VERSION` used. Update the ticket status in `milestones.md` in the same PR.
+9. **Merge** only after every check passed (CLAUDE.md). The merge deploys to staging (`staging-admin.gizetransport.com`) about 10 minutes later; check it there. Production (`admin.gizetransport.com`) changes only when the owner approves that commit's run of the **Release** workflow (README, "Deployment").
 
 ## Plan template
 
