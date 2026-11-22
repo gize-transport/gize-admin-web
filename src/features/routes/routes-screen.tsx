@@ -33,7 +33,7 @@ import { ApiError, isForbidden } from "@/lib/api/problem";
 import type { components } from "@/lib/api/schema";
 import {
   useRoutes,
-  type RouteStatus,
+  type RouteStatusFilter,
   type RouteType,
   ROUTE_SORTS,
 } from "./queries";
@@ -49,7 +49,14 @@ type CorridorRef = components["schemas"]["CorridorRef"];
 const col = createDataTableColumnHelper<RouteRead>();
 
 const TYPES: RouteType[] = ["public", "student", "corporate"];
-const STATUSES: RouteStatus[] = ["draft", "forming", "active", "paused"];
+/** The Status filter's choices: "Ready to launch" (the Overview's count, GZ-083) under Forming. */
+const STATUS_FILTERS: RouteStatusFilter[] = [
+  "draft",
+  "forming",
+  "ready",
+  "active",
+  "paused",
+];
 const FILTERS = ["q", "route_type", "status", "corridor_id", "company_id"];
 
 /** A value from the URL if it's one of `allowed`; anything else is no filter. */
@@ -79,7 +86,7 @@ export function RoutesScreen() {
   const filters = {
     q: get("q"),
     routeType: oneOf(get("route_type"), TYPES),
-    status: oneOf(get("status"), STATUSES),
+    status: oneOf(get("status"), STATUS_FILTERS),
     corridorId: get("corridor_id") || null,
     companyId: get("company_id") || null,
     sort: useListSort(ROUTE_SORTS),
@@ -249,12 +256,14 @@ export function RoutesScreen() {
               <FilterMenu
                 param="status"
                 label={t("statusFilter")}
-                options={STATUSES.map((status) => ({
+                options={STATUS_FILTERS.map((status) => ({
                   value: status,
                   label:
-                    status === "forming"
-                      ? tStatus("formingNoMinimum")
-                      : tStatus(status),
+                    status === "ready"
+                      ? t("statusReady")
+                      : status === "forming"
+                        ? tStatus("formingNoMinimum")
+                        : tStatus(status),
                 }))}
               />
               <CorridorFilter corridorId={filters.corridorId} />

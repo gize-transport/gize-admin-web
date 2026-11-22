@@ -135,11 +135,12 @@ function Counts({ overview }: { overview: Overview }) {
           aria-label={t("moreLabel")}
           className="grid gap-px bg-line md:grid-cols-2"
         >
-          {/* Offers are listed per route only: no list to open. */}
+          {/* The same offers `offers_list_open` lists (GZ-084). */}
           <Stat
             label={t("openOffers")}
             count={seat_offers.open}
             hint={t("openOffersHint")}
+            href="/offers"
           />
           <Stat
             label={t("activeDrivers")}
@@ -470,7 +471,7 @@ function NeedsAction({ overview }: { overview: Overview }) {
       icon: RocketIcon,
       title: t("readyToLaunch", { count: routes.ready_to_launch }),
       hint: t("readyToLaunchHint"),
-      links: [{ href: "/routes?status=forming", label: t("seeForming") }],
+      links: [{ href: "/routes?status=ready", label: t("seeReady") }],
     });
   }
   if (routes.active_without_driver > 0) {

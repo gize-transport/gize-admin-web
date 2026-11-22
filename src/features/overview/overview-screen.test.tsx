@@ -100,8 +100,8 @@ describe("OverviewScreen", () => {
       "9 open route requests",
     ]);
     expect(
-      within(cards[0]!).getByRole("link", { name: t.seeForming }),
-    ).toHaveAttribute("href", "/routes?status=forming");
+      within(cards[0]!).getByRole("link", { name: t.seeReady }),
+    ).toHaveAttribute("href", "/routes?status=ready");
     expect(
       within(cards[1]!).getByRole("link", { name: t.seeActive }),
     ).toHaveAttribute("href", "/routes?status=active");
@@ -383,7 +383,7 @@ describe("OverviewScreen", () => {
     expect(Number(riding?.getAttribute("width"))).toBe(100);
   });
 
-  it("counts open seat offers (no list across routes) and active drivers", async () => {
+  it("counts open seat offers and active drivers, each opening its list", async () => {
     serveOverview();
     renderWithProviders(<OverviewScreen />);
 
@@ -391,7 +391,8 @@ describe("OverviewScreen", () => {
     const offers = tile(t.moreLabel, t.openOffers);
     expect(offers).toHaveTextContent("3");
     expect(offers).toHaveTextContent(t.openOffersHint);
-    expect(within(offers).queryByRole("link")).toBeNull();
+    // The offers on every route (GZ-084).
+    expect(within(offers).getByRole("link")).toHaveAttribute("href", "/offers");
     const drivers = tile(t.moreLabel, t.activeDrivers);
     expect(drivers).toHaveTextContent("13");
     expect(within(drivers).getByRole("link")).toHaveAttribute(

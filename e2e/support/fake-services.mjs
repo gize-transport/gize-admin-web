@@ -970,6 +970,17 @@ const routes = [
     taken: 10,
     hasRiders: true,
   })),
+  // Forming and ready to launch, never launched by a test: the Ready to launch filter (GZ-083).
+  {
+    code: "B-41",
+    corridorId: corridorId("Megenagna", "Mexico"),
+    route_type: /** @type {const} */ ("public"),
+    launch_minimum: 5,
+    status: /** @type {const} */ ("forming"),
+    prices: { round_trip: 2000, one_way: 1200, saturday: null },
+    reserved: 5,
+    hasRiders: true,
+  },
 ].map((seed, index) => {
   const at = new Date(Date.UTC(2026, 9, 4, 6, index)).toISOString();
   return {
@@ -1566,6 +1577,15 @@ function listRoutes(url, response) {
   if (status !== null && !ROUTE_STATUSES.includes(status)) {
     return validationProblem(response, "/status", "not_allowed", "query");
   }
+  const readyParam = url.searchParams.get("ready_to_launch");
+  if (readyParam !== null && readyParam !== "true" && readyParam !== "false") {
+    return validationProblem(
+      response,
+      "/ready_to_launch",
+      "bool_parsing",
+      "query",
+    );
+  }
   /** @type {Record<string, string | null>} */
   const ids = {};
   for (const name of ["corridor_id", "company_id", "driver_id"]) {
@@ -1600,7 +1620,10 @@ function listRoutes(url, response) {
         (ids.corridor_id === null || route.corridorId === ids.corridor_id) &&
         (ids.company_id === null || route.companyId === ids.company_id) &&
         // A driver's routes, any status (GZ-076).
-        (ids.driver_id === null || route.driverId === ids.driver_id),
+        (ids.driver_id === null || route.driverId === ids.driver_id) &&
+        // `false` is every other route (GZ-083).
+        (readyParam === null ||
+          isReadyToLaunch(route) === (readyParam === "true")),
     )
     .sort(order.compare);
   /** @type {Schemas["RoutePage"]} */
@@ -3289,6 +3312,37 @@ if (drivenRoute) drivenRoute.driverId = drivers[0]?.id ?? null;
 const routeKeys = new Map();
 
 /**
+ * A forming route whose riders reserved for the next launch day reach its launch minimum: the
+ * Overview's count and the routes list's `ready_to_launch` (GZ-083), one rule for both. The
+ * stand-in keeps one `reserved` count per route (no seats by launch day, unlike `_reserved_for`).
+ * @param {(typeof routes)[number]} route
+ */
+function isReadyToLaunch(route) {
+  return (
+    route.status === "forming" &&
+    route.launch_minimum !== null &&
+    route.reserved >= route.launch_minimum
+  );
+}
+
+/**
+ * An open offer in time whose request is still open and waiting for the offer's route: the
+ * Overview's count and `offers_list_open` (GZ-084).
+ * @param {(typeof offers)[number]} offer
+ */
+function holdsSeat(offer) {
+  const request = requests.find((r) => r.id === offer.requestId);
+  return (
+    offerStatus(offer) === "open" &&
+    request !== undefined &&
+    !request.deleted &&
+    isOpen(request) &&
+    (request.routeId === offer.routeId ||
+      request.matchedRouteId === offer.routeId)
+  );
+}
+
+/**
  * The home page's counts (GZ-064, GZ-080), live records only, as of today in Addis Ababa. A
  * rider's seat counts as riding once started, starting before that, reserved on a forming route.
  * @returns {Schemas["Overview"]}
@@ -3316,10 +3370,7 @@ function overview() {
       forming: withStatus("forming").length,
       active: withStatus("active").length,
       paused: withStatus("paused").length,
-      // The launch's own rule: enough riders reserved for the next launch day.
-      ready_to_launch: withStatus("forming").filter(
-        (r) => r.launch_minimum !== null && r.reserved >= r.launch_minimum,
-      ).length,
+      ready_to_launch: routes.filter(isReadyToLaunch).length,
       active_without_driver: withStatus("active").filter((r) => !r.driverId)
         .length,
     },
@@ -3338,20 +3389,7 @@ function overview() {
     route_requests: {
       open: requests.filter((r) => !r.deleted && isOpen(r)).length,
     },
-    // Open in time, and their request still open and waiting for the offer's route.
-    seat_offers: {
-      open: offers.filter((o) => {
-        const request = requests.find((r) => r.id === o.requestId);
-        return (
-          offerStatus(o) === "open" &&
-          request !== undefined &&
-          !request.deleted &&
-          isOpen(request) &&
-          (request.routeId === o.routeId ||
-            request.matchedRouteId === o.routeId)
-        );
-      }).length,
-    },
+    seat_offers: { open: offers.filter(holdsSeat).length },
     drivers: {
       active: drivers.filter((d) => !d.deleted && d.is_active).length,
     },
@@ -4339,6 +4377,31 @@ const api = createServer(async (request, response) => {
     const page = {
       items: items.slice(from, from + limit),
       next_cursor: from + limit < items.length ? String(from + limit) : null,
+    };
+    return send(response, 200, page);
+  }
+
+  // Open offers on every route (GZ-084), the one running out soonest first, then by id.
+  if (url.pathname === "/v1/offers" && request.method === "GET") {
+    const limit = Number(url.searchParams.get("limit") ?? 25);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return validationProblem(response, "/limit", "out_of_range", "query");
+    }
+    const cursor = url.searchParams.get("cursor");
+    const from = cursor === null ? 0 : Number(cursor);
+    if (!Number.isInteger(from) || from < 0) {
+      return problem(response, 422, "INVALID_CURSOR");
+    }
+    const open = offers
+      .filter(holdsSeat)
+      .sort(
+        (a, b) =>
+          a.expires_at.localeCompare(b.expires_at) || a.id.localeCompare(b.id),
+      );
+    /** @type {Schemas["OfferPage"]} */
+    const page = {
+      items: open.slice(from, from + limit).map(offerRead),
+      next_cursor: from + limit < open.length ? String(from + limit) : null,
     };
     return send(response, 200, page);
   }

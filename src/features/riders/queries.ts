@@ -249,8 +249,8 @@ export function useCompanySeatRoutes(companyId: string | null) {
 
 /**
  * After a seat changes: the rider (the answer), every rider list, every route (seats taken and
- * reserved), company routes, route requests (their own become fulfilled), demand and the open
- * request count (sidebar, overview).
+ * reserved), company routes, route requests (their own become fulfilled), demand, the open
+ * request count (sidebar, overview) and open offers (one leaves once its request is fulfilled).
  */
 function refetchAfterSeat(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -263,6 +263,7 @@ function refetchAfterSeat(
       ["routes"],
       ["companies"],
       ["route-requests"],
+      ["offers", "open"],
       overviewKeys.all,
     ].map((queryKey) =>
       queryClient.invalidateQueries({

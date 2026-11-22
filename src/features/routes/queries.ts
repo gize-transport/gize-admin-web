@@ -29,10 +29,13 @@ export type RouteStatus = components["schemas"]["RouteStatus"];
 export const ROUTES_PAGE_SIZE = 25;
 const PICKER_LIMIT = 20;
 
+/** A status, or `ready`: the forming routes ready to launch (GZ-083), as the Overview counts them. */
+export type RouteStatusFilter = RouteStatus | "ready";
+
 export type RouteFilters = {
   q: string | null;
   routeType: RouteType | null;
-  status: RouteStatus | null;
+  status: RouteStatusFilter | null;
   corridorId: string | null;
   companyId: string | null;
   /** The order, or null for the list's default (newest first). */
@@ -83,7 +86,12 @@ export function useRoutes(filters: RouteFilters) {
               // An empty value in the address means no filter.
               q: filters.q || undefined,
               route_type: filters.routeType ?? undefined,
-              status: filters.status ?? undefined,
+              // `ready` is its own filter: the API keeps it to forming routes.
+              status:
+                filters.status === "ready"
+                  ? undefined
+                  : (filters.status ?? undefined),
+              ready_to_launch: filters.status === "ready" ? true : undefined,
               corridor_id: filters.corridorId || undefined,
               company_id: filters.companyId || undefined,
               sort: filters.sort ?? undefined,

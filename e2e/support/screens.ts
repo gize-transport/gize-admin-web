@@ -10,7 +10,7 @@ export type Screen = {
   name: string;
   path: string;
   /** Text that is visible once client-rendered content has loaded; checks wait for it. */
-  readyText?: string;
+  readyText?: string | RegExp;
   /** Test user to sign in as first (e2e/support/test-users.mjs); omitted for public pages. */
   signInAs?: TestUserName;
   /** Expected HTTP status when it isn't 200 (e.g. the 404 page). */
@@ -44,6 +44,15 @@ export const screens: readonly Screen[] = [
     path: "/",
     signInAs: "staff",
     readyText: messages.Overview.openOffers,
+  },
+  {
+    name: "seat offers",
+    path: "/offers",
+    signInAs: "staff",
+    // Other tests open and close offers: the list's header, or its empty state.
+    readyText: new RegExp(
+      `^(${messages.OpenOffers.colRunsOut}|${messages.OpenOffers.emptyTitle})$`,
+    ),
   },
   {
     name: "areas",

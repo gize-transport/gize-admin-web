@@ -117,6 +117,14 @@ test.describe("overview", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
       messages.Drivers.title,
     );
+
+    // Open seat offers opens the offers on every route (GZ-084).
+    await page.goBack();
+    await tile(page, t.moreLabel, t.openOffers).getByRole("link").click();
+    await expect(page).toHaveURL(/\/offers$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      messages.OpenOffers.title,
+    );
   });
 
   test("the counts are read again when the page is opened again", async ({

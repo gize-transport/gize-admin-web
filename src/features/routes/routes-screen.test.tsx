@@ -186,6 +186,43 @@ describe("RoutesScreen", () => {
     ).toBeVisible();
   });
 
+  it("asks the API for the routes ready to launch, its own filter, for status=ready", async () => {
+    navigation().search = "?status=ready";
+    const seen: URL[] = [];
+    serveRoutes([forming], seen);
+    renderWithProviders(<RoutesScreen />);
+
+    await screen.findByRole("link", { name: "B-01" });
+    // The API keeps `ready_to_launch` to forming routes: no status is sent with it.
+    expect(seen[0]?.searchParams.get("ready_to_launch")).toBe("true");
+    expect(seen[0]?.searchParams.has("status")).toBe(false);
+    expect(filterButton(t.statusFilter, t.statusReady)).toBeVisible();
+  });
+
+  it("offers Ready to launch in the Status menu, under Forming", async () => {
+    serveRoutes([forming]);
+    const user = userEvent.setup();
+    renderWithProviders(<RoutesScreen />);
+    await screen.findByRole("link", { name: "B-01" });
+
+    await user.click(filterButton(t.statusFilter));
+    expect(
+      screen.getAllByRole("menuitemradio").map((item) => item.textContent),
+    ).toEqual([
+      messages.DataTable.all,
+      messages.RouteStatus.draft,
+      messages.RouteStatus.formingNoMinimum,
+      t.statusReady,
+      messages.RouteStatus.active,
+      messages.RouteStatus.paused,
+    ]);
+    await user.keyboard("{Escape}");
+    await chooseFilter(user, t.statusFilter, t.statusReady);
+    expect(navigation().push).toHaveBeenLastCalledWith("/routes?status=ready", {
+      scroll: false,
+    });
+  });
+
   it("ignores a type or status in the URL it doesn't know", async () => {
     navigation().search = "?route_type=bus&status=gone";
     const seen: URL[] = [];

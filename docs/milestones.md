@@ -46,7 +46,7 @@ Status: done · Needs backend: GZ-025
 
 ## Build order
 
-Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.20.0`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`), staff name corrections (`api-v2.6.0`), rider management (`api-v2.10.0`), assign rider to route (`api-v2.11.0`), seat offers (`api-v2.13.0`), drivers (`api-v2.14.0`), assign driver to route (`api-v2.15.0`), the overview summary (`api-v2.16.0`), a route's offer queue (`api-v2.18.0`), requests by area pair, requests linked to a new area, company riders on started routes only and a driver's routes (`api-v2.19.2`), riders starting soon on the overview (`api-v2.20.0`). So GZW-025, GZW-030, GZW-031, GZW-042, GZW-044, GZW-045, GZW-050, GZW-053 and GZW-070 can be built; GZW-043 waits for GZ-042 and a student's guardian for GZ-033; GZW-051 and GZW-052 are deferred with GZ-051 and GZ-052.
+Screens are built in the order their backend tickets are tagged (`npm run contract:sync`), never before. Available now (latest `api-v2.24.0`): `staff_me`, staff management and audit log (`api-v1.2.0`), areas (`api-v1.3.0`), corridors (`api-v1.4.0`), companies (`api-v1.5.0`), route prices (`api-v1.6.0`), route times and areas served (`api-v2.0.0`), route status and deletion (`api-v2.1.0`), route requests and the demand summary (`api-v2.2.0`), add a van (`api-v2.3.0`), frozen corridor and school (`api-v2.4.0`), route readiness and launch months (`api-v2.5.0`), staff name corrections (`api-v2.6.0`), rider management (`api-v2.10.0`), assign rider to route (`api-v2.11.0`), seat offers (`api-v2.13.0`), drivers (`api-v2.14.0`), assign driver to route (`api-v2.15.0`), the overview summary (`api-v2.16.0`), a route's offer queue (`api-v2.18.0`), requests by area pair, requests linked to a new area, company riders on started routes only and a driver's routes (`api-v2.19.2`), riders starting soon on the overview (`api-v2.20.0`), sorting (`api-v2.22.0`), routes ready to launch as a filter (`api-v2.23.0`) and open seat offers across routes (`api-v2.24.0`). So GZW-025, GZW-030, GZW-031, GZW-042, GZW-044, GZW-045, GZW-050, GZW-053, GZW-070, GZW-081 and GZW-085 can be built; GZW-043 waits for GZ-042 and a student's guardian for GZ-033; GZW-051 and GZW-052 are deferred with GZ-051 and GZ-052.
 
 ### Questions for the backend
 
@@ -60,10 +60,11 @@ Answered in `api-v2.19.2` (GZ-076, GZ-077, GZ-078), all used by GZW-045:
 - Question 9, a company rider on a draft or paused route: owner decision, only their company's `active` or `paused` routes take them; a draft is a 422 on `/route_id`, like adults. Seats already on a draft are kept and can be ended; placing them back on it needs the route started first. `ROUTE_NOT_READY` (inactive company) stays only as a safety check.
 - Question 11, a driver's routes: `routes_list` takes `driver_id` (any status, not deleted: the routes `DRIVER_ASSIGNED` counts).
 
-Open (not blocking; asked 2026-11-19 for GZW-070). Each Overview count opens a list, but two lists can't show exactly the records counted, so the cards open the closest list and say which:
+Answered in `api-v2.23.0` (GZ-083) and `api-v2.24.0` (GZ-084), both used by GZW-085:
+- Question 12, routes ready to launch as a list: `routes_list` takes `ready_to_launch` (`true`: the forming routes the Overview counts, by the same rule; `false`: every other route).
+- Question 14, open seat offers across routes: `GET /v1/offers` (`offers_list_open`) lists the offers the Overview counts, the one running out soonest first (owner decision: open offers only; past ones stay on each route's list).
 
-12. **Routes ready to launch as a list.** The Overview says "2 routes are ready to launch", but `routes_list` can't filter to them: the card opens every forming route (say 6) and staff spot the ready ones by their progress. Ask: a `routes_list` filter for "ready to launch", by the same rule as `ready_to_launch`.
-14. **Open seat offers across routes.** "3 open seat offers" can't open anything: offers are listed per route only (`GET /v1/routes/{route_id}/offers`). Ask: a list of open offers across all routes (rider, route, when it runs out), so staff can phone riders while SMS is paused (GZ-079).
+No backend question is open.
 
 Parked (owner decision 2026-11-22: off the list for now, kept here; not to be asked until the owner brings it back):
 
@@ -217,8 +218,8 @@ Record inspection; approve/reject enabled only when the API allows; missing requ
 ### GZW-070 · Overview page · Needs backend: GZ-064, GZ-080 (in `api-v2.20.0`) · Status: done
 Counts and "needs action" items from the summary endpoint only.
 - Built: `overview_get` only, read each time the page is opened or its tab comes back (no polling); the heading dates it with the API's day ("Thursday, November 19"). Only widgets the API backs: the mockup's map, backups, payments and complaints are not in the MVP.
-- Needs action (sun cards, only while above 0, "Nothing needs action right now." otherwise): routes ready to launch ("See forming routes"), active routes with no driver ("See active routes"), open route requests ("See open requests", "See demand"). The first two open the closest list: until backend question 12 is answered, and question 13 (parked) for "no driver".
-- Counts, each a link to its filtered list where one holds exactly them: routes by status; riders riding today, starting soon (GZ-080), reserved (`seat=reserved`) and all, with "See riders with a seat" (`seat=active`: riding today and starting soon together); open seat offers (no link: question 14); active drivers (`is_active=true`).
+- Needs action (sun cards, only while above 0, "Nothing needs action right now." otherwise): routes ready to launch ("See forming routes"), active routes with no driver ("See active routes"), open route requests ("See open requests", "See demand"). Ready to launch opens exactly those routes (`status=ready`, GZW-085); "no driver" opens every active route (question 13, parked).
+- Counts, each a link to its filtered list where one holds exactly them: routes by status; riders riding today, starting soon (GZ-080), reserved (`seat=reserved`) and all, with "See riders with a seat" (`seat=active`: riding today and starting soon together); open seat offers (`/offers`, GZW-085); active drivers (`is_active=true`).
 
 ### GZW-073 · Sidebar icons and groups · Needs backend: GZ-064 (in `api-v2.16.0`) · Status: done
 Visual refresh, part 1 of 3 (owner request 2026-11-19, inspired by a dashboard shot, not copied; brand colours unchanged).
@@ -277,6 +278,11 @@ Owner request 2026-11-22 ("can you do option B for the login page"): the split s
 
 ### GZW-084 · Sign-in panel motion and text · Needs backend: none · Status: done
 Owner request 2026-11-22 ("add a bit animation and text"); the owner approved the mockup (routes drawing in, minibuses, pulsing stops, text rising in) and chose the text centred in the panel; after review, the minibuses drive in once and park (all motion over within 5 s, WCAG 2.2.2) rather than looping with a Pause button. Built as in design-system.md ("Layout"); the still panel for reduced motion.
+
+### GZW-085 · Backend answers 12 and 14 · Needs backend: GZ-083, GZ-084 (in `api-v2.24.0`) · Status: done
+- Owner request 2026-11-22: build both answers; the owner approved the mockup and asked to drop the text message column ("we no longer deal with SMS").
+- Ready to launch (question 12): the Routes Status filter has "Ready to launch" under Forming (`status=ready` in the address, sent as `ready_to_launch=true` with no status). The Overview's "N routes are ready to launch" opens it ("See ready routes").
+- Seat offers (question 14): a "Seat offers" page (`/offers`, sidebar under Route requests): open offers on every route (`offers_list_open`), the one running out soonest first, 25 a page. Who asked (opens their request, where the phone number is), route, the seat's month, when it runs out, and Accept for them / Withdraw offer (the route tab's confirm dialogs). No text message column. The Overview's "Open seat offers" count opens it. Past offers stay on each route's Seat offers tab.
 
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.

@@ -73,7 +73,7 @@ Contrast ≥ 4.5:1 for text. Never white text on `sky` or `sun`. Focus ring: 2 p
     - The heading carries "11 in all".
     - At the card's foot, one bar of routes by stage, described in words (`role="img"`).
   - **Riders card:** rows of bars (Riding today, Starting soon, Reserved), each out of all riders, with the count on the right (the bars are aria-hidden). The heading carries "90 in all". The foot says what the bars are out of, with the link to riders with a seat.
-  - **Seat offers and drivers:** a slim row of two counts under the cards.
+  - **Seat offers and drivers:** a slim row of two counts under the cards, each a link to its list (`/offers`, active drivers).
   - **Charts:** SVG with widths as attributes, not style attributes (so `style-src` can be tightened later). Parts are at least 1% wide and split by 2 px white gaps. Colours: draft `blue`, forming `sun`, active `success`, paused `muted`.
   - No chart over time: the API gives today's counts only.
 - **StatusPill**: one component, colour by status family (active/success, waiting/sun, paused/neutral, rejected/danger), with a dot before the label (since GZW-074, `aria-hidden`). The label always names the status. Mapping:
