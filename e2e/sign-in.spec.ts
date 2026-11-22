@@ -13,6 +13,35 @@ async function refreshCount(request: APIRequestContext) {
 }
 
 test.describe("sign-in", () => {
+  test("the brand panel sits beside the form, a band above it on narrow screens", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in");
+    const main = page.getByRole("main");
+    const tagline = main.getByText(t.tagline);
+    const stops = page.getByTestId("routes-stops");
+    const form = page.getByLabel(t.email);
+    await expect(tagline).toBeVisible();
+    const panel = await tagline.boundingBox();
+    const field = await form.boundingBox();
+    expect(panel && field).toBeTruthy();
+
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      // Beside the form, with the stops.
+      expect(panel!.x + panel!.width).toBeLessThan(field!.x);
+      await expect(stops).toBeVisible();
+    } else {
+      // Above it, with the lines only: the band crops differently at each width, and a stop
+      // under the tagline would break its contrast.
+      expect(panel!.y + panel!.height).toBeLessThan(field!.y);
+      await expect(stops).toBeHidden();
+      // A landscape phone keeps the band to the name.
+      await page.setViewportSize({ width: 812, height: 375 });
+      await expect(tagline).toBeHidden();
+      await expect(form).toBeVisible();
+    }
+  });
+
   test("a signed-out visitor is sent to sign-in and back to the page they wanted", async ({
     page,
   }) => {

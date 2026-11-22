@@ -36,7 +36,7 @@ export default function SignInPage() {
   );
 }
 
-/** Same height as the form, so the card doesn't jump when it appears. */
+/** Same height as the form, so the page doesn't jump when it appears. */
 function FormPlaceholder() {
   return (
     <div aria-hidden className="grid gap-5">
