@@ -194,10 +194,14 @@ jobs:
       - name: Scan full git history
         run: gitleaks git --redact --no-banner --verbose .
 
-  # GZW-006: after every other check passes, main goes live at admin.gizetransport.com, and each
-  # PR uploads a version (not live) with its own preview address, checked and posted on the PR.
+  # GZW-006, GZW-086: after every other check passes, main goes live on staging
+  # (staging-admin.gizetransport.com), and each PR uploads a version to the staging Worker (not
+  # live) with its own preview address, checked and posted on the PR. Production is released from
+  # release.yml after this run succeeds and the owner approves.
   # Anyone who can push a branch here can reach the Cloudflare token (a PR's code builds and
-  # uploads with it): only give write access to people trusted with production.
+  # uploads with it, and a PR's own workflow could deploy anywhere with it, approval or not): only
+  # give write access to people trusted with production. Never put secrets in the `staging`
+  # environment: PR code reads them.
   deploy:
     name: Deploy (Cloudflare)
     needs: [lint, typecheck, unit, build, e2e, audit, gitleaks]
@@ -206,16 +210,18 @@ jobs:
     permissions:
       contents: read
       pull-requests: write # the preview address comment
+    # The staging backend's public settings (the GitHub environment's variables).
+    environment: staging
     concurrency:
-      # One production deploy at a time (each also checks it is still main's newest commit);
+      # One staging deploy at a time (each also checks it is still main's newest commit);
       # previews per PR, the newest wins.
-      group: deploy-${{ github.event_name == 'pull_request' && github.ref || 'production' }}
+      group: deploy-${{ github.event_name == 'pull_request' && github.ref || 'staging' }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     env:
       # Dependabot runs get no secrets: the check passes with nothing to deploy (a skipped check
       # would block merging).
       DEPLOYS: ${{ github.actor != 'dependabot[bot]' }}
-      # Public values, baked into the build (repository variables, not secrets).
+      # Public values, baked into the build (environment variables, not secrets).
       NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
@@ -240,6 +246,18 @@ jobs:
             echo "deploy=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Every setting must come from the staging environment: a missing one would otherwise build a
+      # site without its backend.
+      - name: Staging settings present?
+        if: env.DEPLOYS == 'true' && steps.newest.outputs.deploy != 'false'
+        run: |
+          for name in NEXT_PUBLIC_API_BASE_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set in the staging environment."
+              exit 1
+            fi
+          done
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: env.DEPLOYS == 'true' && steps.newest.outputs.deploy != 'false'
         with:
@@ -252,16 +270,37 @@ jobs:
         if: env.DEPLOYS == 'true' && steps.newest.outputs.deploy != 'false'
         run: npm run cf:build
 
+      # Routes are inherited by a Wrangler environment: if staging's were ever dropped, its deploy
+      # would move production's address to the staging Worker. Staging must have only its own.
+      - name: Staging keeps to its own address
+        if: env.DEPLOYS == 'true' && github.event_name == 'push' && steps.newest.outputs.deploy == 'true'
+        run: node scripts/check-worker-routes.mjs staging staging-admin.gizetransport.com
+
       # The Cloudflare token is only given to the steps that upload.
-      - name: Deploy to admin.gizetransport.com
+      - name: Deploy to staging-admin.gizetransport.com
         if: env.DEPLOYS == 'true' && github.event_name == 'push' && steps.newest.outputs.deploy == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx opennextjs-cloudflare deploy
+        run: npx opennextjs-cloudflare deploy --env staging
 
-      # A version is added to the existing Worker, so previews start after main's first deploy;
-      # until then (and until that deploy has turned preview addresses on) this says so and passes.
+      # The site really runs on Workers with the policy: the header has a nonce, and the page's
+      # scripts carry the same one.
+      - name: Check staging-admin.gizetransport.com
+        if: env.DEPLOYS == 'true' && github.event_name == 'push' && steps.newest.outputs.deploy == 'true'
+        shell: bash
+        run: |
+          # Up to about 10 minutes: a new address's certificate can take a while on the first deploy.
+          curl -fsS --max-time 20 --retry 30 --retry-delay 10 --retry-all-errors \
+            -D headers.txt -o page.html "https://staging-admin.gizetransport.com/sign-in"
+          nonce=$(grep -i '^content-security-policy:' headers.txt | grep -oE "'nonce-[^']+'" | head -1 | sed -E "s/'nonce-(.*)'/\1/")
+          test -n "$nonce"
+          grep -q "nonce=\"$nonce\"" page.html
+          grep -qi '^x-content-type-options: nosniff' headers.txt
+
+      # A version is added to the existing staging Worker, so previews start after main's first
+      # staging deploy; until then (and until that deploy has turned preview addresses on) this
+      # says so and passes.
       - name: Upload the PR preview
         if: env.DEPLOYS == 'true' && github.event_name == 'pull_request'
         id: preview
@@ -272,11 +311,11 @@ jobs:
           ALIAS: pr-${{ github.event.pull_request.number }}
           WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.jsonl
         run: |
-          if ! npx wrangler deployments list --name gize-admin > /dev/null 2>&1; then
-            echo "::notice::No production deploy yet: previews start after the first merge to main."
+          if ! npx wrangler deployments list --name gize-admin-staging > /dev/null 2>&1; then
+            echo "::notice::No staging deploy yet: previews start after the first merge to main."
             exit 0
           fi
-          npx opennextjs-cloudflare upload --preview-alias "$ALIAS"
+          npx opennextjs-cloudflare upload --env staging --preview-alias "$ALIAS"
           url=$(node -e '
             const lines = require("fs").readFileSync(process.argv[1], "utf8").split("\n");
             const upload = lines.filter(Boolean).map(JSON.parse)
@@ -313,7 +352,7 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           marker="<!-- gize-preview -->"
-          body="$marker"$'\n'"Preview of ${SHA:0:7}: $URL"$'\n\n'"Not live: admin.gizetransport.com changes only when this is merged. Data loads only if the API allows preview addresses."
+          body="$marker"$'\n'"Preview of ${SHA:0:7}: $URL"$'\n\n'"Not live: staging-admin.gizetransport.com changes when this is merged, admin.gizetransport.com only when that is approved. Data loads only if the API allows preview addresses."
           id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
             --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
           if [ -n "$id" ]; then

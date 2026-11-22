@@ -56,15 +56,20 @@ A daily workflow (`.github/workflows/contract-update.yml`) opens an issue "Contr
 The portal runs on Cloudflare Workers through OpenNext (architecture.md, "Deployment"):
 
 - `npm run cf:build` builds the Worker into `.open-next/`; `npm run cf:preview` runs it locally on port 8787 in the Workers runtime (with the values in `.env.local`).
-- CI deploys `main` to `https://admin.gizetransport.com` after every other check passes, and posts each PR's preview address on the PR. Never deploy by hand.
-- GitHub settings: repository variables `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (and `NEXT_PUBLIC_SENTRY_DSN` to turn on error reporting); repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The token expires on 2027-11-10: make a new one with the same permissions before then.
-- The API must list the portal's address in its `CORS_ALLOWED_ORIGINS`, or signed-in screens can't load data.
+- Two sites, one build each (GZW-086):
+  - **Staging, `https://staging-admin.gizetransport.com`:** CI deploys `main` there after every other check passes, and posts each PR's preview address (a staging version) on the PR.
+  - **Production, `https://admin.gizetransport.com`:** once that `main` run succeeds, the **Release** workflow (`.github/workflows/release.yml`) waits for an approval. In GitHub **Actions → Release**, open the waiting run, check staging, and press **Review deployments → production → Approve and deploy**; it builds that commit with production's settings and deploys it. Only `main` can be released, and only the production environment's reviewers can approve. If several runs wait, approve the newest: a release deploys only `main`'s newest commit, so an older one approved later deploys nothing (its summary says so).
+  - **Undo a release:** revert the commit on `main` (a PR as usual) and release that. Re-running an older release deploys nothing.
+  - Never deploy by hand.
+- GitHub settings: two **environments**, `staging` and `production`, each with the variables `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (and `NEXT_PUBLIC_SENTRY_DSN` to turn on error reporting); a deploy stops if one of the first three is missing (the repository-level variables of the same names were removed after GZW-086, so nothing falls back to them). Until the production backend exists (GZ-085), production's variables are staging's. Never put secrets in the `staging` environment: PR code can read them. Repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The token expires on 2027-11-10: make a new one with the same permissions before then.
+- **What approval does and doesn't guard:** it stops the normal flow, every merge, from reaching production unapproved. It doesn't stop someone with write access: a PR's own CI file can reach the Cloudflare token, which can deploy either Worker. Give write access only to people trusted with production. (A separate Cloudflare token or account for staging would close this.)
+- Each API must list its portal's address in its `CORS_ALLOWED_ORIGINS`, or signed-in screens can't load data: staging's API lists `staging-admin` (and `admin` until production goes live), production's only `admin`.
 
 ## Supabase Auth settings
 
 Invitations (sent by the API) and password resets are Supabase emails whose link lands on the portal (GZW-012): `/auth/confirm` shows a **Continue** button, and only pressing it uses the link (mail scanners that open every link don't use it up). In the Supabase dashboard, for each project:
 
-1. **Authentication → URL Configuration:** Site URL = the address of the portal that uses this project (now `https://admin.gizetransport.com` with the staging project; the production project's own portal address later). Redirect URLs: that address followed by `/**`, and `http://localhost:3000/**`.
+1. **Authentication → URL Configuration:** Site URL = the address of the portal that uses this project: `https://staging-admin.gizetransport.com` for the staging project, `https://admin.gizetransport.com` for the production project. Redirect URLs: that address followed by `/**`, and `http://localhost:3000/**`.
 2. **Authentication → Emails → Templates:** in **Invite user** and **Reset password**, the link goes to the portal's link page, not Supabase's default:
    - Invite user: `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite">Set your password</a>`
    - Reset password: `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery">Set a new password</a>`
@@ -77,7 +82,7 @@ Invitations (sent by the API) and password resets are Supabase emails whose link
 
 ## CI
 
-Every PR runs these checks (`.github/workflows/ci.yml`): **Lint**, **Typecheck** (with the contract check), **Unit tests**, **Build**, **E2E (Playwright + axe)**, **npm audit**, **Secret scan (gitleaks)**, then **Deploy (Cloudflare)** once all of those pass (a PR preview, or production on `main`). The e2e job uploads the Playwright report and the screenshots as artifacts.
+Every PR runs these checks (`.github/workflows/ci.yml`): **Lint**, **Typecheck** (with the contract check), **Unit tests**, **Build**, **E2E (Playwright + axe)**, **npm audit**, **Secret scan (gitleaks)**, then **Deploy (Cloudflare)** once all of those pass (a PR preview, or staging on `main`). On `main` only, the separate **Release** workflow then waits for an approval (never a PR check). The e2e job uploads the Playwright report and the screenshots as artifacts.
 
 ## Working rules
 
