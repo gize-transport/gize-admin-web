@@ -108,12 +108,6 @@ test.describe("portal shell", () => {
     const panel = page.getByRole("dialog", { name: t.account });
     await expect(panel.getByText(accountName("staff"))).toBeVisible();
     await expect(panel.getByRole("button", { name: t.signOut })).toBeVisible();
-    // Judge the card once its fade-in is over, as people see it.
-    await panel.evaluate((element) =>
-      Promise.all(
-        element.getAnimations({ subtree: true }).map((a) => a.finished),
-      ),
-    );
     await expectNoSeriousA11yViolations(page);
     await page.keyboard.press("Escape");
     await expect(panel).toBeHidden();

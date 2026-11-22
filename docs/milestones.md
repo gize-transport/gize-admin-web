@@ -272,6 +272,9 @@ Owner request 2026-11-21 ("make the sidebar collapsible and the login page have 
 ### GZW-083 · Split-screen sign-in · Needs backend: none · Status: done
 Owner request 2026-11-22 ("can you do option B for the login page"): the split screen from the GZW-082 mockup instead of the card on navy. Built: a navy brand panel with routes and the tagline beside the form, a band above it below 1024 px (design-system.md, "Layout").
 
+### GZW-084 · Sign-in panel motion and text · Needs backend: none · Status: done
+Owner request 2026-11-22 ("add a bit animation and text"); the owner approved the mockup (routes drawing in, minibuses, pulsing stops, text rising in) and chose the text centred in the panel; after review, the minibuses drive in once and park (all motion over within 5 s, WCAG 2.2.2) rather than looping with a Pause button. Built as in design-system.md ("Layout"); the still panel for reduced motion.
+
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.
 

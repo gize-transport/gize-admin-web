@@ -30,11 +30,50 @@ test.describe("sign-in", () => {
       // Beside the form, with the stops.
       expect(panel!.x + panel!.width).toBeLessThan(field!.x);
       await expect(stops).toBeVisible();
+      await expect(main.getByText(t.summary)).toBeVisible();
+      await expect(main.getByText(t.pointRequests)).toBeVisible();
+      // Minibuses drive in and park, unless less motion is asked for. Everything has stopped
+      // within 5 s of opening (WCAG 2.2.2: longer would need a pause control).
+      const vans = page.getByTestId("routes-vans");
+      await expect(vans).toBeVisible();
+      const vanBoxes = () =>
+        vans.evaluate((group) =>
+          Array.from(group.children, (van) => {
+            const { x, y } = van.getBoundingClientRect();
+            return `${Math.round(x)},${Math.round(y)}`;
+          }),
+        );
+      await page.waitForTimeout(5_200);
+      const parked = await vanBoxes();
+      expect(
+        await page.evaluate(
+          () =>
+            document
+              .getAnimations()
+              .filter((animation) => animation.playState === "running").length,
+        ),
+      ).toBe(0);
+      await page.waitForTimeout(800);
+      expect(await vanBoxes()).toEqual(parked);
+      // Less motion asked for: the panel is still, with every line of text fully shown.
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.goto("/sign-in");
+      await expect(vans).toBeHidden();
+      expect(
+        await main.evaluate(
+          (element) => element.getAnimations({ subtree: true }).length,
+        ),
+      ).toBe(0);
+      for (const text of [t.tagline, t.summary, t.pointPeople]) {
+        await expect(main.getByText(text)).toHaveCSS("opacity", "1");
+      }
     } else {
       // Above it, with the lines only: the band crops differently at each width, and a stop
       // under the tagline would break its contrast.
       expect(panel!.y + panel!.height).toBeLessThan(field!.y);
       await expect(stops).toBeHidden();
+      await expect(page.getByTestId("routes-vans")).toBeHidden();
+      await expect(main.getByText(t.summary)).toBeHidden();
       // A landscape phone keeps the band to the name.
       await page.setViewportSize({ width: 812, height: 375 });
       await expect(tagline).toBeHidden();
