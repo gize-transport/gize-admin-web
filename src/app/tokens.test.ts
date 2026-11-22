@@ -65,6 +65,7 @@ describe("brand tokens (docs/design-system.md)", () => {
     ["navy", "sun"],
     ["royal", "surface"],
     ["royal", "ice"],
+    ["royal", "canvas"],
     ["white", "navy"],
     ["white", "royal"],
     ["white", "danger"],
@@ -73,6 +74,7 @@ describe("brand tokens (docs/design-system.md)", () => {
     ["success", "surface"],
     ["success", "success-soft"],
     ["sky", "navy"],
+    ["sun", "navy"],
   ])("%s text on %s meets 4.5:1", (foreground, background) => {
     expect(contrast(foreground, background)).toBeGreaterThanOrEqual(4.5);
   });

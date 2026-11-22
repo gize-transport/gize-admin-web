@@ -3,9 +3,9 @@ import { useTranslations } from "next-intl";
 import { useId, type ReactNode } from "react";
 
 /**
- * The card the signed-out pages share (sign-in, forgot password, set password): the logo, the
- * page's name as its h1 and a short description, then the page's own content. It sits on the
- * navy "night routes" background (GZW-082).
+ * The layout the signed-out pages share (sign-in, forgot password, set password, email link): a
+ * navy brand panel with the routes and the tagline beside the form – a short band above it below
+ * 1024 px (GZW-083) – then the page's name as its h1, a short description and its own content.
  */
 export function AuthCard({
   title,
@@ -16,50 +16,78 @@ export function AuthCard({
   description: string;
   children: ReactNode;
 }) {
-  const t = useTranslations("SignIn");
   return (
-    <main className="relative isolate flex flex-1 items-center justify-center overflow-hidden bg-navy px-4 py-12">
-      <RoutesBackdrop />
-      <div className="grid w-full max-w-sm gap-6 rounded-xl bg-surface p-6 shadow-2xl shadow-black/30 sm:p-8">
-        <div className="grid justify-items-start gap-4">
-          {/* 128 px file shown at 48 px, served as is: too small to need an image service. */}
-          <Image
-            src="/brand/logo-mark.png"
-            alt={t("logoAlt")}
-            width={48}
-            height={48}
-            unoptimized
-            priority
-          />
+    <main className="grid flex-1 grid-rows-[auto_1fr] bg-canvas lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:grid-rows-1">
+      <BrandPanel />
+      <div className="flex items-start justify-center px-4 py-10 sm:px-8 sm:py-14 lg:items-center lg:py-12">
+        <div className="grid w-full max-w-sm gap-6">
           <div className="grid gap-1">
             <h1 className="font-display text-title font-semibold text-navy">
               {title}
             </h1>
             <p className="text-table text-muted">{description}</p>
           </div>
+          {children}
         </div>
-        {children}
       </div>
     </main>
   );
 }
 
-/** Stops on the routes: the sun ones stand out, the white ones stay quiet. */
+/** The logo with "Gize ADMIN" (as in the sidebar), and the tagline over the routes. */
+function BrandPanel() {
+  const t = useTranslations("SignIn");
+  const tShell = useTranslations("Shell");
+  return (
+    <div className="relative isolate flex flex-col justify-between gap-5 overflow-hidden bg-navy px-6 py-6 sm:px-8 lg:gap-12 lg:p-12">
+      <RoutesBackdrop />
+      <p className="flex items-center gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white">
+          {/* 128 px file shown at 28 px, served as is: too small to need an image service. */}
+          <Image
+            src="/brand/logo-mark.png"
+            alt=""
+            width={28}
+            height={28}
+            unoptimized
+            priority
+          />
+        </span>
+        <span className="font-display text-section font-bold text-white">
+          {tShell("brand")}
+        </span>{" "}
+        <span className="text-meta font-semibold tracking-wider text-sun uppercase">
+          {tShell("brandTag")}
+        </span>
+      </p>
+      {/* On short screens (a landscape phone, high zoom) the band keeps to the name. */}
+      <p className="max-w-md font-display text-section font-semibold text-balance text-white max-lg:[@media(max-height:480px)]:hidden lg:text-[2.5rem] lg:leading-[1.15]">
+        {t("tagline")}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Stops on the routes: the sun ones stand out, the white ones stay quiet. Only in the tall
+ * panel, clear of the name at its top and the tagline at its foot (left of x 480 from y 640, on
+ * screens down to 600 px high): a stop under white text would break its contrast. The band below
+ * 1024 px crops a different middle at each width, so it shows the lines only.
+ */
 const STOPS = [
-  { x: 520, y: 290, sun: true },
-  { x: 1080, y: 190, sun: false },
-  { x: 560, y: 720, sun: false },
-  { x: 1160, y: 640, sun: true },
-  { x: 262, y: 540, sun: true },
-  { x: 1210, y: 520, sun: false },
-  { x: 196, y: 352, sun: false },
-  { x: 330, y: 500, sun: false },
+  { x: 420, y: 240, sun: true },
+  { x: 150, y: 251, sun: false },
+  { x: 200, y: 470, sun: true },
+  { x: 601, y: 375, sun: false },
+  { x: 563, y: 601, sun: false },
+  { x: 642, y: 588, sun: true },
+  { x: 260, y: 448, sun: false },
 ] as const;
 
 /**
- * Faint bus routes with their stops across the navy, a soft light behind the card. Drawn in code
- * with the brand tokens (no image to load) and for sight only. It covers any screen shape,
- * cropping the edges.
+ * Faint bus routes with their stops across the navy, a soft light in the middle. Drawn in code
+ * with the brand tokens (no image to load) and for sight only. Drawn for the tall panel; the
+ * short band above the form below 1024 px shows its middle.
  */
 function RoutesBackdrop() {
   const glow = `${useId()}-glow`;
@@ -68,7 +96,7 @@ function RoutesBackdrop() {
       aria-hidden
       data-testid="routes-backdrop"
       className="pointer-events-none absolute inset-0 -z-10 size-full"
-      viewBox="0 0 1440 900"
+      viewBox="0 0 720 900"
       preserveAspectRatio="xMidYMid slice"
       fill="none"
     >
@@ -85,41 +113,43 @@ function RoutesBackdrop() {
           />
         </radialGradient>
       </defs>
-      <ellipse cx="720" cy="450" rx="620" ry="420" fill={`url(#${glow})`} />
+      <ellipse cx="360" cy="450" rx="400" ry="440" fill={`url(#${glow})`} />
       <g strokeLinecap="round" strokeWidth="3">
         <path
-          d="M-40 210 C 180 150 300 330 520 290 S 860 120 1080 190 S 1380 330 1500 260"
+          d="M-20 180 C 140 120 260 280 420 240 S 640 120 740 170"
           className="stroke-blue/45"
         />
         <path
-          d="M-40 700 C 160 640 330 780 560 720 S 930 560 1160 640 S 1400 760 1500 700"
+          d="M-20 640 C 120 590 240 720 400 670 S 560 560 740 600"
           className="stroke-sky/35"
           strokeDasharray="10 12"
         />
         <path
-          d="M240 -40 C 300 160 170 360 260 540 S 380 820 330 960"
+          d="M140 -20 C 90 120 180 330 200 470 S 300 760 250 920"
           className="stroke-blue/30"
         />
         <path
-          d="M1180 -40 C 1120 170 1270 330 1210 520 S 1060 780 1130 960"
+          d="M560 -20 C 520 180 640 330 590 500 S 470 760 530 920"
           className="stroke-sky/30"
           strokeDasharray="10 12"
         />
         <path
-          d="M-40 470 C 120 430 200 520 330 500"
+          d="M-20 420 C 100 390 160 470 260 448"
           className="stroke-white/12"
         />
         <path
-          d="M1110 420 C 1240 380 1340 470 1500 440"
+          d="M470 400 C 570 370 650 440 740 410"
           className="stroke-white/12"
         />
       </g>
-      {STOPS.map(({ x, y, sun }) => (
-        <g key={`${x}-${y}`} className={sun ? "fill-sun" : "fill-white"}>
-          <circle cx={x} cy={y} r="14" fillOpacity="0.12" />
-          <circle cx={x} cy={y} r="6" fillOpacity={sun ? 0.9 : 0.55} />
-        </g>
-      ))}
+      <g data-testid="routes-stops" className="hidden lg:inline">
+        {STOPS.map(({ x, y, sun }) => (
+          <g key={`${x}-${y}`} className={sun ? "fill-sun" : "fill-white"}>
+            <circle cx={x} cy={y} r="14" fillOpacity="0.12" />
+            <circle cx={x} cy={y} r="6" fillOpacity={sun ? 0.9 : 0.55} />
+          </g>
+        ))}
+      </g>
     </svg>
   );
 }
