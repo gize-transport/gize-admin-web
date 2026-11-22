@@ -151,6 +151,9 @@ function refetchRequests(
 ) {
   // The open count in the sidebar and on the overview.
   void queryClient.invalidateQueries({ queryKey: overviewKeys.all });
+  // Open offers on every route: one leaves it once its request is closed or matched elsewhere
+  // (a literal key, so the two features don't import each other).
+  void queryClient.invalidateQueries({ queryKey: ["offers", "open"] });
   return queryClient.invalidateQueries({
     queryKey: requestKeys.all,
     predicate: ({ queryKey }) =>

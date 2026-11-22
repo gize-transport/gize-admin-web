@@ -251,6 +251,29 @@ export interface paths {
         patch: operations["drivers_update"];
         trace?: never;
     };
+    "/v1/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open seat offers on every route, soonest to run out first
+         * @description The offers the overview counts as open (GZ-084): open, within their 48 hours, their
+         *     request still waiting for the route. The one running out soonest first (then by id),
+         *     so staff phone that person first while text messages are paused. Each item is a
+         *     route's offer list's item: no phone numbers (`request_id` opens the request).
+         */
+        get: operations["offers_list_open"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/offers/{offer_id}": {
         parameters: {
             query?: never;
@@ -2299,7 +2322,7 @@ export interface components {
             paused: number;
             /**
              * Ready To Launch
-             * @description Forming routes whose riders reserved for the next launch day reach their launch minimum.
+             * @description Forming routes whose riders reserved for the next launch day reach their launch minimum: the routes `routes_list` lists with `ready_to_launch=true`.
              */
             ready_to_launch: number;
         };
@@ -5235,6 +5258,105 @@ export interface operations {
             };
         };
     };
+    offers_list_open: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "created_at": "2026-11-14T09:15:00Z",
+                     *           "expires_at": "2026-11-16T09:15:00Z",
+                     *           "id": "5abe6c7d-9b8f-4e0d-8f3a-6b7c8d9e0f01",
+                     *           "request_id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                     *           "rider_id": null,
+                     *           "rider_name": "Meron Haile",
+                     *           "route_code": "CMC-BOLE-1",
+                     *           "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                     *           "skip_reason": null,
+                     *           "sms_status": "sent",
+                     *           "start_date": "2026-12-01",
+                     *           "status": "open",
+                     *           "updated_at": "2026-11-14T09:15:00Z"
+                     *         }
+                     *       ],
+                     *       "next_cursor": null
+                     *     }
+                     */
+                    "application/json": components["schemas"]["OfferPage"];
+                };
+            };
+            /** @description Unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid Cursor, Validation Failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ValidationProblem"] | components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     offers_get: {
         parameters: {
             query?: never;
@@ -7928,6 +8050,8 @@ export interface operations {
                 company_id?: string | null;
                 /** @description Routes this driver drives. */
                 driver_id?: string | null;
+                /** @description `true`: only forming routes whose riders reserved for the next launch day reach their launch minimum, the routes the overview's `ready_to_launch` counts (GZ-083). `false`: every other route. */
+                ready_to_launch?: boolean | null;
                 /** @description `newest` first, by `code` A to Z, or by `morning_time` (leaving A) earliest first (GZ-081). A cursor pages the sort it was made with: 422 INVALID_CURSOR with another. */
                 sort?: components["schemas"]["RouteSort"];
             };

@@ -2527,7 +2527,7 @@
             "type": "integer"
           },
           "ready_to_launch": {
-            "description": "Forming routes whose riders reserved for the next launch day reach their launch minimum.",
+            "description": "Forming routes whose riders reserved for the next launch day reach their launch minimum: the routes `routes_list` lists with `ready_to_launch=true`.",
             "title": "Ready To Launch",
             "type": "integer"
           }
@@ -10065,6 +10065,260 @@
         ]
       }
     },
+    "/v1/offers": {
+      "get": {
+        "description": "The offers the overview counts as open (GZ-084): open, within their 48 hours, their\nrequest still waiting for the route. The one running out soonest first (then by id),\nso staff phone that person first while text messages are paused. Each item is a\nroute's offer list's item: no phone numbers (`request_id` opens the request).",
+        "operationId": "offers_list_open",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 1200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "items": [
+                    {
+                      "created_at": "2026-11-14T09:15:00Z",
+                      "expires_at": "2026-11-16T09:15:00Z",
+                      "id": "5abe6c7d-9b8f-4e0d-8f3a-6b7c8d9e0f01",
+                      "request_id": "4fad5b6c-8a7e-4d9c-9e2f-5a6b7c8d9e01",
+                      "rider_id": null,
+                      "rider_name": "Meron Haile",
+                      "route_code": "CMC-BOLE-1",
+                      "route_id": "2d8b3f4a-6e5c-4b7a-9c0d-3e4f5a6b7c01",
+                      "skip_reason": null,
+                      "sms_status": "sent",
+                      "start_date": "2026-12-01",
+                      "status": "open",
+                      "updated_at": "2026-11-14T09:15:00Z"
+                    }
+                  ],
+                  "next_cursor": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/OfferPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "UNAUTHENTICATED": {
+                    "summary": "Unauthenticated",
+                    "value": {
+                      "code": "UNAUTHENTICATED",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 401,
+                      "title": "Unauthenticated",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthenticated",
+            "x-error-codes": [
+              "UNAUTHENTICATED"
+            ]
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "FORBIDDEN": {
+                    "summary": "Forbidden",
+                    "value": {
+                      "code": "FORBIDDEN",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 403,
+                      "title": "Forbidden",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "x-error-codes": [
+              "FORBIDDEN"
+            ]
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "INVALID_CURSOR": {
+                    "summary": "Invalid Cursor",
+                    "value": {
+                      "code": "INVALID_CURSOR",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 422,
+                      "title": "Invalid Cursor",
+                      "type": "about:blank"
+                    }
+                  },
+                  "VALIDATION_FAILED": {
+                    "summary": "Validation Failed",
+                    "value": {
+                      "code": "VALIDATION_FAILED",
+                      "errors": [
+                        {
+                          "field": "/limit",
+                          "location": "query",
+                          "reason": "out_of_range"
+                        }
+                      ],
+                      "errors_truncated": false,
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 422,
+                      "title": "Validation Failed",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ValidationProblem"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Invalid Cursor, Validation Failed",
+            "x-error-codes": [
+              "INVALID_CURSOR",
+              "VALIDATION_FAILED"
+            ]
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "RATE_LIMITED": {
+                    "summary": "Too Many Requests",
+                    "value": {
+                      "code": "RATE_LIMITED",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 429,
+                      "title": "Too Many Requests",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "summary": "Internal Server Error",
+                    "value": {
+                      "code": "INTERNAL_ERROR",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 500,
+                      "title": "Internal Server Error",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "examples": {
+                  "SERVICE_UNAVAILABLE": {
+                    "summary": "Service Unavailable",
+                    "value": {
+                      "code": "SERVICE_UNAVAILABLE",
+                      "request_id": "4b1f0c3e9a2d4e7f8c6b5a4d3e2f1a0b",
+                      "status": 503,
+                      "title": "Service Unavailable",
+                      "type": "about:blank"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable",
+            "x-error-codes": [
+              "SERVICE_UNAVAILABLE"
+            ]
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Open seat offers on every route, soonest to run out first",
+        "tags": [
+          "offers"
+        ]
+      }
+    },
     "/v1/offers/{offer_id}": {
       "get": {
         "description": "`expired` once its 48 hours pass, whether or not anything ran since.",
@@ -16924,6 +17178,24 @@
               ],
               "description": "Routes this driver drives.",
               "title": "Driver Id"
+            }
+          },
+          {
+            "description": "`true`: only forming routes whose riders reserved for the next launch day reach their launch minimum, the routes the overview's `ready_to_launch` counts (GZ-083). `false`: every other route.",
+            "in": "query",
+            "name": "ready_to_launch",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`true`: only forming routes whose riders reserved for the next launch day reach their launch minimum, the routes the overview's `ready_to_launch` counts (GZ-083). `false`: every other route.",
+              "title": "Ready To Launch"
             }
           },
           {

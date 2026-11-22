@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import messages from "../messages/en.json";
 import { signIn } from "./support/auth";
+import { expectNoSeriousA11yViolations } from "./support/axe";
 
 const t = messages.Offers;
+const o = messages.OpenOffers;
 const tr = messages.RouteRequests;
 
 // Sample data in the stand-in (e2e/support/fake-services.mjs): running routes with free seats,
@@ -114,14 +116,34 @@ test("staff see the queue and offer free seats: ahead of it with a reason, then 
     .filter({ hasText: first.name });
   await expect(firstOffer).toContainText(t.sms.sent);
 
-  // The second person said no.
-  await secondOffer.getByRole("button", { name: t.withdraw }).press("Enter");
+  // Both are on Seat offers, the list of open offers on every route (GZ-084).
+  await page.goto("/offers");
+  const openList = page.getByRole("table", { name: o.tableLabel });
+  const row = (name: string) =>
+    openList.getByRole("row").filter({
+      has: page.getByRole("link", { name, exact: true }),
+    });
+  await expect(row(first.name)).toContainText(route.code);
+  await expect(row(second.name)).toContainText(route.code);
+  await expectNoSeriousA11yViolations(page);
+
+  // The second person said no on the phone: withdrawn from that list, it leaves it.
+  await row(second.name)
+    .getByRole("button", {
+      name: `${t.withdraw} ${fill(o.forWhom, { name: second.name })}`,
+    })
+    .press("Enter");
   await page
     .getByRole("alertdialog", {
       name: fill(t.withdrawTitle, { name: second.name }),
     })
     .getByRole("button", { name: t.withdraw })
     .click();
+  await expect(page.getByText(t.withdrawnToast)).toBeVisible();
+  await expect(row(second.name)).toHaveCount(0);
+  await expect(row(first.name)).toBeVisible();
+
+  await page.goto(`/routes/${route.id}?tab=offers`);
   await expect(secondOffer).toContainText(t.status.withdrawn);
 
   // The first said yes on the phone: they get the seat and a rider record.

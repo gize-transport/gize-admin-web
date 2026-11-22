@@ -139,6 +139,18 @@ test.describe("routes", () => {
     );
     await expect(row("B-01")).toBeVisible();
     await expect(row("S-03")).toBeHidden();
+    // Ready to launch is the API's own filter (GZ-083): B-41 has 5 of 5 reserved, B-01 7 of 10.
+    const readyRead = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).searchParams.get("ready_to_launch") === "true",
+    );
+    await chooseFilter(page, t.statusFilter, t.statusReady);
+    expect(new URL((await readyRead).url()).searchParams.has("status")).toBe(
+      false,
+    );
+    await expect(page).toHaveURL(/[?&]status=ready/);
+    await expect(row("B-41")).toBeVisible();
+    await expect(row("B-01")).toBeHidden();
     await chooseFilter(page, t.statusFilter, messages.DataTable.all);
 
     await pickWithKeyboard(

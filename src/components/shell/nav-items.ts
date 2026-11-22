@@ -9,6 +9,7 @@ import {
   MapPinIcon,
   RouteIcon,
   ShieldCheckIcon,
+  TicketIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -32,6 +33,7 @@ export type NavItem = {
     | "overview"
     | "routes"
     | "routeRequests"
+    | "offers"
     | "demand"
     | "companies"
     | "riders"
@@ -64,6 +66,13 @@ export const navItems: readonly NavItem[] = [
     key: "routeRequests",
     href: "/route-requests",
     icon: InboxIcon,
+    group: "operations",
+    available: true,
+  },
+  {
+    key: "offers",
+    href: "/offers",
+    icon: TicketIcon,
     group: "operations",
     available: true,
   },

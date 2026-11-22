@@ -18,6 +18,7 @@ describe("navItems", () => {
       "overview",
       "routes",
       "routeRequests",
+      "offers",
       "demand",
       "companies",
       "riders",
@@ -37,7 +38,12 @@ describe("navItems", () => {
       navItems.filter((item) => item.group === group).map((item) => item.key);
 
     expect(keysIn(undefined)).toEqual(["overview"]);
-    expect(keysIn("operations")).toEqual(["routes", "routeRequests", "demand"]);
+    expect(keysIn("operations")).toEqual([
+      "routes",
+      "routeRequests",
+      "offers",
+      "demand",
+    ]);
     expect(keysIn("people")).toEqual(["companies", "riders", "drivers"]);
     expect(keysIn("places")).toEqual(["areas", "corridors"]);
     expect(keysIn("admin")).toEqual(["staff", "auditLog"]);
@@ -54,6 +60,7 @@ describe("navItems", () => {
       "overview",
       "routes",
       "routeRequests",
+      "offers",
       "demand",
       "companies",
       "riders",
@@ -72,11 +79,11 @@ describe("visibleNavItems", () => {
 
     expect(keys).not.toContain("staff");
     expect(keys).not.toContain("auditLog");
-    expect(keys).toHaveLength(9);
+    expect(keys).toHaveLength(10);
   });
 
   it("shows admin tools to admins", () => {
-    expect(visibleNavItems(allBuilt, "admin")).toHaveLength(11);
+    expect(visibleNavItems(allBuilt, "admin")).toHaveLength(12);
   });
 
   it("shows only what staff see while the role is still loading", () => {

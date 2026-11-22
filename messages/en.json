@@ -301,7 +301,8 @@
       "areas": "Areas",
       "corridors": "Corridors",
       "staff": "Staff",
-      "auditLog": "Audit log"
+      "auditLog": "Audit log",
+      "offers": "Seat offers"
     }
   },
   "Overview": {
@@ -312,8 +313,8 @@
     "actionLabel": "Needs action",
     "nothingNeeded": "Nothing needs action right now.",
     "readyToLaunch": "{count, plural, one {# route is} other {# routes are}} ready to launch",
-    "readyToLaunchHint": "Enough riders have reserved for the next launch day. In the forming list, the ready ones show their progress at or above the minimum.",
-    "seeForming": "See forming routes",
+    "readyToLaunchHint": "Enough riders have reserved for the next launch day.",
+    "seeReady": "See ready routes",
     "withoutDriver": "{count, plural, one {# active route has} other {# active routes have}} no driver",
     "withoutDriverHint": "In the active list, the Driver column shows “Not assigned” for them.",
     "seeActive": "See active routes",
@@ -347,7 +348,7 @@
     "ridersBarsHint": "Each bar is out of all {total, number} riders.",
     "moreLabel": "Seat offers and drivers",
     "openOffers": "Open seat offers",
-    "openOffersHint": "Waiting for the rider's answer. Each route's page shows its offers.",
+    "openOffersHint": "Waiting for the rider's answer",
     "activeDrivers": "Active drivers",
     "activeDriversHint": "Can be assigned to a route"
   },
@@ -526,6 +527,7 @@
     "searchHint": "Codes starting with…",
     "typeFilter": "Type",
     "statusFilter": "Status",
+    "statusReady": "Ready to launch",
     "corridorFilter": "Corridor",
     "companyFilter": "Company",
     "anyArea": "Any area",
@@ -1505,6 +1507,20 @@
     "endNoteAfterMove": "They still move to {code} on {date}, and leave it after the day you choose.",
     "endAlreadyEnding": "Their seat already ends after {date}. To end it later, keep them on {code} first.",
     "skipReasonInvalid": "Write the reason on one line, in 100 characters or fewer."
+  },
+  "OpenOffers": {
+    "metaTitle": "Seat offers",
+    "title": "Seat offers",
+    "description": "Open offers on every route, the one running out soonest first. Call each person, then accept or withdraw the offer for them.",
+    "tableLabel": "Open seat offers, soonest to run out first",
+    "colWho": "Who asked",
+    "colRoute": "Route",
+    "colSeatFrom": "Seat from",
+    "colRunsOut": "Runs out",
+    "colAnswer": "Their answer",
+    "forWhom": "({name})",
+    "emptyTitle": "No open seat offers",
+    "emptyDescription": "Offer a free seat from a route's Seat offers tab. Offers waiting for an answer show here."
   },
   "Offers": {
     "title": "Seat offers",

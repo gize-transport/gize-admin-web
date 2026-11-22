@@ -63,7 +63,7 @@ const selectClass =
   "h-10 w-full rounded-lg border border-line bg-surface px-3 text-body text-ink hover:border-muted aria-invalid:border-danger";
 
 /** "December 2026" for a seat's first day (a 1st). */
-function useMonthName() {
+export function useMonthName() {
   const format = useFormatter();
   return (value: string) =>
     format.dateTime(new Date(`${value}T00:00:00Z`), {
@@ -809,7 +809,7 @@ function QueueProblem({
 }
 
 /** Accept for someone who said yes on the phone (`offers_accept`). */
-function AcceptOfferDialog({
+export function AcceptOfferDialog({
   offer,
   open,
   onClose,
@@ -875,7 +875,7 @@ function AcceptOfferDialog({
 }
 
 /** The person said no, or it was a mistake (`offers_withdraw`): the seat is free again. */
-function WithdrawOfferDialog({
+export function WithdrawOfferDialog({
   offer,
   open,
   onClose,

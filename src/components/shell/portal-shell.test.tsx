@@ -121,6 +121,7 @@ describe("PortalShell", () => {
       t.nav.overview,
       t.nav.routes,
       t.nav.routeRequests,
+      t.nav.offers,
       t.nav.demand,
       t.nav.companies,
       t.nav.riders,
@@ -157,6 +158,7 @@ describe("PortalShell", () => {
     expect(group(t.groupOperations)).toEqual([
       t.nav.routes,
       t.nav.routeRequests,
+      t.nav.offers,
       t.nav.demand,
     ]);
     expect(group(t.groupPeople)).toEqual([

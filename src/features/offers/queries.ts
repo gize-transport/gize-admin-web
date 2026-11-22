@@ -1,6 +1,7 @@
 import {
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { overviewKeys } from "@/features/overview/queries";
@@ -18,7 +19,34 @@ export const offerKeys = {
   all: ["offers"] as const,
   route: (routeId: string) => ["offers", "route", routeId] as const,
   queue: (routeId: string) => ["offers", "queue", routeId] as const,
+  open: (cursor: string | null) => ["offers", "open", cursor] as const,
 };
+
+/** A page of the Seat offers list. */
+export const OPEN_OFFERS_PAGE_SIZE = 25;
+
+/**
+ * Open offers on every route (`offers_list_open`, GZ-084): the ones the Overview counts, the one
+ * running out soonest first. One page per cursor (the list pages through the address).
+ */
+export function useOpenOffers(cursor: string | null) {
+  return useQuery({
+    queryKey: offerKeys.open(cursor),
+    queryFn: () =>
+      unwrap(
+        api.GET("/v1/offers", {
+          params: {
+            query: {
+              limit: OPEN_OFFERS_PAGE_SIZE,
+              cursor: cursor || undefined,
+            },
+          },
+        }),
+      ),
+    // An offer leaves the list once its 48 hours pass: fresh each time it's shown.
+    staleTime: 0,
+  });
+}
 
 /** A route's offers (`offers_list`), newest first, page by page ("Show more"). */
 export function useRouteOffers(routeId: string) {
@@ -83,6 +111,7 @@ function refetchAfterOffer(
     }),
     ...[
       ["offers", "route"],
+      ["offers", "open"],
       ["routes"],
       ["route-requests"],
       ["riders"],
