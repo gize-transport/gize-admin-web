@@ -9,6 +9,26 @@ export async function expectNoSeriousA11yViolations(page: Page) {
   // arrive just after the content: wait for it, so axe judges the finished page. A page with no
   // title still fails here.
   await expect(page).toHaveTitle(/\S/);
+  // Judge the page as people see it once it has settled: an entrance still fading or rising in
+  // reads as low contrast. Only running, finite animations, and never longer than 5 s; endless
+  // ones (a pulse) are left running.
+  await page.evaluate(() =>
+    Promise.race([
+      Promise.all(
+        document
+          .getAnimations()
+          .filter(
+            (a) =>
+              a.playState === "running" &&
+              a.effect?.getTiming().iterations !== Infinity,
+          )
+          .map((a) => a.finished.catch(() => undefined)),
+      ),
+      new Promise((resolve) => setTimeout(resolve, 5_000)),
+    ]),
+  );
+  // The title again: a re-render while waiting can swap it.
+  await expect(page).toHaveTitle(/\S/);
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
   const blocking = results.violations
     .filter(

@@ -17,6 +17,14 @@ describe("AuthCard", () => {
     ).toBeVisible();
     expect(screen.getByText("For the operations team.")).toBeVisible();
     expect(screen.getByText(messages.SignIn.tagline)).toBeVisible();
+    expect(screen.getByText(messages.SignIn.summary)).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("listitem").map((item) => item.textContent),
+    ).toEqual([
+      messages.SignIn.pointRoutes,
+      messages.SignIn.pointRequests,
+      messages.SignIn.pointPeople,
+    ]);
     expect(screen.getByText(messages.Shell.brand)).toBeVisible();
     expect(screen.getByText(messages.Shell.brandTag)).toBeVisible();
     // The name beside the logo says it all: the logo itself is for sight only.

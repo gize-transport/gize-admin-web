@@ -38,6 +38,40 @@
   --text-table--line-height: 1.45;
   --text-meta: 0.8125rem;
   --text-meta--line-height: 1.4;
+
+  /* The sign-in panel (GZW-084): routes draw in, stops pulse twice, the text rises in – all over
+     within 5 s (WCAG 2.2.2). Use them with motion-safe: so people who ask for less motion get the
+     still panel. */
+  --animate-route-draw: route-draw 1.6s ease-out both;
+  --animate-route-fade: route-fade 1.6s ease-out both;
+  --animate-stop-pulse: stop-pulse 2s ease-in-out 2;
+  --animate-rise: rise 0.5s ease-out both;
+
+  @keyframes route-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes route-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes stop-pulse {
+    50% {
+      transform: scale(1.7);
+      opacity: 0.4;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
 }
 
 /* Font variables are set on <html> by next/font (src/app/fonts.ts). Noto Sans Ethiopic is in every
