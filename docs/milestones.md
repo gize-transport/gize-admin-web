@@ -294,3 +294,5 @@ Playwright suite for every MVP flow against staging; axe clean; Lighthouse targe
 ### GZW-072 · Production launch · Needs backend: GZ-062, GZ-085 · Status: in progress
 Production env vars (the `production` GitHub environment's variables: production API and Supabase project, GZ-085), the production Supabase project's Auth settings (README), its staff accounts, CSP verified, runbook section for the portal.
 - 2026-11-24: the backend's production is live (`gize-api-production.onrender.com`, CORS `admin.gizetransport.com` only; Supabase project `sxdsoaxzmqrqrjcgpcoq`, first admin made). The `production` environment's variables now point at it; admin.gizetransport.com uses it from the release after this. Staff sign in with production accounts.
+- 2026-11-24: production Supabase set up by the owner (Site URL, templates as staging's, minimum 12, Zoho SMTP); invites work. Cloudflare "Always Use HTTPS" on (both sites redirect `http://`). `RUNBOOK.md` added for the portal; README: production's redirect URLs without `localhost`.
+- Left: the backend removes `admin.gizetransport.com` from staging's CORS origins (its RUNBOOK step 12); then this ticket is done.

@@ -53,7 +53,7 @@ A daily workflow (`.github/workflows/contract-update.yml`) opens an issue "Contr
 
 ## Deployment
 
-The portal runs on Cloudflare Workers through OpenNext (architecture.md, "Deployment"):
+The portal runs on Cloudflare Workers through OpenNext (architecture.md, "Deployment"). Day-to-day operations (releasing, undoing a release, changing settings, failed deploys, the Cloudflare token, sign-in email) are in [RUNBOOK.md](RUNBOOK.md).
 
 - `npm run cf:build` builds the Worker into `.open-next/`; `npm run cf:preview` runs it locally on port 8787 in the Workers runtime (with the values in `.env.local`).
 - Two sites, one build each (GZW-086):
@@ -69,7 +69,7 @@ The portal runs on Cloudflare Workers through OpenNext (architecture.md, "Deploy
 
 Invitations (sent by the API) and password resets are Supabase emails whose link lands on the portal (GZW-012): `/auth/confirm` shows a **Continue** button, and only pressing it uses the link (mail scanners that open every link don't use it up). In the Supabase dashboard, for each project:
 
-1. **Authentication → URL Configuration:** Site URL = the address of the portal that uses this project: `https://staging-admin.gizetransport.com` for the staging project, `https://admin.gizetransport.com` for the production project. Redirect URLs: that address followed by `/**`, and `http://localhost:3000/**`.
+1. **Authentication → URL Configuration:** Site URL = the address of the portal that uses this project: `https://staging-admin.gizetransport.com` for the staging project, `https://admin.gizetransport.com` for the production project. Redirect URLs: that address followed by `/**`; on the staging project also `http://localhost:3000/**` (local development). Never add `localhost` to the production project: its emails could then send someone to a local computer.
 2. **Authentication → Emails → Templates:** in **Invite user** and **Reset password**, the link goes to the portal's link page, not Supabase's default:
    - Invite user: `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite">Set your password</a>`
    - Reset password: `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery">Set a new password</a>`
