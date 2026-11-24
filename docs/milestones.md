@@ -291,5 +291,6 @@ Owner request 2026-11-22 ("add a bit animation and text"); the owner approved th
 ### GZW-071 · Full regression and accessibility pass · Needs backend: all above · Status: todo
 Playwright suite for every MVP flow against staging; axe clean; Lighthouse targets met.
 
-### GZW-072 · Production launch · Needs backend: GZ-062 · Status: todo
+### GZW-072 · Production launch · Needs backend: GZ-062, GZ-085 · Status: in progress
 Production env vars (the `production` GitHub environment's variables: production API and Supabase project, GZ-085), the production Supabase project's Auth settings (README), its staff accounts, CSP verified, runbook section for the portal.
+- 2026-11-24: the backend's production is live (`gize-api-production.onrender.com`, CORS `admin.gizetransport.com` only; Supabase project `sxdsoaxzmqrqrjcgpcoq`, first admin made). The `production` environment's variables now point at it; admin.gizetransport.com uses it from the release after this. Staff sign in with production accounts.

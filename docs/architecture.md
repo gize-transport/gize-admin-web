@@ -73,8 +73,8 @@ scripts/contract-sync.mjs
 | Env | API base URL | Supabase project |
 | --- | --- | --- |
 | Local | `http://localhost:8000` (backend running locally) or MSW mocks | The project the local API uses (`SUPABASE_URL` in its `.env`) |
-| Staging | `https://gize-api-staging.onrender.com`, for the portal at `staging-admin.gizetransport.com` (and `admin.gizetransport.com` until production goes live) | Staging project (the same one the local API uses) |
-| Production | production API URL (GZ-085, not live yet) | Production project |
+| Staging | `https://gize-api-staging.onrender.com`, for the portal at `staging-admin.gizetransport.com` | Staging project `pahktmbnbyulqkhdruci` (the same one the local API uses) |
+| Production | `https://gize-api-production.onrender.com` (GZ-085), for the portal at `admin.gizetransport.com` only | Production project `sxdsoaxzmqrqrjcgpcoq` (its own staff accounts) |
 
 ### Running against the local API
 
